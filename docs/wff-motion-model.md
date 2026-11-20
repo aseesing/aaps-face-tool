@@ -129,6 +129,8 @@ Two facts that shape the model:
   wearer looks, still the rest of the time.
 - `[SECOND_MILLISECOND]` jumps from 59.999 back to 0. A motion with a period that does not divide 60
   seconds jumps once a minute. `[SECONDS_IN_DAY] + [MILLISECOND] / 1000` is smooth over a whole day.
+- `mode="BY"` is only safe with a fixed value. With a value that changes, the part ran off the
+  screen on the emulator. `TO` works (7.1).
 
 Seen on the owner's Wear OS 5 watch: a `Variant mode="AMBIENT"` on a needle angle gave no visible
 sweep. That fits the table: WFF 2 has no `Variant` transition, so the needle jumps while the screen
@@ -189,6 +191,10 @@ mode TO or BY. **One exception: places and sizes are in the design space of 400 
 everywhere else in the design JSON; the converter scales them to the face. Keys that WFF does not
 have are AAPS extras with their own names, marked "extra" below.
 
+`mode` `"BY"` means what WFF says it means: move by this much from the part's own place. The
+converter never writes a `BY` with a value that changes: on the emulator such a part ran off the
+screen (7.1). It writes `TO` with the part's place added to the value instead.
+
 | Key | WFF element | Value |
 |---|---|---|
 | `transform` | `Transform` (+ `Animation`) | A map from target to value. The value is a formula, or an object `{"value", "mode", "animation"}`. `animation` holds the WFF `Animation` attributes: `duration`, `interpolation`, `controls`, `angleDirection`, `repeat`, `fps`. |
@@ -196,6 +202,7 @@ have are AAPS extras with their own names, marked "extra" below.
 | `gyro` | `Gyro` | A map from target (`x`, `y`, `scaleX`, `scaleY`, `angle`, `alpha`) to a formula. |
 | `condition` | `Condition` | A formula. The part shows only while it is true. |
 | `frames` (extra) | `PartAnimatedImage` + `AnimationController` + `SequenceImages` | The engine's wake motion of this layer, baked into frames, played as asked. Keys: the `AnimationController` attributes `play`, `delayPlay`, `delayRepeat`, `repeat`, `loopCount`, `resumePlayBack`, `beforePlaying`, `afterPlaying`; the `SequenceImages` attribute `frameRate`; and two extras: `from` (seconds into the wake where the frames start) and `seconds` (how long). |
+| `sheets` (extra) | `Group` + `PartImage` + `Transform` | Settings of the moving sheets the converter bakes from a layer with copies (4.9): `{"bands": 1 to 4}`. `"sheets": false` keeps the layer out of the sheets (then frames or the still pose). |
 | `launch` | `Launch` | A tap target, for example `"HEALTH_HEART_RATE"`. Not motion, but it belongs to the same part. |
 | `let` (extra) | none | Named formulas for the formulas of this block, as `let` of a layer. Expanded by the converter. |
 | `pose` (extra) | none | `{"t": ..., "env": ...}`: the moment of the engine animation whose picture is the still look of the part. Default: `t` = `rest` and `env` = 0 for a layer with `rest`; `t` = 0 and `env` = 1 for a layer without. |
@@ -233,8 +240,8 @@ all copies together.
 
 ### 4.5 Layers only for WFF, and parts only for the engine
 
-`"wff": {"only": true, ...}` makes a layer that only the WFF face has: a scrolling snow sheet, a live
-needle. The engine skips it. This is the only `wff` key the engine reads: one line in the layer
+`"wff": {"only": true, ...}` makes a layer that only the WFF face has, for example a live needle
+(5.2). The engine skips it. This is the only `wff` key the engine reads: one line in the layer
 reader. It is needed because the engine draws every layer it can read.
 
 `"wff": false` is the other side: the layer stays on the engine face only.
@@ -268,13 +275,15 @@ For each layer and each version it writes (now 2 and 4):
       is a `PartAnimatedImage`.
    4. A part with motion gets `Variant AMBIENT alpha 0` unless the design gives its own `variant`
       for `alpha`. In always-on WFF draws about once a minute, so motion would only freeze there.
-4. No `wff`: the default conversion. Later, a layer whose formulas read only names of 4.4 can
-   become a live `Transform` by itself, without a `wff` key ("shared formulas"; the printer exists).
+4. No `wff`: the default conversion, which becomes better with this model (4.9): a layer whose
+   motion can be written as clock motion gets it, copies that drift become moving sheets, and only
+   the rest falls back to frames or the still pose as today.
 
 The lint shows one column per version, for example:
 
 ```
-L24 snow sheet (only)     WFF 4: transform y, live      WFF 2: transform y, live
+L24 snow (120 copies)     WFF 4: 3 sheets with L25          WFF 2: 3 sheets with L25
+L26 CrystalBig            WFF 4: clock motion x y angle     WFF 2: clock motion x y angle
 patient_name (view)       WFF 4: replaced by L28        WFF 2: data picture (L28 needs a Reference)
 L28 Needle (only)         WFF 4: transform angle + variant sweep    WFF 2: left out (needs WFF 4)
 ```
@@ -319,6 +328,81 @@ The other keys of the old hint design (section 6 of `wff-converter-design.md`: `
 replaced them), and `motion` is replaced by the `wff` object. The old rule "hints never name WFF
 elements" is reversed for motion, as the owner decided ("align names, keep extras").
 
+### 4.9 Motion baked from the layers: clock motion, moving sheets, covers
+
+The owner asked (2026-11-20) that the converter makes the WFF motion from the engine layers itself,
+as cheaply as it can, instead of the designer drawing new pictures. Three tools do this, tried in
+this order for every layer whose motion is not already live or set by a `wff` key. The emulator probe
+of 7.1 showed that WFF moves several see-through pictures at the same time, on WFF 2 and 4.
+
+**1. Clock motion: write the formula itself.** WFF has no wake time, but while the wearer looks,
+time goes on. So the converter writes the engine formula with `t` replaced by
+`T` = `[SECONDS_IN_DAY] + [MILLISECOND] / 1000` (seconds of the day, smooth), `ms` by `T * 1000`,
+`env` by 1 and `len` by the wake length. The options take their default choice. This works when the
+formula then reads only names of 4.4: no `noise`, no `hash`, no AAPS value. Per-copy names are fixed
+numbers per copy, so a layer with a few copies (default at most 4) gets one part per copy. Exact:
+the part moves as in the engine, for as long as the wearer looks. Examples: Aurora's big crystal, the
+tree lights, the star glow's turn and scale (not its `noise` flicker).
+
+Limits:
+- `T` jumps once a day, at midnight. The engine's own `t` starts at 0 at every wake, so a formula
+  that only makes sense near `t` = 0 (`window(t, 1.5, 4)`, a pass that happens once) is not clock
+  motion. The converter tests this: the motion must repeat (it samples the formula over two
+  stretches far apart and compares). One pass goes to frames, as today.
+- Big values of `T` lose precision in WFF's float numbers. At 86,400 the step is about 0.008, small
+  enough for a turn or a place. The printer may also write `T` modulo a period it finds.
+
+**2. Moving sheets: many copies that drift.** For a layer with many copies (snow, rain, stars that
+drift) the converter does not write a part per copy. It works out how the copies move and bakes them
+into a few pictures that move as one:
+
+1. Sample every copy's `x` and `y` over the wake (20 times a second, `env` = 1). Undo the wraps of
+   `mod` (a jump of the same size for every copy) and note the wrap size.
+2. Fit a straight line through each copy's path: its speed and direction. What is left is its sway.
+   The layer is a candidate when every path is straight to within a few pixels plus a sway that
+   swings round 0. Otherwise: frames or the still pose, as today.
+3. Put the copies into bands by speed and direction (k-means, at most `sheets.bands`, default 3).
+   Fewer bands while every copy stays within about 15 % of its band's speed and 5 degrees of its
+   direction. Copies of **several layers** may share a band when they lie next to each other in the
+   paint order, in the same `slot`, with the same `blend`: Aurora's small flakes and small crystals
+   make three sheets together, not six.
+4. Bake each band into one sheet. The sheet is turned so that the band falls straight down in it.
+   On a round face the screen is the same circle at any turn, so the sheet is as wide as the face.
+   It is two face heights tall and its pattern repeats after one face height (a copy near an edge is
+   drawn on both sides). Each copy is drawn by the engine with its own look at the pose (picture,
+   size, turn, alpha, glow), at its place on the drift line. The density is the engine's: the copies
+   of the wrap area, mapped onto one period of the sheet.
+5. Write each sheet as a `Group` turned by the band's lean, holding a `PartImage` with
+   `<Transform target="y" value="-H + H * fract(T * s / H)">`, H the face height and s the band's
+   speed. The group gets `Variant AMBIENT alpha 0`. A sheet of a layer with `blend` `add` or `screen`
+   gets `blendMode` (WFF 3 and up); on WFF 2 it falls back.
+
+What it costs, on a face of 450: one sheet is 450 x 900 x 4 bytes = 1.6 MB of memory, and one large
+picture to draw per frame. Three sheets are about 5 MB. Two ways to make it cheaper, to measure when
+it is built:
+- One picture of one face height, used by **two** `PartImage`s one height apart, instead of one
+  picture of two heights. Half the memory, if the runtime and the validator count a picture once.
+- Bake the sheet at **half size** and let WFF scale it up. A quarter of the memory. Fine for soft
+  flakes of 3 px and more; small hard flakes get blurred. The converter can pick this per band from
+  the copies' sizes.
+
+What is lost, and listed by the lint: each copy's own sway, the speed differences inside a band, a
+copy's own turn or flicker (frozen at the pose), and the fade in and out.
+
+**3. Covers: a moving picture under a mask that stays.** A layer that moves but is cut by a fixed
+`clip` or `mask` (Aurora's sky under `SkyMask`) cannot carry its cut along: the cut would move with
+it. WFF has masks (`renderMode="MASK"` in a `Group`), but how a masked group mixes with `SCREEN`
+against the face below is not known. The proven way is a **cover**: the converter bakes everything
+that lies below the layer, keeps it only where the mask is 0 (the town), and draws that right after
+the moving layer. The roofs then lie over the moving aurora. The probe of 7.1 shows it. It costs one
+picture cut to the box of the cover. It is exact where the parts below are still; a moving part
+below the layer that reaches outside the mask would be covered in its still pose.
+
+How a sheet's own motion is written: props that read no per-copy name (`x`, `y`, `rotation`,
+`scale*`, `alpha` of the layer as a whole) are clock motion (1) on the sheet. Props that read
+per-copy names stay at the pose, except `x` and `y` of drifting copies (2). So a layer of slices
+(the aurora) keeps its sway and its breathing, and loses the waves of its slices.
+
 ---
 
 ## 5. Worked examples from real designs
@@ -329,31 +413,52 @@ Today: three layers (120 small flakes, 70 crystals, 1 big crystal) fall during t
 `alpha` = `env * ...`. The converter bakes a loop of 2 s at 15 fps, played on `ON_VISIBLE`: brief,
 not smooth, and a large part of the 110 MB that makes Aurora's WFF 4 face fail.
 
-With the model: the three engine layers stay for the engine and are left out on WFF. One new
-picture `SnowSheet` (400 x 880, the snow pattern twice, one under the other, so it repeats every 440
-px) falls as one part, for as long as the wearer looks:
+With the model the converter bakes the snow from these layers itself (4.9). The design needs no new
+picture and no `wff` key:
+
+- The small flakes (speed 26 to 50 px a second down, 22 to 42 sideways) and the small crystals
+  (35 to 65 down) are split into three speed bands. Copies of both layers with the same speed share
+  a band, so there are three sheets, not six.
+- Each band is one sheet of 450 x 900 (on a face of 450): the band's copies, drawn by the engine with
+  their own size, picture, turn and alpha, twice, so the pattern repeats every 450 px.
+- Each sheet sits in a `Group` turned by the band's lean, and falls with
+  `y = -450 + 450 * fract(T * s / 450)`, where `T` = `[SECONDS_IN_DAY] + [MILLISECOND] / 1000` and
+  `s` is the band's speed. Smooth at the minute; one jump at midnight.
+- The big crystal is one copy, so it needs no sheet. Its formulas are written as they are, with
+  `t` replaced by `T` and `env` by 1 (`mod(40 + t*15 + sin(t*0.8)*12, 480) - 40` and so on). It
+  moves and turns exactly as in the engine.
+- Hidden in always-on by the default `variant` (4.6).
+- Memory: three sheets of 1.6 MB, about 5 MB, instead of the snow frames. Same on WFF 2 and 4.
+- Lost: each flake's own sway, each flake's own speed inside its band, the spin of the small
+  crystals, and the fade in and out. The lint lists them.
+
+A designer who wants more or fewer bands, or frames after all, says so:
 
 ```json
-{"image": "CrystalSmall", "count": 70, "...": "...", "wff": false},
-{"shape": "circle", "count": 120, "...": "...", "wff": false},
-{"image": "CrystalBig", "count": 1, "...": "...", "wff": false},
-{"image": "SnowSheet", "rect": {"left": 0, "top": -440, "width": 400, "height": 880}, "slot": "front",
- "wff": {"only": true,
-         "transform": {"y": {"value": "440 * fract(([SECONDS_IN_DAY] + [MILLISECOND] / 1000) / 20)", "mode": "BY"}},
-         "gyro": {"x": "clamp([ACCELEROMETER_ANGLE_X], -30, 30) / 3"}}}
+{"shape": "circle", "count": 120, "...": "...", "wff": {"sheets": {"bands": 2}}}
+{"shape": "circle", "count": 120, "...": "...", "wff": {"frames": {"play": "ON_VISIBLE TAP"}}}
 ```
 
-- 22 px a second, the speed of the small flakes. `[SECONDS_IN_DAY]` keeps it smooth at the minute;
-  at midnight it jumps once.
-- The `gyro` lets the snow lean with the wrist, 10 px at most. It is decoration, so a watch without
-  an accelerometer just shows straight snow.
-- Hidden in always-on by the default `variant` (4.6).
-- Memory: one picture of 400 x 880 is about 1.4 MB decoded (1.8 MB on a face of 450) instead of
-  30 frames.
-- Lost: each flake's own sway and turn, the fade in and out. Same on WFF 2 and 4.
+A `gyro` on a sheet (`"gyro": {"x": "clamp([ACCELEROMETER_ANGLE_X], -30, 30) / 3"}`) lets the snow
+lean with the wrist. It is decoration: a watch without an accelerometer shows straight snow.
 
-The sheet could also be baked by the converter from the three layers (a "bake as sheet" extra).
-That saves the designer a picture, but adds a concept; I suggest the plain picture first.
+The aurora gets a sheet of its own. Its two layers (`Aurora`, `AuroraMirrored`, 100 slices each,
+`blend` `screen`, clipped by `SkyMask`) each become one picture at the rest pose. Each prop that
+reads no per-copy name is written live, with `t` replaced by `T`, `env` by 1 and the options by
+their default choice:
+
+| Prop | Engine formula | On WFF |
+|---|---|---|
+| `x` | `env*am*sin(at*0.25)*10` | live: `10 * sin(T * 0.25)`, a sway of 10 px in 25 s |
+| `scaleY` (pivot y 230) | `1 + env*am*0.06*sin(at*0.4)` | live: the aurora grows and shrinks a little |
+| `y` | per slice: `sin(u*11 - at*1.3)*5 + noise(...)` | still: reads the slice (`u`) and `noise` |
+| `alpha` | per slice, with `noise` | still at the rest pose, 0.85 |
+
+The sheet moves but `SkyMask` must not: the aurora must stay out of the town. The converter draws a
+**cover** after the moving sheet: everything below it, cut to where the mask is 0 (the town), so the
+roofs lie over the moving aurora. With `blendMode` SCREEN on WFF 4; on WFF 2 the sheet is drawn
+without it (the probe showed it still looks right) or falls back to the static picture; that is a
+lint choice to make when it is built.
 
 The tree lights (layers 14 to 17) blink in four phases during the wake. Each layer is one colour, all
 its lights in the same phase, so each fits a live `alpha`:
@@ -440,7 +545,7 @@ honest limit of the model.
 | 4 | A version that lacks a feature | a) decoration dropped, essentials fall back to the default conversion (or `else: "omit"`), `only` layers left out, lint per version; b) the design names a minimum version | **a.** The design stays free of version numbers, and nothing that shows a value is ever frozen. |
 | 5 | Does the engine use the WFF part? | a) no, the design tool previews it; b) the engine plays `transform` during its wake | **a.** The engine stays as it is; the tool is where both faces are compared. |
 | 6 | WFF motion in templates | a) `wff` inside the template's layers, with `$parameters` (works now); b) also a `wff` key on `{"use": ...}` entries (small change in `Templates.kt`) | **a now, b later** when a design needs it. |
-| 7 | The snow sheet | a) the designer supplies the picture; b) the converter bakes the sheet from the layers | **a first.** Simple and visible; b can come later. |
+| 7 | The snow sheet | a) the designer supplies the picture; b) the converter bakes the sheet from the layers | **Decided by the owner (2026-11-20): b**, as efficient as possible. See 4.9. |
 
 ---
 
@@ -449,7 +554,7 @@ honest limit of the model.
 On the Wear OS 6 emulator, with probe faces and the probe provider (as in `wff-converter-design.md`
 11.1):
 
-1. `Transform mode="BY"`: relative to the part's own attribute, or added up per frame?
+1. (Answered, 7.1: `BY` with a changing value is not usable; use `TO`.)
 2. `Transform` with an `Animation` driven by `[COMPLICATION.RANGED_VALUE_VALUE]`: does the needle
    glide when the provider sends a new value?
 3. A `Transform` and a `Variant` on the same target (`angle`): which wins, and does the `Variant`
@@ -460,11 +565,39 @@ On the Wear OS 6 emulator, with probe faces and the probe provider (as in `wff-c
    drawn, or drawn with its `defaultValue`?
 6. Does a face read `[HEART_RATE]` in an expression without its own permission?
 7. `Gyro` with the emulator's virtual sensors.
-8. Frame rate of a `Transform` on `[SECOND_MILLISECOND]`, and whether it stops in always-on.
+8. Frame rate on a real watch (the emulator gives about 10 a second, 7.1), and whether the motion
+   stops in always-on.
 9. `ON_NEXT_HOUR` and `ON_NEXT_MINUTE` with a set clock.
+10. Do two `PartImage`s with the same picture count once, in the runtime and in the validator's
+    memory sum (half the memory of a sheet, 4.9)?
+11. A `Group` with `renderMode="MASK"` and a `SCREEN` part inside: does the part still mix with the
+    face below? If yes, a mask can replace a cover.
 
 Only on a watch with Wear OS 6 (the emulator shows no always-on): the `Variant` transition timing,
 and the battery cost of a face that moves while the wearer looks.
+
+### 7.1 Probe on the emulators (2026-11-20)
+
+A face written by hand (`tools/probe-motion/`), built with Pack, on the Wear OS 6 emulator as WFF 4
+and on the Wear OS 5 emulator as WFF 2. It has a sky with a town, an aurora picture (see-through,
+`SCREEN` on WFF 4, swaying and breathing by the clock) under a town cover, three snow sheets of
+450 x 900 at three speeds and leans, each in a turned `Group`, and one crystal that moves and turns
+by the clock formula of Aurora's big crystal, `mod` written with `floor`.
+
+- **Several moving see-through pictures work, on WFF 2 and 4.** All three sheets fall with their own
+  speed and lean, the aurora sways behind the roofs, the crystal moves 21 px down in 1.12 s as the
+  formula says.
+- **Frame rate:** a screen recording of 4 s holds 41 frames on Wear OS 6 (twice, with five moving
+  pictures and with fewer) and 38, in a later run 11, on Wear OS 5: up to about 10 frames a second
+  on the emulator, and not steady. Only a real watch can say what a wearer sees.
+- **`BY` with a changing value:** a part with `<Transform target="x" mode="BY" value="14 * sin(...)">`
+  is gone from the screen. `BY` with a fixed value works (also a negative one); a fixed value
+  written as an expression of a clock source (`5 + 0 * [SECOND_MILLISECOND]`) moved the part by
+  about 10, not 5. So WFF adds a `BY` value again when it works it out again. `TO` with the same
+  formula works.
+- `pivotX` and `pivotY` on a `PartImage`, a `Transform` on `scaleY`, `blendMode` SCREEN and a turned
+  `Group` with a moving part inside all work.
+- The probe APK is 68 KB. Its pictures need about 7 MB of memory (sheets 3 x 1.6 MB).
 
 ---
 
