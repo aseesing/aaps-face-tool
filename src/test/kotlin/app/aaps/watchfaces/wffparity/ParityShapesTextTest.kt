@@ -2,11 +2,12 @@ package app.aaps.watchfaces.wffparity
 
 import org.junit.Test
 
-/**
+/*
  * Shapes, colours and texts of the layer engine (chapters 2 and 3 of the manual): each test is a
  * still layer (`"rest": 0`) on the plain background, so it shows while no wake plays.
  */
-class ParityShapesTextTest : WffParityBase() {
+/** Shapes, colours and gradients. */
+class ParityShapesTextShapesTest : WffParityBase() {
 
     @Test
     fun rect() = check(
@@ -103,6 +104,12 @@ class ParityShapesTextTest : WffParityBase() {
             """
         )
     )
+
+    private fun layers(layers: String) = ParityDesign(testName.methodName).animation(layers, "\"durationMs\": 4000")
+}
+
+/** Text layers, glows and pictures that stay sharp when big. */
+class ParityShapesTextTextsTest : WffParityBase() {
 
     @Test
     fun textPlain() = check(
@@ -214,5 +221,6 @@ class ParityShapesTextTest : WffParityBase() {
     )
 
     /** A design of only these layers (json without the brackets). */
+
     private fun layers(layers: String) = ParityDesign(testName.methodName).animation(layers, "\"durationMs\": 4000")
 }
