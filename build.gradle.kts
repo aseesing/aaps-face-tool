@@ -175,10 +175,13 @@ afterEvaluate {
                 check(wearApk.isFile) { "No wear app at $wearApk: build it in AAPS with :wear:assembleFullDebug, or give -PwffParityWearApk=..." }
                 val newest = File(aapsDir, "wear/src/main").walkTopDown().filter { it.isFile }.maxOfOrNull { it.lastModified() } ?: 0L
                 check(wearApk.lastModified() >= newest) { "The wear app $wearApk is older than its sources: build it again in AAPS with :wear:assembleFullDebug" }
-                // One driver per running emulator; they share the queue. A real watch is never an emulator.
+                // One driver per running Wear OS 6 emulator (API 36 or newer: the suite's faces are WFF 4);
+                // they share the queue. A Wear OS 5 emulator is left alone. A real watch is never an emulator.
                 val adb = File(System.getenv("ANDROID_HOME") ?: "${System.getProperty("user.home")}/Library/Android/sdk", "platform-tools/adb").takeIf { it.canExecute() }?.path ?: "adb"
+                fun api(device: String) = ProcessBuilder(adb, "-s", device, "shell", "getprop", "ro.build.version.sdk").start().inputStream.bufferedReader().readText().trim().toIntOrNull() ?: 0
                 val devices = ProcessBuilder(adb, "devices").start().inputStream.bufferedReader().readLines()
                     .mapNotNull { Regex("^(emulator-\\d+)\\s+device$").find(it.trim())?.groupValues?.get(1) }
+                    .filter { api(it) >= 36 }
                 check(devices.isNotEmpty()) { "No emulator runs: start a Wear OS 6 emulator (docs/wff-parity.md)" }
                 devices.forEachIndexed { k, device ->
                     val log = File(root, "emulator-$device.log")

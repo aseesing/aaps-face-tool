@@ -55,10 +55,13 @@ adb_ shell cmd alarm set-timezone "${WFF_TZ:-Europe/Amsterdam}" >/dev/null
 
 if [ -n "$WEAR_APK" ]; then
     SUM="$(shasum < "$WEAR_APK" | sed 's/ .*//')"
-    if [ "$(cat "$CACHE/wear-apk-$DEVICE.sha" 2>/dev/null)" != "$SUM" ]; then
+    # The cache holds the apk and the time the emulator installed it: when another session installed
+    # another build of the wear app since, the time differs and this one is installed again
+    installed() { adb_ shell dumpsys package "$APP" | grep -m1 lastUpdateTime | sed 's/^ *//'; }
+    if [ "$(cat "$CACHE/wear-apk-$DEVICE.sha" 2>/dev/null)" != "$SUM $(installed)" ]; then
         echo "installing the wear app $WEAR_APK"
         adb_ install -r -d "$WEAR_APK" | tail -1
-        echo "$SUM" > "$CACHE/wear-apk-$DEVICE.sha"
+        echo "$SUM $(installed)" > "$CACHE/wear-apk-$DEVICE.sha"
     fi
     # The same wear app on every emulator gives the same picture: a face keeps its picture whichever emulator took it
     APP_VERSION="$SUM"

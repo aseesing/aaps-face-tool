@@ -145,6 +145,13 @@ sh tools/wff-wake.sh build/wff/Aurora_Town 6
 
 It writes `wake.png`, the pictures side by side.
 
+To try the WFF 2 face, use a Wear OS 5 emulator (system image
+`system-images;android-34;android-wear;arm64-v8a`): its WFF runtime is close to the one of a Wear OS
+5 watch, and some faults only show there (a font size with decimals is ignored). Copy the design
+folder, put `faces/<app id>/wff2.apk` in it as `face.apk`, and give the emulator with `WFF_DEVICE`.
+The script sends the Back key to leave the face picker; on Wear OS 5 that can open the app list, so
+press Home before you trust `emulator.png`. The parity suite only uses emulators with API 36 or newer.
+
 The face's slots start with the sources the design gives them only the first time the watch sees
 the face, so the script removes the face before it installs it. Set `WFF_KEEP=1` to update it in
 place and keep the sources picked in the editor.
