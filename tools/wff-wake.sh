@@ -19,6 +19,10 @@ adb_ shell input keyevent KEYCODE_SLEEP
 # Long enough for the face to go to always-on, so the screen on starts a new wake
 sleep "${WFF_OFF:-4}"
 adb_ shell input keyevent KEYCODE_WAKEUP
+# The first picture only when the screen is on: a busy emulator turns it on late, and a picture of a
+# dark screen says nothing about the wake
+i=0
+while [ "$i" -lt 30 ] && ! adb_ shell dumpsys display | grep -q "mScreenState=ON"; do i=$((i + 1)); sleep 0.1; done
 FILES=""
 i=0
 while [ "$i" -lt "$COUNT" ]; do
