@@ -7,9 +7,8 @@ import app.aaps.core.interfaces.rx.weardata.ResFormat
 import app.aaps.watchfaces.snapshot.SnapshotClock
 import app.aaps.watchfaces.snapshot.SnapshotData
 import app.aaps.watchfaces.snapshot.SnapshotEngine
-import app.aaps.wear.watchfaces.animation.DesignRect
+import app.aaps.wear.watchfaces.wff.WffPictures
 import java.io.File
-import java.util.Base64
 
 /**
  * Draws designs with the watch's own engine for the WFF harness: the face at rest and frames of the
@@ -19,6 +18,14 @@ import java.util.Base64
 class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotClock, val size: Int, private val data: SnapshotData = SnapshotData(weather = "clear")) {
 
     private var faces = 0
+
+    /** The time of the baker's clock. */
+    val now: Long get() = clock.now
+
+    /** Moves the clock forward to [epochMs], for a layer that shows only on some days. */
+    fun moveTo(epochMs: Long) {
+        if (epochMs > clock.now) clock.setTo(epochMs)
+    }
 
     private fun newFace(): SnapshotEngine.Face = engine.Face("wff${faces++}").apply {
         settingsAtDefaults()
@@ -42,20 +49,23 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
      * [design] at each of [atMs] after its wake starts (rising), see-through where it draws nothing; null
      * for a moment after the animation ended.
      *
-     * A wake frame of the engine always has a background, so each frame is drawn twice: on a black and
-     * on a white background picture. Where the two differ, the frame lets the background through; how
-     * much they differ is how see-through it is there (difference matting). This is exact, also for
-     * the soft edges of a snow flake.
+     * A wake frame of the engine always has a background, so each frame is drawn twice, on a black and
+     * on a white background picture, and the converter makes one see-through frame of the two
+     * ([WffPictures.matte]). With [onBlack] the frames stay on black ([WffPictures.lightBlend]); with
+     * [keepBackground] the design keeps its own background and is drawn once.
      */
-    fun wake(design: CwfData, atMs: List<Long>, onBlack: Boolean = false): List<Bitmap?> {
-        val black = wakeOn(withBackground(design, BLACK_PNG), atMs)
-        // Light that adds to what lies below has no transparency: it stays on black, see [WffAssets.Loop.blend]
+    fun wake(design: CwfData, atMs: List<Long>, onBlack: Boolean = false, keepBackground: Boolean = false): List<Bitmap?> {
+        // A design with its own background is opaque anyway
+        if (keepBackground) return wakeOn(design, atMs)
+        val black = wakeOn(withBackground(design, WffPictures.BLACK_PNG), atMs)
+        // Light that adds to what lies below has no transparency: it stays on black
         if (onBlack) return black
-        val white = wakeOn(withBackground(design, WHITE_PNG), atMs)
+        val white = wakeOn(withBackground(design, WffPictures.WHITE_PNG), atMs)
         return black.indices.map { i ->
             val b = black[i]
             val w = white[i]
-            if (b == null || w == null) null.also { b?.recycle(); w?.recycle() } else matte(b, w).also { b.recycle(); w.recycle() }
+            if (b == null || w == null) null.also { b?.recycle(); w?.recycle() }
+            else WffPictures.bitmapOf(WffPictures.matte(WffPictures.pixelsOf(b), WffPictures.pixelsOf(w))).also { b.recycle(); w.recycle() }
         }
     }
 
@@ -69,7 +79,7 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
             clock.setTo(clock.now + 1000)
             val start = clock.now
             face.show(SnapshotEngine.Design("wake", design))
-            // The wake starts with the first frame drawn: draw it at the start, not at the first moment asked for
+            // The wake starts with the first frame drawn: draw it at the start, not at the first moment asked for (see WffLoops)
             if (atMs.firstOrNull() != 0L) face.frame(size, clock.now).recycle()
             return atMs.map { ms ->
                 clock.setTo(start + ms)
@@ -80,27 +90,6 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
             clock.setTo(clock.now + REST_LEAD_MS)
             face.release()
         }
-    }
-
-    /** The frame of [onBlack] and [onWhite] (the same frame on two backgrounds) as one see-through frame. */
-    private fun matte(onBlack: Bitmap, onWhite: Bitmap): Bitmap {
-        val w = onBlack.width
-        val h = onBlack.height
-        val b = IntArray(w * h).also { onBlack.getPixels(it, 0, w, 0, 0, w, h) }
-        val l = IntArray(w * h).also { onWhite.getPixels(it, 0, w, 0, 0, w, h) }
-        val out = IntArray(w * h)
-        for (i in out.indices) {
-            val pb = b[i]
-            val pw = l[i]
-            // How much of the background shows: the largest difference of a channel
-            val through = maxOf((pw shr 16 and 0xff) - (pb shr 16 and 0xff), (pw shr 8 and 0xff) - (pb shr 8 and 0xff), (pw and 0xff) - (pb and 0xff)).coerceIn(0, 255)
-            val alpha = 255 - through
-            if (alpha == 0) continue
-            // On black the colour is the frame's colour times its alpha
-            fun channel(shift: Int) = ((pb shr shift and 0xff) * 255 / alpha).coerceAtMost(255)
-            out[i] = (alpha shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
-        }
-        return Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
     }
 
     /** The values and the design of [design] as the watch app stores them, for the emulator, with the face of now as `reference.png`. */
@@ -144,57 +133,15 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
 
     companion object {
 
-        /** PNGs of one black and one white pixel. */
-        private val BLACK_PNG: ByteArray = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg==")
-        private val WHITE_PNG: ByteArray = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=")
-
         /** Longer than the longest wake-up animation the engine allows (30 s). */
         const val REST_LEAD_MS = 31_000L
 
-        /** The pixels of [bitmap] that are not fully clear, as a box in pixels snapped out to [snap]; null when all are clear. */
-        fun inkBox(bitmap: Bitmap, snap: Int): IntArray? {
-            val w = bitmap.width
-            val h = bitmap.height
-            val pixels = IntArray(w * h).also { bitmap.getPixels(it, 0, w, 0, 0, w, h) }
-            var left = w
-            var top = h
-            var right = -1
-            var bottom = -1
-            for (y in 0 until h) for (x in 0 until w) if (pixels[y * w + x] ushr 24 != 0) {
-                if (x < left) left = x
-                if (x > right) right = x
-                if (y < top) top = y
-                if (y > bottom) bottom = y
-            }
-            if (right < 0) return null
-            return intArrayOf(left / snap * snap, top / snap * snap, minOf(w, (right / snap + 1) * snap), minOf(h, (bottom / snap + 1) * snap))
-        }
-
-        /** The pixels of [bitmap] that are not black, as [inkBox] does for the pixels that are not clear. */
-        fun lightBox(bitmap: Bitmap, snap: Int): IntArray? {
-            val w = bitmap.width
-            val h = bitmap.height
-            val pixels = IntArray(w * h).also { bitmap.getPixels(it, 0, w, 0, 0, w, h) }
-            val marked = Bitmap.createBitmap(IntArray(w * h) { i -> if (pixels[i] and 0xffffff != 0) -1 else 0 }, w, h, Bitmap.Config.ARGB_8888)
-            return inkBox(marked, snap).also { marked.recycle() }
-        }
-
-        fun union(a: IntArray?, b: IntArray?): IntArray? = when {
-            a == null -> b
-            b == null -> a
-            else      -> intArrayOf(minOf(a[0], b[0]), minOf(a[1], b[1]), maxOf(a[2], b[2]), maxOf(a[3], b[3]))
-        }
-
-        fun crop(bitmap: Bitmap, box: IntArray): Bitmap = Bitmap.createBitmap(bitmap, box[0], box[1], box[2] - box[0], box[3] - box[1])
-
-        /** A box in pixels of a picture [size] wide as a box of the design (400 wide). */
-        fun designRect(box: IntArray, size: Int): DesignRect {
-            val k = 400f / size
-            return DesignRect(box[0] * k, box[1] * k, (box[2] - box[0]) * k, (box[3] - box[1]) * k)
-        }
+        /** The part [box] of [bitmap]. */
+        fun crop(bitmap: Bitmap, box: WffPictures.Box): Bitmap = Bitmap.createBitmap(bitmap, box.left, box.top, box.width, box.height)
     }
 }
 
+/** For pictures that are not a part of the face, such as `reference.png` of the scene. The face's pictures are written by [WffPictures.encode]. */
 fun Bitmap.savePng(file: File) {
     file.parentFile?.mkdirs()
     file.outputStream().use { compress(Bitmap.CompressFormat.PNG, 100, it) }

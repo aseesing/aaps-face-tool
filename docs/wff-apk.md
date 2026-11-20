@@ -60,7 +60,8 @@ then only builds what changed.
 
 Things to know about Pack:
 
-- It reads pictures from `res/drawable`, not from `res/drawable-nodpi`.
+- It reads pictures from `res/drawable`, not from `res/drawable-nodpi`. The class `WffResources` of
+  the converter (AAPS) says where each file of a face goes.
 - It ends with exit code 0 also after an error. The harness looks for its line
   `Compiled, aligned & signed successfully!`.
 - To use it by hand: `pack-cli <folder> <output without extension> <dev-key.pem>` writes
@@ -133,11 +134,13 @@ for fresh ones.
 - The data picture is made again when new data arrives and every five minutes. Between two
   pictures its parts do not change. The clock, the date, the hands, the glucose and the age of the
   reading are live.
-- Wake-up effects that only show during the wake are played as frames, at most 150 frames per face.
-  Layers that show for the whole wake share a loop of 2 seconds that repeats. A layer that also shows
-  at rest keeps its rest pose and does not move (Aurora Town's lights and aurora).
-- A wake-up layer that only shows at some dates or with some options (Aurora Town's Santa) shows on
-  the day the face was made, or never: the frames are made for that day.
+- Wake-up effects that only show during the wake are played as frames, at most 200 frames per face.
+  Layers that show for the whole wake share a loop of 2 seconds that repeats.
+- A static picture with layers that also move in the wake (Aurora Town's sky, lights and stars) is
+  played as frames of the whole picture, 4 a second, from the start of the wake to its end.
+- A wake-up layer that only shows on some days (Aurora Town's Santa at Christmas) plays only on those
+  days. The options of the watch app count with their default choice: "Santa always" or "never",
+  chosen on the watch, does not reach the face.
 - A view that only moves during the wake (a blink, a hop) stays at its rest place.
 - In always-on the face shows the clock, the glucose, its age and your own slots.
 - A tap anywhere on the data picture opens the AAPS menu.
