@@ -3,7 +3,9 @@ package app.aaps.watchfaces.snapshot
 import app.aaps.core.interfaces.rx.weardata.DayNightRule
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
+import android.os.BatteryManager
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.rx.weardata.CwfData
 import app.aaps.core.interfaces.rx.weardata.EventData
@@ -100,6 +102,10 @@ class SnapshotEngine(private val app: Application) {
                 .putInt("heart_rate", data.heartRate).putLong("heart_rate_at", nowMs - 60_000L)
                 .putLong("steps", data.steps).putLong("steps_at", nowMs - 60_000L)
                 .commit()
+            // The battery of the watch itself, from the battery broadcast that the system keeps
+            data.watchBattery?.let { percent ->
+                app.sendStickyBroadcast(Intent(Intent.ACTION_BATTERY_CHANGED).putExtra(BatteryManager.EXTRA_LEVEL, percent).putExtra(BatteryManager.EXTRA_SCALE, 100))
+            }
             messages(data, nowMs).forEach(renderer::apply)
         }
 
@@ -124,15 +130,18 @@ class SnapshotEngine(private val app: Application) {
         // The place of the phone, as the watch gets it: as the rule for when it is day
         EventData.ActionSetDayNightRule(DayNightRule.Place(data.latitude, data.longitude)),
         EventData.SingleBg(
-            dataset = 0, timeStamp = now - 2 * MINUTE, sgvString = "6,7", glucoseUnits = "mmol", slopeArrow = "→",
-            delta = "+0,1", deltaDetailed = "+0,12", avgDelta = "+0,1", avgDeltaDetailed = "+0,08", sgvLevel = 0, sgv = 121.0,
+            // The texts as the phone writes them, with the decimal sign of its language
+            dataset = 0, timeStamp = now - 2 * MINUTE, sgvString = "6${data.decimalSign}7", glucoseUnits = "mmol", slopeArrow = "→",
+            delta = "+0${data.decimalSign}1", deltaDetailed = "+0${data.decimalSign}12", avgDelta = "+0${data.decimalSign}1", avgDeltaDetailed = "+0${data.decimalSign}08", sgvLevel = 0, sgv = 121.0,
             high = 180.0, low = 70.0, color = 0, deltaMgdl = 1.8, avgDeltaMgdl = 1.4
         ),
         EventData.Status(
             dataset = 0, externalStatus = "", iobSum = "1.25", iobDetail = "(0.90|0.35)", cob = "12g", currentBasal = "0.85U/h",
             battery = data.phoneBattery.toString(), rigBattery = "--", openApsStatus = now - 3 * MINUTE, bgi = "-0.4", batteryLevel = 1,
             tempTarget = "100", tempTargetLevel = 0, reservoirString = "120U", reservoir = 120.0, reservoirLevel = 0,
-            sensorEndsAt = now + data.sensorHoursLeft * HOUR, pumpEndsAt = now + data.pumpHoursLeft * HOUR
+            sensorEndsAt = now + data.sensorHoursLeft * HOUR, pumpEndsAt = now + data.pumpHoursLeft * HOUR,
+            // The same values as numbers, for v_iob, v_cob, v_basalRate and the others, as the phone sends them
+            cobValue = 12.0, iobValue = 1.25, iobBolusValue = 0.90, iobBasalValue = 0.35, basalRateValue = 0.85, bgiMgdl = -7.2
         ),
         EventData.GraphData(ArrayList(graphAges().map { age ->
             val hours = age / 3_600_000.0
@@ -168,7 +177,9 @@ class SnapshotEngine(private val app: Application) {
 
 /**
  * The fixed values the face shows. [weather] is one of `clear`, `partly`, `cloudy` and `rain`, as the
- * phone sends it.
+ * phone sends it. [watchBattery] is the battery of the watch in percent; null leaves it as it is.
+ * [decimalSign] is the decimal sign of the phone's language, in the glucose and delta texts the
+ * phone writes (`sgvString`, `delta`).
  */
 data class SnapshotData(
     val weather: String,
@@ -179,5 +190,7 @@ data class SnapshotData(
     val heartRate: Int = 72,
     val steps: Long = 6482,
     val sensorHoursLeft: Long = 60,
-    val pumpHoursLeft: Long = 10
+    val pumpHoursLeft: Long = 10,
+    val watchBattery: Int? = null,
+    val decimalSign: Char = ','
 )

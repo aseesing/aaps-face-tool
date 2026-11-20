@@ -5,7 +5,8 @@
 # It works through the queue that the parity tests write (one test folder per line) while the tests
 # still run, and stops when the done file appears and the queue is empty. Per face it pushes the
 # design and the values of the scene into the stores of the wear app (only when they changed), installs
-# the face, sets the clock of the scene, and takes the picture as soon as the screen stops changing.
+# the face, sets the clock and the watch battery of the scene, and takes the picture as soon as the
+# screen stops changing. Afterwards the emulator follows the network time and its own battery again.
 # A face whose files, scene, wear app and clock are the same as at its last picture keeps that picture.
 #
 # usage: sh tools/wff-parity-emulator.sh <queue file> <done file> [wear app apk]
@@ -46,7 +47,7 @@ while ! mkdir "$LOCK" 2>/dev/null; do
     sleep 2
 done
 echo $$ > "$LOCK/pid"
-trap 'adb_ shell settings put global auto_time 1 >/dev/null 2>&1; rm -rf "$LOCK"' EXIT INT TERM
+trap 'adb_ shell settings put global auto_time 1 >/dev/null 2>&1; adb_ shell dumpsys battery reset >/dev/null 2>&1; rm -rf "$LOCK"' EXIT INT TERM
 
 [ "$(adb_ shell getprop ro.kernel.qemu | tr -d '\r')" = "1" ] || { echo "$DEVICE is not an emulator: this script never touches a real watch"; exit 1; }
 adb_ shell settings put global auto_time 0
@@ -86,8 +87,10 @@ face() {
     MIN=4
     [ -n "$REST_AFTER" ] && [ "$REST_AFTER" -gt "$MIN" ] && MIN="$REST_AFTER"
     LIMIT=$((WAIT > MIN + 2 ? WAIT : MIN + 2))
+    # The battery of the watch in the scene, when it sets one: both our engine and WFF read it from the system
+    BATTERY="$(cat "$DIR/scene/watch_battery.txt" 2>/dev/null || true)"
     STORE="$(cd "$DIR/scene" && find datastore shared_prefs -type f | sort | xargs shasum | shasum | sed 's/ .*//')"
-    KEY="$( (cd "$DIR" && find face/res -type f | sort | xargs shasum; echo "$STORE $APP_VERSION $AT $WAKE") | shasum | sed 's/ .*//')"
+    KEY="$( (cd "$DIR" && find face/res -type f | sort | xargs shasum; echo "$STORE $APP_VERSION $AT $WAKE $BATTERY") | shasum | sed 's/ .*//')"
     if [ -z "$WFF_FRESH" ] && [ -f "$DIR/emulator.png" ] && [ "$(cat "$DIR/emulator.key" 2>/dev/null)" = "$KEY" ]; then
         echo "same as before: $DIR"
         return
@@ -104,6 +107,8 @@ face() {
         put "$DIR/scene/shared_prefs/aaps_health_values.xml" "shared_prefs/aaps_health_values.xml"
         LAST_STORE="$STORE"
     fi
+
+    if [ -n "$BATTERY" ]; then adb_ shell dumpsys battery set level "$BATTERY"; else adb_ shell dumpsys battery reset; fi
 
     T_STORE=$(date +%s)
     # Removed first: the watch gives a slot its default source only the first time it sees the slot

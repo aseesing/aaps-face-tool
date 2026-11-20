@@ -2,6 +2,7 @@ package app.aaps.watchfaces.wffparity
 
 import android.app.Application
 import app.aaps.watchfaces.snapshot.SnapshotClock
+import app.aaps.watchfaces.snapshot.SnapshotData
 import app.aaps.watchfaces.snapshot.SnapshotEngine
 import app.aaps.watchfaces.wff.WffApkBuilder
 import app.aaps.watchfaces.wff.WffBaker
@@ -84,7 +85,10 @@ abstract class WffParityBase {
         val cache = File(System.getProperty("user.home"), ".cache/aaps-wff")
         val pack = File(cache, "pack/target/release/pack-cli").takeIf { it.isFile } ?: File(cache, "pack/target/release/pack-cli.exe")
         check(pack.isFile) { "Pack is not built: run tools/build-pack.sh (docs/wff-apk.md)" }
-        val baker = WffBaker(SnapshotEngine(app), clock, ParityCompare.SIZE)
+        // The phone writes its texts in the language of the watch (US English, see SnapshotClock), as a
+        // Wear OS watch takes the language of its phone. A phone in another language would make the
+        // glucose text of the slot ("6,7") differ from what glucose() writes on the watch ("6.7").
+        val baker = WffBaker(SnapshotEngine(app), clock, ParityCompare.SIZE, SnapshotData(weather = "clear", watchBattery = WATCH_BATTERY, decimalSign = '.'))
         val cwf = design.cwf()
         // The values and our picture first, at the fixed moment; baking then moves the clock on
         val scene = File(app.cacheDir, "scene").apply { deleteRecursively() }
@@ -143,6 +147,9 @@ abstract class WffParityBase {
         val MOMENT: LocalDateTime = LocalDateTime.of(2026, 11, 17, 10, 8)
 
         const val CLIENT = "info.nightscout.androidaps"
+
+        /** The battery of the watch in percent, in our engine and on the emulator (`tools/wff-parity-emulator.sh`). */
+        const val WATCH_BATTERY = 64
 
         /** The whole face, for a design whose parts are all baked or drawn the same way. */
         val WHOLE = ParityCompare.Region("whole face", 1.0)

@@ -67,11 +67,13 @@ Only some groups or tests:
 `-PwffParityWearApk=<apk>` another wear app; `-PwffParityFresh` takes every
 picture again; `WFF_WAIT` the most seconds a face may take to settle (default 20).
 
-Every test uses the same moment (17 November 2026, 10:08, Europe/Amsterdam) and the same values,
-and the driver sets the emulator to that moment and time zone. Afterwards the emulator follows the
-network time again. Only one driver uses an emulator at a time (the lock
-`~/.cache/aaps-wff/<device>.lock`, also used by `tools/wff-emulator.sh`). The scripts refuse a real
-watch.
+Every test uses the same moment (17 November 2026, 10:08, Europe/Amsterdam) and the same values
+(`SnapshotEngine`; iob, cob and the basal rate also as numbers), and the driver sets the emulator to
+that moment and time zone. The watch battery is 64 % in our engine and on the emulator: the scene
+writes it to `scene/watch_battery.txt`, and the driver sets it with `dumpsys battery set level`.
+Afterwards the emulator follows the network time and its own battery again. Only one driver uses
+an emulator at a time (the lock `~/.cache/aaps-wff/<device>.lock`, also used by
+`tools/wff-emulator.sh`). The scripts refuse a real watch.
 
 **Two emulators are twice as fast.** The run uses every Wear OS emulator that runs: it starts one
 driver per emulator, and the drivers share the queue. A second instance of the same emulator can

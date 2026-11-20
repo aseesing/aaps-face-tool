@@ -228,7 +228,10 @@ class ParityCopiesFormulasTextsTest : WffParityBase() {
         ),
         lint = listOf("clock text"),
         regions = listOf(
-            ParityCompare.Region("clock()", 1.0, intArrayOf(40, 90, 320, 100)),
+            // Our engine draws a text layer with sub-pixel places (Paint.SUBPIXEL_TEXT_FLAG), WFF puts
+            // each sign on whole pixels: the signs of the large clock are 0.1 to 0.4 px left of ours,
+            // which changes one edge column of each sign (1.48 %). Place and size are right.
+            ParityCompare.Region("clock()", 2.0, intArrayOf(40, 90, 320, 100)),
             ParityCompare.Region("hour h minute", 1.0, intArrayOf(40, 215, 320, 75))
         )
     )
@@ -318,23 +321,27 @@ class ParityCopiesFormulasTextsTest : WffParityBase() {
 
     /**
      * Values of AAPS as bars: glucose (coloured by its level), reservoir, delta, age, sensor and pump
-     * time left, phone battery, heart rate and steps. Not here: `v_iob`, `v_cob` and `v_basalRate`,
-     * because the scene sends them only as texts (they would be missing on both sides), and
-     * `v_watch_battery`, because the scene does not set it while the emulator has a real battery.
+     * time left, phone battery, heart rate, steps, insulin and carbs on board, the basal rate and the
+     * watch battery. The scene sends iob, cob and the basal rate as numbers too, and sets the watch
+     * battery in our engine and on the emulator (`WffParityBase.WATCH_BATTERY`).
      */
     @Test
     fun values() = check(
         ParityDesign("Values").animation(
             """
-            {"shape": "rect", "colors": ["#FF3B3B", "#2EE66B", "#FFB21A"], "rest": 0, "x": 90, "y": 80, "width": "v_sgv * 1.5", "height": 22, "colorIndex": "v_sgvLevel + 1"},
-            {"shape": "rect", "color": "#4DA3FF", "rest": 0, "x": 90, "y": 110, "width": "v_reservoir * 1.5", "height": 22},
-            {"shape": "rect", "color": "#FFB21A", "rest": 0, "x": 90, "y": 140, "width": "clamp(v_sensor_left, 0, 100) * 2", "height": 22},
-            {"shape": "rect", "color": "#C8D0E0", "rest": 0, "x": 90, "y": 170, "width": "100 + v_delta * 20", "height": 22},
-            {"shape": "rect", "color": "#F72585", "rest": 0, "x": 90, "y": 200, "width": "20 + v_timestamp * 20", "height": 22},
-            {"shape": "rect", "color": "#2A9D8F", "rest": 0, "x": 90, "y": 230, "width": "clamp(v_pump_left, 0, 100) * 2", "height": 22},
-            {"shape": "rect", "color": "#9AA5B5", "rest": 0, "x": 90, "y": 260, "width": "v_uploader_battery * 2", "height": 22},
-            {"shape": "rect", "color": "#E63946", "rest": 0, "x": 90, "y": 290, "width": "v_heart_rate * 2", "height": 22},
-            {"shape": "rect", "color": "#5AE66E", "rest": 0, "x": 90, "y": 320, "width": "v_steps / 40", "height": 22}
+            {"shape": "rect", "colors": ["#FF3B3B", "#2EE66B", "#FFB21A"], "rest": 0, "x": 90, "y": 62, "width": "v_sgv * 1.5", "height": 16, "colorIndex": "v_sgvLevel + 1"},
+            {"shape": "rect", "color": "#4DA3FF", "rest": 0, "x": 90, "y": 84, "width": "v_reservoir * 1.5", "height": 16},
+            {"shape": "rect", "color": "#FFB21A", "rest": 0, "x": 90, "y": 106, "width": "clamp(v_sensor_left, 0, 100) * 2", "height": 16},
+            {"shape": "rect", "color": "#C8D0E0", "rest": 0, "x": 90, "y": 128, "width": "100 + v_delta * 20", "height": 16},
+            {"shape": "rect", "color": "#F72585", "rest": 0, "x": 90, "y": 150, "width": "20 + v_timestamp * 20", "height": 16},
+            {"shape": "rect", "color": "#2A9D8F", "rest": 0, "x": 90, "y": 172, "width": "clamp(v_pump_left, 0, 100) * 2", "height": 16},
+            {"shape": "rect", "color": "#9AA5B5", "rest": 0, "x": 90, "y": 194, "width": "v_uploader_battery * 2", "height": 16},
+            {"shape": "rect", "color": "#E63946", "rest": 0, "x": 90, "y": 216, "width": "v_heart_rate * 2", "height": 16},
+            {"shape": "rect", "color": "#5AE66E", "rest": 0, "x": 90, "y": 238, "width": "v_steps / 40", "height": 16},
+            {"shape": "rect", "color": "#4CC9F0", "rest": 0, "x": 90, "y": 260, "width": "v_iob * 80", "height": 16},
+            {"shape": "rect", "color": "#FFD166", "rest": 0, "x": 90, "y": 282, "width": "v_cob * 8", "height": 16},
+            {"shape": "rect", "color": "#B388FF", "rest": 0, "x": 90, "y": 304, "width": "v_basalRate * 120", "height": 16},
+            {"shape": "rect", "color": "#FFFFFF", "rest": 0, "x": 90, "y": 326, "width": "v_watch_battery * 2", "height": 16}
             """,
             "\"durationMs\": 4000"
         ),

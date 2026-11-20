@@ -6,9 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import app.aaps.core.interfaces.rx.weardata.ResData
 import app.aaps.core.interfaces.rx.weardata.ResFormat
-import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import com.google.common.truth.Truth.assertWithMessage
-import org.junit.After
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -17,14 +15,11 @@ import java.io.File
  * The classic views of a design (no animation): the clock and date texts, the hands, the glucose
  * views, the data views, `dynData`, the wearer's complication slots and the always-on look.
  *
- * The scene: 17 Nov 2026 10:08 (the picture is taken 31 s later), glucose 6,7 mmol/l in range, flat,
- * delta +0,1, the reading 2 minutes old, iob 1.25, cob 12 g, basal 0.85 U/h (see `SnapshotEngine`).
+ * The scene: 17 Nov 2026 10:08 (the picture is taken 31 s later), glucose 6.7 mmol/l in range, flat,
+ * delta +0.1, the reading 2 minutes old, iob 1.25, cob 12 g, basal 0.85 U/h (see `SnapshotEngine`).
  */
 /** The classic clock and date views. */
 class ParityClassicFaceClockTest : WffParityBase() {
-
-    @After
-    fun forgetPictures() = HandPictures.reset()
 
     // ---- the clock ----
 
@@ -42,11 +37,21 @@ class ParityClassicFaceClockTest : WffParityBase() {
         lint = listOf(live("hour"), live("minute"))
     )
 
-    /** With `enableSecond` our `time` view shows the seconds too: 10:08:31. */
+    /**
+     * With `enableSecond` our `time` view shows the seconds too: 10:08:31. The emulator's picture is
+     * taken some seconds after ours, so the two digits of the seconds are their own region and may
+     * differ. The digits have the same width, so the rest of the line stays in place.
+     */
     @Test
     fun timeViewWithSeconds() = check(
         ParityDesign("TimeSeconds").keys("\"enableSecond\": true")
-            .view("time", 40, 150, 320, 100, "\"textsize\": 64, \"gravity\": \"center\", \"font\": \"default\", \"fontColor\": \"#FFFFFF\"")
+            .view("time", 40, 150, 320, 100, "\"textsize\": 64, \"gravity\": \"center\", \"font\": \"default\", \"fontColor\": \"#FFFFFF\""),
+        regions = listOf(
+            ParityCompare.Region("left of the seconds", 1.0, intArrayOf(0, 0, 250, 400)),
+            // The seconds of the emulator run some seconds ahead of ours (tools/wff-emulator.sh)
+            ParityCompare.Region("seconds", 60.0, intArrayOf(250, 150, 70, 100)),
+            ParityCompare.Region("right of the seconds", 1.0, intArrayOf(320, 0, 80, 400))
+        )
     )
 
     /**
@@ -110,16 +115,12 @@ class ParityClassicFaceClockTest : WffParityBase() {
 /** The classic hands and glucose views. */
 class ParityClassicFaceGlucoseTest : WffParityBase() {
 
-    @After
-    fun forgetPictures() = HandPictures.reset()
-
     // ---- the hands ----
 
     @Test
     fun handPictures() {
-        HandPictures.use()
         check(
-            ParityDesign("Hands").view("hour_hand", 0, 0, 400, 400).view("minute_hand", 0, 0, 400, 400),
+            ParityDesign("Hands").withHands().view("hour_hand", 0, 0, 400, 400).view("minute_hand", 0, 0, 400, 400),
             lint = listOf(live("hour_hand"), live("minute_hand"))
         )
     }
@@ -127,9 +128,8 @@ class ParityClassicFaceGlucoseTest : WffParityBase() {
     /** The second hand. The emulator's seconds run about 2 s ahead (12 degrees), so only the hand's own circle may differ. */
     @Test
     fun secondHand() {
-        HandPictures.use()
         check(
-            ParityDesign("SecondHand").keys("\"enableSecond\": true").view("second_hand", 0, 0, 400, 400),
+            ParityDesign("SecondHand").withHands().keys("\"enableSecond\": true").view("second_hand", 0, 0, 400, 400),
             lint = listOf(live("second_hand")),
             regions = listOf(
                 ParityCompare.Region("above the hand", 1.0, intArrayOf(0, 0, 400, 190)),
@@ -199,9 +199,6 @@ class ParityClassicFaceGlucoseTest : WffParityBase() {
 
 /** The classic data views, dynData, the slots of the wearer and the always-on look. */
 class ParityClassicFaceDataTest : WffParityBase() {
-
-    @After
-    fun forgetPictures() = HandPictures.reset()
 
     // ---- the data views (the data picture) ----
 
@@ -318,9 +315,8 @@ class ParityClassicFaceDataTest : WffParityBase() {
      */
     @Test
     fun ambientLook() {
-        HandPictures.use()
         check(
-            ParityDesign("Ambient").keys("\"midColor\": \"#39FF14\"")
+            ParityDesign("Ambient").withHands().keys("\"midColor\": \"#39FF14\"")
                 .view("time", 100, 90, 200, 60, "\"textsize\": 48, \"gravity\": \"center\", \"font\": \"default\", \"fontColor\": \"#FFFFFF\"")
                 .view("sgv", 100, 230, 200, 70, "\"textsize\": 56, \"gravity\": \"center\", \"font\": \"default\", \"fontColor\": \"#FFFFFF\"")
                 .view("iob2", 120, 300, 160, 40, "\"textsize\": 28, \"gravity\": \"center\", \"font\": \"default\", \"fontColor\": \"#FFFFFF\"")
@@ -333,44 +329,28 @@ class ParityClassicFaceDataTest : WffParityBase() {
         val hide = """<Variant mode="AMBIENT" target="alpha" value="0" />"""
         assertWithMessage("the static picture hides in always-on:\n%s", xml).that(xml.substringAfter("<PartImage").substringBefore("</PartImage>")).contains(hide)
         assertWithMessage("the data picture hides in always-on:\n%s", xml).that(xml.substringAfter("name=\"Data\"").substringBefore("</ComplicationSlot>")).contains(hide)
-        assertWithMessage("the clock stays in always-on:\n%s", xml).that(xml.substringAfter("<DigitalClock").substringBefore("</DigitalClock>")).doesNotContain(hide)
+        // The time view is a text with the hour by the 12 or 24 hour setting of the watch
+        assertWithMessage("the clock stays in always-on:\n%s", xml).that(xml).contains("[IS_24_HOUR_MODE]")
+        assertWithMessage("the clock stays in always-on:\n%s", xml).that(xml.substringAfter("[IS_24_HOUR_MODE]").substringBefore("</Condition>")).doesNotContain(hide)
         assertWithMessage("the glucose stays in always-on:\n%s", xml).that(xml.substringAfter("name=\"Glucose\"").substringBefore("</ComplicationSlot>")).doesNotContain(hide)
         assertWithMessage("the large hands stay in always-on:\n%s", xml).that(xml.substringAfter("<AnalogClock").substringBefore("</AnalogClock>")).doesNotContain(hide)
     }
 }
 
 /**
- * Hand pictures for the design, by the file names our engine and the converter read (`HourHand`,
+ * The design with hand pictures, by the file names our engine and the converter read (`HourHand`,
  * `MinuteHand`, `SecondHand`): each as large as the face, pointing to 12.
- *
- * [ParityDesign] has no such pictures and must not be changed here, so they are put in with its
- * fonts, which it reads from one cached map. Each test class runs in a JVM of its own
- * (`forkEvery = 1`), and `reset` clears the map after each test.
  */
-private object HandPictures {
+private fun ParityDesign.withHands(): ParityDesign = picture("HourHand", hand(Color.WHITE, 14f, 105f))
+    .picture("MinuteHand", hand(Color.rgb(76, 201, 240), 9f, 50f))
+    .picture("SecondHand", hand(Color.rgb(247, 37, 133), 4f, 40f))
 
-    private val field get() = ParityDesign::class.java.getDeclaredField("cached").apply { isAccessible = true }
-
-    fun use() {
-        val zip = File("cwf-designs/Aurora_Town.zip")
-        val fonts = ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)!!.cwfData.resData
-            .filterValues { it.format == ResFormat.TTF || it.format == ResFormat.OTF }
-        field.set(null, fonts + mapOf(
-            "HourHand" to hand(Color.WHITE, 14f, 105f),
-            "MinuteHand" to hand(Color.rgb(76, 201, 240), 9f, 50f),
-            "SecondHand" to hand(Color.rgb(247, 37, 133), 4f, 40f)
-        ))
-    }
-
-    fun reset() = field.set(null, null)
-
-    /** A bar from a little below the centre up to [tip], [width] wide. */
-    private fun hand(colour: Int, width: Float, tip: Float): ResData {
-        val b = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colour }
-        Canvas(b).drawRoundRect(200f - width / 2, tip, 200f + width / 2, 220f, width / 2, width / 2, paint)
-        return ResData(ByteArrayOutputStream().also { b.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray(), ResFormat.PNG)
-    }
+/** A bar from a little below the centre up to [tip], [width] wide. */
+private fun hand(colour: Int, width: Float, tip: Float): ResData {
+    val b = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colour }
+    Canvas(b).drawRoundRect(200f - width / 2, tip, 200f + width / 2, 220f, width / 2, width / 2, paint)
+    return ResData(ByteArrayOutputStream().also { b.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray(), ResFormat.PNG)
 }
 
 /** A row of the lint: [name] is live in WFF. */

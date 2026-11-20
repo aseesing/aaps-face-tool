@@ -127,15 +127,8 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
         val spans = (inWake - days.keys.filter { days[it] != null }.toSet()).associateWith { layer -> span(WffDesignParts.asCwf(cwf, parts.layers(listOf(layer)), transparent = true), frameRules, blendOf[layer] != null) }
         val shown = spans.filterValues { it != null }.mapValues { it.value!! }
         spans.filterValues { it == null }.keys.forEach { notes += "L$it: it never shows in the wake, so it has no frames" }
-        fun frameLoop(layers: Set<Int>, span: WffLoops.Span?, condition: String?) {
-            val take = frameRules.take(span)
-            if (take == null) {
-                warnings += "the layers $layers have no frames: the budget of ${WffLoops.MAX_FRAMES} frames is used up, they do not show"
-                return
-            }
-            if (take.cut) warnings += "the loop of the layers $layers is cut to ${take.atMs.size} frames (${"%.2f".format(take.atMs.size.toDouble() / take.fps)} s): the budget of ${WffLoops.MAX_FRAMES} frames is used up"
-            if (span == null && (animation?.fadeMs ?: 0L) > 0L)
-                warnings += "the layers $layers lose the fade in and out of the wake: their loop shows at full strength from the start to the end"
+        /** Draws the frames of [take] for [layers] and adds them as a loop. */
+        fun frames(layers: Set<Int>, take: WffLoops.Take, condition: String?) {
             val blend = blendOf[layers.first()]
             val frames = baker.wake(WffDesignParts.asCwf(cwf, parts.layers(layers), transparent = true), take.atMs, onBlack = blend != null).filterNotNull()
             val box = frames.map { WffPictures.shownBox(WffPictures.pixelsOf(it), WffPictures.SNAP, onBlack = blend != null) }.reduceOrNull(WffPictures::union)
@@ -152,6 +145,21 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
                 loopCount = frameRules.loopCount(take, names.size), delaySeconds = take.delaySeconds, blend = blend, condition = condition
             )
         }
+        fun frameLoop(layers: Set<Int>, span: WffLoops.Span?, condition: String?) {
+            val take = frameRules.take(span)
+            if (take == null) {
+                warnings += "the layers $layers have no frames: the budget of ${WffLoops.MAX_FRAMES} frames is used up, they do not show"
+                return
+            }
+            if (take.cut) warnings += "the loop of the layers $layers is cut to ${take.atMs.size} frames (${"%.2f".format(take.atMs.size.toDouble() / take.fps)} s): the budget of ${WffLoops.MAX_FRAMES} frames is used up"
+            // A loop of the whole wake gets the fade of the wake: frames of the fade in before it and of the fade out after it
+            val faded = frameRules.faded(take)
+            if (faded != null) notes += "the layers $layers fade in and out with the wake: ${faded.fadeIn.atMs.size} frames each"
+            else if (span == null && (animation?.fadeMs ?: 0L) > 0L)
+                warnings += "the layers $layers lose the fade in and out of the wake: the budget of ${WffLoops.MAX_FRAMES} frames has no room for it, so their loop shows at full strength from the start to the end"
+            for (part in faded?.let { listOf(it.fadeIn, it.loop, it.fadeOut) } ?: listOf(take)) frames(layers, part, condition)
+        }
+
         for (group in frameRules.groups(shown, plan, blendOf)) frameLoop(group.layers, group.span, null)
         for ((layer, showDays) in onDays) {
             // The next of its days, at noon: the clock of the baker only goes forward. These layers are

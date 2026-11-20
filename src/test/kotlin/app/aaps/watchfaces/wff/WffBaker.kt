@@ -105,6 +105,8 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
             File(out, "shared_prefs").mkdirs()
             File(out, "shared_prefs/watch_settings.xml").writeText(preferencesXml(preferences("scene_watch_settings")))
             File(out, "shared_prefs/aaps_health_values.xml").writeText(preferencesXml(preferences("scene_aaps_health_values")))
+            // The battery of the watch is no store of the app: the emulator driver sets it (dumpsys battery)
+            data.watchBattery?.let { File(out, WATCH_BATTERY_FILE).writeText("$it\n") }
             clock.setTo(clock.now + REST_LEAD_MS)
             face.frame(size, clock.now).savePng(File(out, "reference.png"))
         } finally {
@@ -132,6 +134,9 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
     private fun xml(text: String) = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
     companion object {
+
+        /** The file of the scene with the battery level of the watch in percent, for the emulator driver. */
+        const val WATCH_BATTERY_FILE = "watch_battery.txt"
 
         /** Longer than the longest wake-up animation the engine allows (30 s). */
         const val REST_LEAD_MS = 31_000L

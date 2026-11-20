@@ -10,7 +10,8 @@ import org.junit.Test
  * are not compared with our frames pixel by pixel.
  *
  * How the converter makes the wake (`WffLoops`, `docs/wff-converter-design.md` 6.4 and 13.3): a layer
- * that shows for the whole wake is a short loop (2 s at 15 frames a second) that repeats; a layer that
+ * that shows for the whole wake is a short loop (at most 2 s at 15 frames a second) that repeats, with
+ * the frames of the fade in before it and of the fade out after it when the wake fades; a layer that
  * shows for a part of the wake is played once, at most 8 frames a second, from where it starts; a
  * static picture whose layers also move in the wake gets frames of the whole picture, 4 a second. All
  * frames of a face together: at most 200.
@@ -52,7 +53,8 @@ class ParityWakeTest : WffParityBase() {
 
     /**
      * A layer that fades in and out with `env` (fadeMs 1500). The loop is taken after the fade in, so it
-     * has the full strength; the fade itself is not in WFF (the layer pops in and out).
+     * has the full strength; the frames of the fade in play once before it and those of the fade out
+     * once after it (`WffLoops.faded`). 3 s lie between the fades: 2 loops of 1.5 s.
      */
     @Test
     fun wakeEnvFade() {
@@ -61,9 +63,13 @@ class ParityWakeTest : WffParityBase() {
                 """{"shape": "circle", "color": "#FFD166", "x": 200, "y": 200, "radius": 50, "alpha": "env"}""",
                 "\"durationMs\": 6000, \"fadeMs\": 1500"
             ),
-            lint = listOf("moves in the wake", "1 loops"),
+            lint = listOf("moves in the wake", "fade in and out with the wake: 23 frames each", "3 loops with 69 frames"),
             wake = true
         )
+        val xml = faceXml()
+        assertWithMessage("the fade in plays once at the start:\n%s", xml).that(xml).contains("loopCount=\"1\" delayPlay=\"0\"")
+        assertWithMessage("the loop repeats after the fade in:\n%s", xml).that(xml).contains("loopCount=\"2\" delayPlay=\"1.5\"")
+        assertWithMessage("the fade out plays once when the loop ends:\n%s", xml).that(xml).contains("loopCount=\"1\" delayPlay=\"4.566\"")
     }
 
     /**

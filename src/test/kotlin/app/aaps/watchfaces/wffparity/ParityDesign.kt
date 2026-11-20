@@ -27,9 +27,13 @@ import java.io.File
  * - `Disc`: a white disc of 64 x 64, soft at its edge
  * - `Mask`: a white circle of 400 x 400, the upper half only (for masks)
  *
- * and the fonts of Aurora Town as `AuroraCut` and `AuroraSnow`.
+ * and the fonts of Aurora Town as `AuroraCut` and `AuroraSnow`. A test adds its own pictures with
+ * [picture].
  */
 class ParityDesign(val name: String) {
+
+    /** Pictures of this design only, by key, next to the ones every design has. */
+    private val pictures = HashMap<String, ResData>()
 
     private val json = JSONObject()
         .put("metadata", JSONObject().put(CwfMetadataKey.CWF_NAME.key, name).put(CwfMetadataKey.CWF_FILENAME.key, name).put(CwfMetadataKey.CWF_AUTHOR_VERSION.key, "1").put(CwfMetadataKey.CWF_VERSION.key, "2.0"))
@@ -54,6 +58,9 @@ class ParityDesign(val name: String) {
         json.put("animation", JSONObject("{$extra}").put("layers", JSONArray("[$layers]")))
     }
 
+    /** Adds the picture [data] under [key], or replaces it: a picture this test needs, such as a hand (`HourHand`). */
+    fun picture(key: String, data: ResData): ParityDesign = apply { pictures[key] = data }
+
     fun cwf(): CwfData {
         val res = mutableMapOf<String, ResData>()
         res["Background"] = png(400, 400) { c ->
@@ -75,6 +82,7 @@ class ParityDesign(val name: String) {
         res["Disc"] = png(64, 64) { c -> c.drawCircle(32f, 32f, 28f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }) }
         res["Mask"] = png(400, 400) { c -> c.drawRect(0f, 0f, 400f, 200f, Paint().apply { color = Color.WHITE }) }
         fonts().forEach { (key, data) -> res[key] = data }
+        res.putAll(pictures)
         // The watch reads the preferences of a design from its metadata, as a zip gives them
         val meta = json.getJSONObject("metadata")
         val metadata = meta.keys().asSequence().mapNotNull { key -> CwfMetadataKey.fromKey(key)?.let { it to meta.getString(key) } }.toMap().toMutableMap()
@@ -100,6 +108,6 @@ class ParityDesign(val name: String) {
             data.filterValues { it.format == ResFormat.TTF || it.format == ResFormat.OTF }.also { cached = it }
         }
 
-        var cached: Map<String, ResData>? = null
+        private var cached: Map<String, ResData>? = null
     }
 }
