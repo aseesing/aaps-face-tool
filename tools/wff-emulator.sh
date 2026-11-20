@@ -13,7 +13,7 @@
 #   WFF_TIME    the clock of the emulator for the picture, in ms since 1970 (default: the time of this computer)
 #   WFF_TZ      the time zone of the emulator, an Olson id like Europe/Amsterdam (default: leave it)
 #   WFF_WAKE    a number of pictures to take during a wake after the picture at rest (tools/wff-wake.sh)
-# Only one run at a time drives the emulator: a run waits for the lock ~/.cache/aaps-wff/emulator.lock.
+# Only one run at a time drives an emulator: a run waits for the lock ~/.cache/aaps-wff/<device>.lock.
 # Give the wear app apk (a debug build: the script needs run-as) the first time, and after a change of the app.
 # Output: <design folder>/emulator.png and compare.png (left: our engine, right: the emulator).
 set -e
@@ -27,7 +27,7 @@ ADB="${ANDROID_HOME:-$HOME/Library/Android/sdk}/platform-tools/adb"
 adb_() { "$ADB" -s "$DEVICE" "$@"; }
 
 # One run at a time: the parity tests and people share the emulator
-LOCK="${AAPS_WFF_CACHE:-$HOME/.cache/aaps-wff}/emulator.lock"
+LOCK="${AAPS_WFF_CACHE:-$HOME/.cache/aaps-wff}/$DEVICE.lock"
 mkdir -p "$(dirname "$LOCK")"
 WAITED=0
 while ! mkdir "$LOCK" 2>/dev/null; do

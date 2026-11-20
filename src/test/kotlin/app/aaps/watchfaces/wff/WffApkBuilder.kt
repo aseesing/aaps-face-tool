@@ -7,6 +7,7 @@ import android.graphics.Color
 import app.aaps.core.interfaces.rx.weardata.CwfData
 import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import app.aaps.shared.impl.weardata.toDrawable
+import app.aaps.wear.R
 import app.aaps.wear.watchfaces.animation.WakeAnimationJson
 import app.aaps.wear.watchfaces.wff.WffAssets
 import app.aaps.wear.watchfaces.wff.WffDesignParts
@@ -61,6 +62,8 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
         }
         val face = File(dir, "face")
         val notes = ArrayList<String>()
+        // Lines of the lint where the face loses something the design shows
+        val warnings = ArrayList<String>()
 
         // A wake layer that also shows at rest is a part of the static art: only its rest pose is kept
         val moving = first.items.filter { it.loop }.mapNotNull { it.layer }
@@ -127,9 +130,12 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
         fun frameLoop(layers: Set<Int>, span: WffLoops.Span?, condition: String?) {
             val take = frameRules.take(span)
             if (take == null) {
-                notes += "the layers $layers have no frames: the budget of ${WffLoops.MAX_FRAMES} frames is used up"
+                warnings += "the layers $layers have no frames: the budget of ${WffLoops.MAX_FRAMES} frames is used up, they do not show"
                 return
             }
+            if (take.cut) warnings += "the loop of the layers $layers is cut to ${take.atMs.size} frames (${"%.2f".format(take.atMs.size.toDouble() / take.fps)} s): the budget of ${WffLoops.MAX_FRAMES} frames is used up"
+            if (span == null && (animation?.fadeMs ?: 0L) > 0L)
+                warnings += "the layers $layers lose the fade in and out of the wake: their loop shows at full strength from the start to the end"
             val blend = blendOf[layers.first()]
             val frames = baker.wake(WffDesignParts.asCwf(cwf, parts.layers(layers), transparent = true), take.atMs, onBlack = blend != null).filterNotNull()
             val box = frames.map { WffPictures.shownBox(WffPictures.pixelsOf(it), WffPictures.SNAP, onBlack = blend != null) }.reduceOrNull(WffPictures::union)
@@ -168,7 +174,7 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
         }
 
         val written = WffFaceWriter(providerApp = client, measure = PaintFontMeasure(cwf), faceSize = baker.size).write(design, animation, plan, WffAssets(statics, loops))
-        val lint = plan.lint() + notes.joinToString("") { " note: $it\n" } + written.notWritten.joinToString("") { " ! not written: $it\n" } +
+        val lint = plan.lint() + notes.joinToString("") { " note: $it\n" } + warnings.joinToString("") { " ! $it\n" } + written.notWritten.joinToString("") { " ! not written: $it\n" } +
             "Pictures: ${statics.size} static, ${loops.size} loops with ${loops.sumOf { it.frames.size }} frames of ${WffLoops.MAX_FRAMES}\n"
         File(dir, "lint.txt").writeText(lint)
 
@@ -180,7 +186,8 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
         )
         write(face, WffResources.STRINGS_XML, "<resources>\n" + written.strings.entries.joinToString("") { (name, text) -> "    <string name=\"$name\">${escape(text)}</string>\n" } + "</resources>\n")
         for ((file, resource) in written.hands) {
-            val hand = cwf.resData[file]?.toDrawable(app.resources) ?: continue
+            // A design without its own hand picture shows the hand of the wear app, as our engine does
+            val hand = cwf.resData[file]?.toDrawable(app.resources) ?: DEFAULT_HANDS[file]?.let { app.resources.getDrawable(it, null) } ?: continue
             save(Bitmap.createBitmap(baker.size, baker.size, Bitmap.Config.ARGB_8888).also { b ->
                 hand.setBounds(0, 0, baker.size, baker.size)
                 hand.draw(Canvas(b))
@@ -257,5 +264,8 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
     private companion object {
 
         val TOKEN = Regex("generated token: (\\S+)")
+
+        /** The hands of the wear app that our engine draws when a design has none of its own. */
+        val DEFAULT_HANDS = mapOf("HourHand" to R.drawable.hour_hand, "MinuteHand" to R.drawable.minute_hand, "SecondHand" to R.drawable.second_hand)
     }
 }

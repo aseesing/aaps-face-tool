@@ -16,20 +16,22 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.json.JSONObject
 import java.io.File
 import java.time.LocalDateTime
-import java.util.concurrent.TimeUnit
 
 /**
  * The base of the parity tests: each test is a small design with one feature of the layer engine or
  * of the classic face, made into a Watch Face Format face, and compared with the face our own engine
  * draws. See `docs/wff-parity.md`.
  *
- * Two parts, as the test is run:
- * - always: the design is converted, the face must pass the Watch Face Push validator, and its lint
- *   must say what the test expects (a part that WFF cannot show must be said to be left out);
- * - with `-PwffParityEmulator` (an emulator of Wear OS 6 must run): the face is shown on the emulator
- *   with the same values at the same moment, and the pictures are compared per region.
+ * Two steps:
+ * - this test (a JVM, several run side by side): the design is converted, the face must pass the
+ *   Watch Face Push validator, and its lint must say what the test expects (a part that WFF cannot
+ *   show must be said to be left out);
+ * - with `-PwffParityEmulator`: the face is queued ([ParityJob]). One driver shows the queued faces
+ *   on the emulator, one after the other, while the tests still run, and [ParityEmulatorCheck]
+ *   compares its pictures with ours, region by region.
  *
  * Output per test in `build/wff-parity/<class>/<test>/`: the face folder of the harness, `lint.txt`,
  * `reference.png` (our engine), `emulator.png`, `diff.png` (ours, WFF, the differences) and
@@ -56,18 +58,27 @@ abstract class WffParityBase {
     fun stopClock() = clock.stop()
 
     /**
-     * Converts [design] and checks it.
+     * Converts [design] and checks it: the face must be valid and the lint must say what [lint] says.
+     * With the emulator (`-PwffParityEmulator`) the face is then queued for the one emulator driver;
+     * the compare step checks [regions], the wake and [stillInWake] when the driver has its pictures.
      *
      * @param lint texts the lint must have (for example "omit" next to a part WFF cannot show)
      * @param regions how much each part of the face may differ from our engine on the emulator
      * @param wake a test of the wake-up animation: also takes pictures during a wake on the emulator
+     * @param stillInWake parts that must look the same in every wake picture as at rest (a part that
+     *   WFF must not show or move in the wake)
      * @param onEmulator also on the emulator when the face is only one picture of our engine: for the
      *   test that proves such a picture is drawn one to one
      */
     protected fun check(
-        design: ParityDesign, lint: List<String> = emptyList(), regions: List<ParityCompare.Region> = listOf(WHOLE), wake: Boolean = false, onEmulator: Boolean = false
+        design: ParityDesign, lint: List<String> = emptyList(), regions: List<ParityCompare.Region> = listOf(WHOLE), wake: Boolean = false,
+        stillInWake: List<ParityCompare.Region> = emptyList(), onEmulator: Boolean = false
     ) {
-        val dir = File("build/wff-parity/${javaClass.simpleName}/${testName.methodName}").apply { deleteRecursively(); mkdirs() }
+        val dir = File("build/wff-parity/${javaClass.simpleName}/${testName.methodName}")
+        // The last pictures of the emulator stay: the driver keeps them when the face did not change
+        val kept = dir.listFiles { f -> f.name == "emulator.png" || f.name == "emulator.key" || f.name.matches(Regex("wake_\\d+\\.png")) }.orEmpty().associate { it.name to it.readBytes() }
+        dir.deleteRecursively()
+        dir.mkdirs()
         val app = RuntimeEnvironment.getApplication()
         clock.setTo(SnapshotClock.epochMs(MOMENT))
         val cache = File(System.getProperty("user.home"), ".cache/aaps-wff")
@@ -80,27 +91,29 @@ abstract class WffParityBase {
         baker.scene(cwf, scene, app.filesDir) { name -> app.getSharedPreferences(name, 0).all }
         val sceneAt = SnapshotClock.epochMs(MOMENT) + WffBaker.REST_LEAD_MS
         val result = WffApkBuilder(app, baker, CLIENT, pack, File(cache, "dev-key.pem")).build(cwf, dir)
+        // The builder starts with an empty folder too: the kept pictures go back after it
+        kept.forEach { (name, bytes) -> File(dir, name).writeBytes(bytes) }
         scene.copyRecursively(File(dir, "scene"), overwrite = true)
         File(dir, "scene/reference.png").copyTo(File(dir, "reference.png"), overwrite = true)
         val report = StringBuilder(result.lint)
         try {
             assertWithMessage("no valid face, see %s", File(dir, "lint.txt")).that(result.token).isNotNull()
             for (text in lint) assertWithMessage("the lint should say %s:\n%s", text, result.lint).that(result.lint).contains(text)
-            if (System.getProperty("wff.parity.emulator") != "true") {
-                report.append("emulator: not run\n")
-                return
+            val queue = System.getProperty("wff.parity.queue")
+            when {
+                queue == null                                                   -> report.append("emulator: not run\n")
+                // The face is one picture that our engine drew: the emulator would only show that picture again
+                !wake && !onEmulator && onlyOneBakedPicture(result.lint)        -> report.append("emulator: not needed, the face is one picture drawn by our engine\n")
+                !wake && regions.isEmpty()                                      -> report.append("emulator: not needed, nothing to compare\n")
+                else                                                            -> {
+                    // A face with frames plays its wake when it is shown: its picture at rest comes after the wake
+                    val frames = "PartAnimatedImage" in faceXml()
+                    val wakeMs = JSONObject(cwf.json).optJSONObject("animation")?.optLong("durationMs", DEFAULT_WAKE_MS) ?: 0L
+                    val restAfter = if (frames) (wakeMs / 1000 + 2).toInt() else 0
+                    ParityJob(dir.absoluteFile, sceneAt, regions, wake, stillInWake, restAfter).apply { write() }.enqueue(File(queue))
+                    report.append("emulator: queued\n")
+                }
             }
-            // The face is one picture that our engine drew: the emulator would only show that picture again
-            if (!wake && !onEmulator && onlyOneBakedPicture(result.lint)) {
-                report.append("emulator: not needed, the face is one picture drawn by our engine\n")
-                return
-            }
-            emulator(dir, sceneAt, wake)
-            val results = ParityCompare.compare(File(dir, "reference.png"), File(dir, "emulator.png"), regions, File(dir, "diff.png"))
-            results.forEach { report.append("compare ").append(it).append('\n') }
-            if (wake) wakeCheck(dir, report)
-            val failed = results.filter { !it.passed }
-            assertWithMessage("the WFF face differs from ours, see %s:\n%s", File(dir, "diff.png"), failed.joinToString("\n")).that(failed).isEmpty()
         } catch (e: AssertionError) {
             report.append("FAILED: ").append(e.message).append('\n')
             throw e
@@ -109,37 +122,19 @@ abstract class WffParityBase {
         }
     }
 
+    /** The folder of the running test. */
+    protected fun dir(): File = File("build/wff-parity/${javaClass.simpleName}/${testName.methodName}")
+
+    /** The `watchface.xml` the converter wrote for the running test. */
+    protected fun faceXml(): String = File(dir(), "face/res/raw/watchface.xml").readText()
+
     /** True when every part of the face is baked into static picture 0, and the face has nothing else. */
     private fun onlyOneBakedPicture(lint: String): Boolean {
         val lines = lint.lines()
         val items = lines.drop(1).takeWhile { !it.startsWith("Slots") }
         return items.isNotEmpty() && items.all { " bake " in it && "picture 0" in it } &&
             lines.any { it.startsWith("Slots 0 /") && "static pictures 1" in it } && lines.any { it.startsWith("Pictures: 1 static, 0 loops") } &&
-            lines.none { it.startsWith(" ! not written") }
-    }
-
-    /** Shows the face of [dir] on the emulator with the values of its scene, at [atMs], and takes its picture. */
-    private fun emulator(dir: File, atMs: Long, wake: Boolean) {
-        val env = mutableMapOf("WFF_TIME" to atMs.toString(), "WFF_TZ" to SnapshotClock.ZONE, "WFF_WAIT" to (System.getProperty("wff.parity.wait") ?: "20"))
-        if (wake) env["WFF_WAKE"] = WAKE_PICTURES.toString()
-        val output = run(listOf("sh", "tools/wff-emulator.sh", dir.path), env)
-        check(File(dir, "emulator.png").isFile) { "No picture of the emulator:\n$output" }
-    }
-
-    /** Pictures during a wake: the wake must show something that the face at rest does not. */
-    private fun wakeCheck(dir: File, report: StringBuilder) {
-        val rest = File(dir, "emulator.png")
-        val frames = (0 until WAKE_PICTURES).map { File(dir, "wake_$it.png") }.filter { it.isFile }
-        val moved = frames.map { ParityCompare.compare(rest, it, listOf(WHOLE), File(dir, "wake_diff_${frames.indexOf(it)}.png")).first().changedPercent }
-        report.append("wake: ").append(moved.joinToString { String.format("%.2f %%", it) }).append(" changed against the face at rest\n")
-        assertWithMessage("the wake shows nothing on the emulator, see %s", dir).that(moved.any { it > WAKE_SEEN_PERCENT }).isTrue()
-    }
-
-    private fun run(command: List<String>, env: Map<String, String>): String {
-        val process = ProcessBuilder(command).redirectErrorStream(true).apply { environment().putAll(env) }.start()
-        val output = process.inputStream.bufferedReader().readText()
-        process.waitFor(10, TimeUnit.MINUTES)
-        return output
+            lines.none { it.startsWith(" ! ") }
     }
 
     companion object {
@@ -154,6 +149,9 @@ abstract class WffParityBase {
 
         /** A wake must change at least this share of the face to count as seen. */
         const val WAKE_SEEN_PERCENT = 0.3
+
+        /** The length of a wake when the design sets none, as the engine (`WakeAnimationSpec`). */
+        const val DEFAULT_WAKE_MS = 6000L
 
         /** Pictures taken during a wake on the emulator. */
         const val WAKE_PICTURES = 4

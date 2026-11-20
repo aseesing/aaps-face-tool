@@ -16,7 +16,8 @@ adb_() { "$ADB" -s "$DEVICE" "$@"; }
 
 adb_ shell svc power stayon false
 adb_ shell input keyevent KEYCODE_SLEEP
-sleep 4
+# Long enough for the face to go to always-on, so the screen on starts a new wake
+sleep "${WFF_OFF:-4}"
 adb_ shell input keyevent KEYCODE_WAKEUP
 FILES=""
 i=0
