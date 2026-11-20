@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import app.aaps.core.interfaces.rx.weardata.CwfData
+import app.aaps.core.interfaces.rx.weardata.CwfMetadataKey
 import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import app.aaps.shared.impl.weardata.toDrawable
 import app.aaps.wear.R
@@ -35,13 +36,25 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
      * @param apk the face, or null when it was not built (the lint says why)
      * @param token the validator's token, or null when the face did not pass
      */
-    class Result(val lint: String, val apk: File?, val token: String?, val design: CwfData)
+    class Result(val lint: String, val apk: File?, val token: String?, val design: CwfData, val faceZip: File? = null)
 
-    fun build(zip: File, dir: File): Result =
-        build(ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)?.cwfData ?: error("${zip.name} is not a design zip"), dir)
+    /**
+     * What goes into the face zip ([WffFaceZip]) besides the face of [client].
+     *
+     * @param appIds the wear apps to make faces for, each in WFF 4 and 2
+     * @param file where the zip goes
+     */
+    class FaceZip(val appIds: List<String>, val file: File)
 
-    /** The face of the design [cwf], see [build]. */
-    fun build(cwf: CwfData, dir: File): Result {
+    fun build(zip: File, dir: File, faceZip: FaceZip? = null): Result =
+        build(ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)?.cwfData ?: error("${zip.name} is not a design zip"), dir, faceZip)
+
+    /**
+     * The face of the design [cwf] for [client] in WFF 4 (`face.apk`), see [build]. With [faceZip] also
+     * the faces of its other wear apps and of WFF 2, and the face zip. [Result.faceZip] is null when a
+     * face of the zip could not be made (the lint says why).
+     */
+    fun build(cwf: CwfData, dir: File, faceZip: FaceZip? = null): Result {
         val design = JSONObject(cwf.json)
         val animation = WakeAnimationJson({ text, default -> runCatching { Color.parseColor(text) }.getOrDefault(default) }) { null }.read(design)
         val planner = WffPlanner()
@@ -75,7 +88,7 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
             statics[run] = WffAssets.Picture("static_$run", WffPictures.designRect(box, baker.size))
             rests[run] = picture
         }
-        save(baker.rest(cwf), face, "preview")
+        save(baker.rest(cwf), face, PREVIEW)
 
         val wakeMs = (animation?.durationMs ?: 0L)
         val frameRules = WffLoops(wakeMs, animation?.fadeMs ?: 0L)
@@ -175,18 +188,19 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
             }
         }
 
-        val written = WffFaceWriter(providerApp = client, measure = PaintFontMeasure(cwf), faceSize = baker.size).write(design, animation, plan, WffAssets(statics, loops))
-        val lint = plan.lint() + notes.joinToString("") { " note: $it\n" } + warnings.joinToString("") { " ! $it\n" } + written.notWritten.joinToString("") { " ! not written: $it\n" } +
+        val assets = WffAssets(statics, loops)
+        fun written(appId: String, version: Int) =
+            WffFaceWriter(providerApp = appId, measure = PaintFontMeasure(cwf), faceSize = baker.size, version = version).write(design, animation, plan, assets)
+        val written = written(client, WffFaceWriter.VERSION_4)
+        var lint = plan.lint() + notes.joinToString("") { " note: $it\n" } + warnings.joinToString("") { " ! $it\n" } + written.notWritten.joinToString("") { " ! not written: $it\n" } +
             "Pictures: ${statics.size} static, ${loops.size} loops with ${loops.sumOf { it.frames.size }} frames of ${WffLoops.MAX_FRAMES}\n"
         File(dir, "lint.txt").writeText(lint)
 
         // The face folder that Pack reads
-        write(face, WffResources.WATCH_FACE_XML, written.xml)
         write(
             face, WffResources.WATCH_FACE_INFO_XML,
-            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<WatchFaceInfo><Preview value=\"@drawable/preview\" /><MultipleInstancesAllowed value=\"false\" /><Editable value=\"true\" /></WatchFaceInfo>\n"
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<WatchFaceInfo><Preview value=\"@drawable/$PREVIEW\" /><MultipleInstancesAllowed value=\"false\" /><Editable value=\"true\" /></WatchFaceInfo>\n"
         )
-        write(face, WffResources.STRINGS_XML, "<resources>\n" + written.strings.entries.joinToString("") { (name, text) -> "    <string name=\"$name\">${escape(text)}</string>\n" } + "</resources>\n")
         for ((file, resource) in written.hands) {
             // A design without its own hand picture shows the hand of the wear app, as our engine does
             val hand = cwf.resData[file]?.toDrawable(app.resources) ?: DEFAULT_HANDS[file]?.let { app.resources.getDrawable(it, null) } ?: continue
@@ -199,23 +213,87 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
             val font = cwf.resData[file] ?: continue
             File(face, WffResources.font(resource, font.format.extension)).apply { parentFile?.mkdirs() }.writeBytes(font.value)
         }
-        write(face, WffResources.MANIFEST, manifest())
+        writeFace(face, written, client, WffFaceWriter.VERSION_4)
 
-        // Pack: an aligned and signed APK. It prints "Error:" and still ends with 0 on a mistake.
-        val pack = run(listOf(packCli.path, face.path, face.path, key.path))
         val apk = File(dir, "face.apk")
-        File(dir, "face.aab").delete()
-        if (!pack.contains("Compiled, aligned & signed successfully") || !apk.isFile) {
-            File(dir, "lint.txt").appendText("!! Pack failed:\n$pack\n")
-            return Result(lint + "!! Pack failed:\n$pack\n", null, null, cwf)
+        pack(face, apk)?.let { failure ->
+            File(dir, "lint.txt").appendText(failure)
+            return Result(lint + failure, null, null, cwf)
         }
-
-        // The validator of Watch Face Push, as the AAPS wear build runs it for its own faces
-        val validator = run(listOf(File(System.getProperty("java.home"), "bin/java").path, "-cp", validatorJar(), "com.google.android.wearable.watchface.validator.cli.DwfValidation", "-a", apk.path, "-p", client))
-        val token = TOKEN.find(validator)?.groupValues?.get(1)
+        val (validator, token) = validate(apk, client)
         File(dir, "validator.txt").writeText(validator)
         token?.let { File(dir, "token.txt").writeText(it) }
-        return Result(lint, apk, token, cwf)
+        if (faceZip == null) return Result(lint, apk, token, cwf)
+
+        // The face zip: a face per wear app and per WFF version, made from the same pictures
+        val faces = ArrayList<WffFaceZip.Face>()
+        val zipLines = LinkedHashSet<String>()
+        for (appId in faceZip.appIds) for (version in listOf(WffFaceWriter.VERSION_4, WffFaceWriter.VERSION_2)) {
+            if (appId == client && version == WffFaceWriter.VERSION_4) {
+                if (token != null) faces += WffFaceZip.Face(appId, version, apk, token)
+                else zipLines += " !! no WFF $version face for $appId: it is not valid, see validator.txt\n"
+                continue
+            }
+            val other = written(appId, version)
+            if (version == WffFaceWriter.VERSION_2) other.notWritten.filter { it !in written.notWritten }.forEach { zipLines += " ! WFF 2 (Wear OS 5), not written: $it\n" }
+            val where = File(dir, "faces/$appId")
+            val folder = File(where, "wff$version")
+            folder.deleteRecursively()
+            face.copyRecursively(folder)
+            writeFace(folder, other, appId, version)
+            val otherApk = File(where, "wff$version.apk")
+            val packed = pack(folder, otherApk)
+            if (packed != null) {
+                zipLines += " !! no WFF $version face for $appId: Pack failed, see faces/$appId/pack-wff$version.txt\n"
+                File(where, "pack-wff$version.txt").writeText(packed)
+                continue
+            }
+            // The validator also checks the schema of version 2; its token is only needed for 4
+            val (otherValidator, otherToken) = validate(otherApk, appId)
+            File(where, "validator-wff$version.txt").writeText(otherValidator)
+            if (otherToken == null) {
+                zipLines += " !! no WFF $version face for $appId: it is not valid, see faces/$appId/validator-wff$version.txt\n"
+                continue
+            }
+            faces += WffFaceZip.Face(appId, version, otherApk, otherToken.takeIf { version == WffFaceWriter.VERSION_4 })
+        }
+        // The data picture's parts, as the watch draws them, and a check that AAPS can load them
+        val data = WffFaceZip.dataZip(cwf, parts)
+        val dataLoads = ZipWatchfaceFormat.loadCustomWatchface(data, WffFaceZip.DATA_ZIP, authorization = true) != null
+        if (!dataLoads) zipLines += " !! data.zip does not load as a design zip\n"
+        val name = cwf.metadata[CwfMetadataKey.CWF_NAME] ?: faceZip.file.name.removeSuffix("-wff.zip")
+        WffFaceZip.write(faceZip.file, name, data, faces)
+        val zipLint = zipLines.joinToString("") + "Face zip: ${faceZip.file.name}, ${faces.size} faces of ${faceZip.appIds.size * 2}, data.zip ${data.size / 1024} KB\n"
+        lint += zipLint
+        File(dir, "lint.txt").appendText(zipLint)
+        return Result(lint, apk, token, cwf, faceZip.file.takeIf { dataLoads && faces.size == faceZip.appIds.size * 2 })
+    }
+
+    /**
+     * Writes into the face folder [folder] what depends on the wear app and the version: the xml, its
+     * strings and the manifest. A picture the xml does not show is removed (frames that WFF 2 leaves out).
+     */
+    private fun writeFace(folder: File, written: WffFaceWriter.Face, appId: String, version: Int) {
+        write(folder, WffResources.WATCH_FACE_XML, written.xml)
+        write(folder, WffResources.STRINGS_XML, "<resources>\n" + written.strings.entries.joinToString("") { (name, text) -> "    <string name=\"$name\">${escape(text)}</string>\n" } + "</resources>\n")
+        write(folder, WffResources.MANIFEST, manifest(appId, version))
+        File(folder, WffResources.picture(PREVIEW, WffPictures.Format.PNG)).parentFile?.listFiles()
+            ?.filter { it.nameWithoutExtension != PREVIEW && "resource=\"${it.nameWithoutExtension}\"" !in written.xml }
+            ?.forEach { it.delete() }
+    }
+
+    /** Pack: an aligned and signed [apk] of [folder]. Null when it worked, else what Pack said. */
+    private fun pack(folder: File, apk: File): String? {
+        // It prints "Error:" and still ends with 0 on a mistake
+        val output = run(listOf(packCli.path, folder.path, apk.path.removeSuffix(".apk"), key.path))
+        File(apk.path.removeSuffix(".apk") + ".aab").delete()
+        return if (output.contains("Compiled, aligned & signed successfully") && apk.isFile) null else "!! Pack failed:\n$output\n"
+    }
+
+    /** The validator of Watch Face Push, as the AAPS wear build runs it for its own faces: its output, and the token when the face passed. */
+    private fun validate(apk: File, appId: String): Pair<String, String?> {
+        val output = run(listOf(File(System.getProperty("java.home"), "bin/java").path, "-cp", validatorJar(), "com.google.android.wearable.watchface.validator.cli.DwfValidation", "-a", apk.path, "-p", appId))
+        return output to TOKEN.find(output)?.groupValues?.get(1)
     }
 
     /** When [design] shows something in its wake, looked at at the moments of [frameRules]; null when it never does. */
@@ -239,12 +317,13 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
         File(face, path).apply { parentFile?.mkdirs() }.writeBytes(bytes)
     }
 
-    private fun manifest() = """<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$client.watchfacepush.design" android:versionCode="1" android:versionName="1">
+    /** The manifest of a face for the wear app [appId] in WFF [version]. API 33 is the first with WFF; the watches here run 34 (WFF 2) and 36 (WFF 4). */
+    private fun manifest(appId: String, version: Int) = """<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="${WffFaceZip.packageOf(appId)}" android:versionCode="1" android:versionName="1">
     <uses-sdk android:minSdkVersion="33" android:targetSdkVersion="36" />
     <uses-feature android:name="android.hardware.type.watch" />
     <application android:label="@string/app_name" android:hasCode="false">
-        <property android:name="com.google.wear.watchface.format.version" android:value="4" />
+        <property android:name="com.google.wear.watchface.format.version" android:value="$version" />
         <property android:name="com.google.wear.watchface.format.publisher" android:value="AAPS" />
     </application>
 </manifest>
@@ -266,6 +345,9 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
     private companion object {
 
         val TOKEN = Regex("generated token: (\\S+)")
+
+        /** The preview picture of the face, see `WatchFaceInfo`. */
+        const val PREVIEW = "preview"
 
         /** The hands of the wear app that our engine draws when a design has none of its own. */
         val DEFAULT_HANDS = mapOf("HourHand" to R.drawable.hour_hand, "MinuteHand" to R.drawable.minute_hand, "SecondHand" to R.drawable.second_hand)

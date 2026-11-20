@@ -22,12 +22,14 @@ import java.io.File
  * `./gradlew testDebugUnitTest -PwffOut=build/wff` (every zip of the designs repository, one test JVM per zip)
  *
  * Settings (Gradle properties): `wffZips` the folder with the zips (default `cwf-designs` of `designsDir`), `wffOut`
- * where the output goes (one folder per design), `wffClient` the application id of the wear app
- * (default `info.nightscout.androidaps`), `wffOnly` one zip name.
+ * where the output goes (one folder per design), `wffClient` the application id of one wear app
+ * (default: all of [WffFaceZip.APP_IDS]), `wffOnly` one zip name.
  *
- * Per design: `lint.txt`, the folder `face` that Pack reads, `face.apk`, `validator.txt`, `token.txt`
- * when the face passed, and `scene`: the stores of the watch app with fixed values of now, and
- * `reference.png`, the face as our own engine draws it with those values.
+ * Per design: the face zip `<design>-wff.zip` in `wffOut` ([WffFaceZip]), and in the design's folder
+ * `lint.txt`, the folder `face` that Pack reads, `face.apk` (WFF 4, the first wear app),
+ * `validator.txt`, `token.txt` when the face passed, `faces/<app id>/` with the other faces, and
+ * `scene`: the stores of the watch app with fixed values of now, and `reference.png`, the face as our
+ * own engine draws it with those values.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -58,16 +60,20 @@ class WffApkTest {
         val pack = File(cache, "pack/target/release/pack-cli").takeIf { it.isFile } ?: File(cache, "pack/target/release/pack-cli.exe")
         check(pack.isFile) { "Pack is not built: run tools/build-pack.sh (docs/wff-apk.md)" }
         val baker = WffBaker(SnapshotEngine(app), clock, SIZE)
-        val builder = WffApkBuilder(app, baker, System.getProperty("wff.client") ?: "info.nightscout.androidaps", pack, File(cache, "dev-key.pem"))
+        val appIds = System.getProperty("wff.client")?.let { listOf(it) } ?: WffFaceZip.APP_IDS
+        val builder = WffApkBuilder(app, baker, appIds.first(), pack, File(cache, "dev-key.pem"))
         // The scene first, while the clock is still at the real time: baking moves the clock on
         val design = ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)?.cwfData ?: error("${zip.name} is not a design zip")
         val scene = File(app.cacheDir, "scene")
         baker.scene(design, scene, app.filesDir) { name -> app.getSharedPreferences(name, 0).all }
-        val result = builder.build(zip, dir)
+        val faceZip = File(dir.parentFile, WffFaceZip.nameOf(zip.name))
+        faceZip.delete()
+        val result = builder.build(zip, dir, WffApkBuilder.FaceZip(appIds, faceZip))
         println(result.lint)
         scene.copyRecursively(File(dir, "scene"), overwrite = true)
         File(dir, "result.txt").writeText(if (result.token != null) "valid, ${result.apk!!.length() / 1024} KB" else if (result.apk != null) "built, NOT valid" else "not built")
         check(result.token != null) { "${zip.name}: no valid face, see ${File(dir, "lint.txt")} and validator.txt" }
+        check(result.faceZip != null) { "${zip.name}: the face zip misses a face or its data.zip, see ${File(dir, "lint.txt")}" }
     }
 
     private companion object {

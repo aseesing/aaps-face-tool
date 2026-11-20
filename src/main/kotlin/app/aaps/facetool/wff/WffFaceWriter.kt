@@ -36,14 +36,22 @@ import kotlin.math.roundToInt
  * @param highMgdl the high glucose threshold of the wearer, in mg/dl
  * @param measure the heights of the fonts of the design, to place its texts
  * @param faceSize the width and height of the face, in pixels of the baked pictures
+ * @param version the WFF version to write, one of [VERSIONS]: 4 for Wear OS 6 (Watch Face Push), 2 for
+ *   Wear OS 5. Version 2 has no `blendMode`: wake frames of light that adds to what lies below are left
+ *   out there, each with a line in [Face.notWritten].
  */
 class WffFaceWriter(
     private val providerApp: String,
     private val lowMgdl: Double = 70.0,
     private val highMgdl: Double = 180.0,
     private val measure: WffFontMeasure = WffFontMeasure { _, _ -> WffFontMetrics.ROBOTO },
-    private val faceSize: Int = SIZE
+    private val faceSize: Int = SIZE,
+    private val version: Int = VERSION_4
 ) {
+
+    init {
+        require(version in VERSIONS) { "WFF version $version is not written, only $VERSIONS" }
+    }
 
     /** Face units per design pixel. */
     private val scale = faceSize / SIZE.toDouble()
@@ -126,6 +134,11 @@ class WffFaceWriter(
         }
 
         private fun loop(loop: WffAssets.Loop) {
+            // Frames on black need their blend, else the black shows: without blendMode they are left out
+            if (loop.blend != null && version < BLEND_VERSION) {
+                if (done.add("noBlend${loop.layers}")) notWritten += "the wake frames of the layers ${loop.layers.sorted()}: they add light, and WFF $version has no blendMode"
+                return
+            }
             loop.condition?.let {
                 line(2, """<Condition><Expressions><Expression name="days">${xml(it)}</Expression></Expressions><Compare expression="days">""")
                 loop(loop.copy(condition = null))
@@ -262,8 +275,8 @@ class WffFaceWriter(
 
         /**
          * A slot of the wearer, in the style of the design: its fill, its ring for a value with a range,
-         * its icon and its text. Until the wearer picks something it shows what the code-based face
-         * shows there: heart rate, steps, carbs and insulin from AAPS in slots 1 to 4.
+         * its icon and its text. Until the wearer picks something it shows what [USER_SLOT_DEFAULTS]
+         * gives: the watch's own heart rate and steps, and carbs and insulin from AAPS, in slots 1 to 4.
          *
          * Each key is found as our engine finds it (`customizeComplicationView`): on the slot, then in
          * the design's `complicationStyle` section, then the engine's default. The parts go where the
@@ -312,9 +325,10 @@ class WffFaceWriter(
             // The watch shows a slot only when its preference is on, which the design sets: only then
             // the slot starts with a source. The wearer can still pick one for any slot.
             val on = design.optJSONObject("metadata")?.optString("key_show_complication$n") == "true"
-            val policy = USER_SLOT_DEFAULTS[n]?.takeIf { on }?.let { (provider, type) -> """ primaryProvider="$providerApp/$provider" primaryProviderType="$type"""" } ?: ""
+            val start = USER_SLOT_DEFAULTS[n]?.takeIf { on } ?: SlotDefault()
+            val policy = start.aapsProvider?.let { """ primaryProvider="$providerApp/$it" primaryProviderType="${start.aapsType}"""" } ?: ""
             line(2, """<ComplicationSlot slotId="$n" name="Slot$n" displayName="@string/slot_$n" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT SMALL_IMAGE MONOCHROMATIC_IMAGE EMPTY" x="${(box.left * scale).toInt()}" y="${(box.top * scale).toInt()}" width="$w" height="$h">""")
-            line(3, """<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY"$policy />""")
+            line(3, """<DefaultProviderPolicy defaultSystemProvider="${start.system}" defaultSystemProviderType="${start.systemType}"$policy />""")
             val corners = scaled(size("borderRadius") ?: 0)
             val radius = minOf(minOf(w, h) / 2, corners)
             line(3, if (radius >= minOf(w, h) / 2) """<BoundingOval x="0" y="0" width="$w" height="$h" />""" else """<BoundingBox x="0" y="0" width="$w" height="$h" />""")
@@ -608,38 +622,58 @@ class WffFaceWriter(
         }
     }
 
-    private companion object {
+    /**
+     * What a slot of the wearer starts with: a provider of the watch itself ([system], a
+     * `defaultSystemProvider` of WFF, with its type), or one of AAPS ([aapsProvider], a class of the wear
+     * app, with its type), which then comes first.
+     */
+    private data class SlotDefault(val system: String = "EMPTY", val systemType: String = "EMPTY", val aapsProvider: String? = null, val aapsType: String? = null)
+
+    companion object {
+
+        /** The WFF versions the writer can write: 2 (Wear OS 5) and 4 (Wear OS 6). */
+        const val VERSION_2 = 2
+        const val VERSION_4 = 4
+        val VERSIONS = setOf(VERSION_2, VERSION_4)
+
+        /** The first WFF version with `blendMode` on parts. */
+        private const val BLEND_VERSION = 3
 
         /** The face is written in the design's own space. */
-        const val SIZE = 400
+        private const val SIZE = 400
 
-        const val DEFAULT_TEXT = "#FFFFFFFF"
+        private const val DEFAULT_TEXT = "#FFFFFFFF"
 
         /** The system font that is bold: WFF has only the font of the device, with a weight. */
-        const val BOLD_FONT = "default_bold"
+        private const val BOLD_FONT = "default_bold"
 
         /** The text size of a classic view that sets none, as `CustomWatchface` uses. */
-        const val DEFAULT_TEXT_SIZE = 22
-        const val CLEAR = "#00000000"
+        private const val DEFAULT_TEXT_SIZE = 22
+        private const val CLEAR = "#00000000"
 
-        /** What a slot of the wearer shows until they pick something, as on the code-based face (`customSlotDefaultSource`). */
-        val USER_SLOT_DEFAULTS = mapOf(
-            1 to ("app.aaps.wear.health.HeartRateComplication" to "RANGED_VALUE"),
-            2 to ("app.aaps.wear.health.StepsComplication" to "RANGED_VALUE"),
-            3 to ("app.aaps.wear.complications.CobIconComplication" to "SHORT_TEXT"),
-            4 to ("app.aaps.wear.complications.IobIconComplication" to "SHORT_TEXT")
+        /**
+         * What a slot of the wearer shows until they pick something, as on the code-based face
+         * (`customSlotDefaultSource`). The heart rate and the steps come from the watch itself: the
+         * providers of AAPS for them were removed. WFF 2 and 4 both have `HEART_RATE` and `STEP_COUNT`;
+         * they give a short text.
+         */
+        private val USER_SLOT_DEFAULTS = mapOf(
+            1 to SlotDefault(system = "HEART_RATE", systemType = "SHORT_TEXT"),
+            2 to SlotDefault(system = "STEP_COUNT", systemType = "SHORT_TEXT"),
+            3 to SlotDefault(aapsProvider = "app.aaps.wear.complications.CobIconComplication", aapsType = "SHORT_TEXT"),
+            4 to SlotDefault(aapsProvider = "app.aaps.wear.complications.IobIconComplication", aapsType = "SHORT_TEXT")
         )
-        const val PROVIDERS = "app.aaps.wear.complications.wff"
-        const val HIDE_IN_AMBIENT = """<Variant mode="AMBIENT" target="alpha" value="0" />"""
+        private const val PROVIDERS = "app.aaps.wear.complications.wff"
+        private const val HIDE_IN_AMBIENT = """<Variant mode="AMBIENT" target="alpha" value="0" />"""
 
-        val CLOCK_VIEWS = setOf("time", "hour", "minute", "second")
-        val DATE_VIEWS = setOf("day_name", "day", "month")
-        val HAND_VIEWS = setOf("hour_hand", "minute_hand", "second_hand")
-        val SYSTEM_FONTS = setOf("default", "default_bold", "sans_serif", "serif", "monospace", "roboto_condensed_bold", "roboto_condensed_light", "roboto_condensed_regular", "roboto_slab_light")
+        private val CLOCK_VIEWS = setOf("time", "hour", "minute", "second")
+        private val DATE_VIEWS = setOf("day_name", "day", "month")
+        private val HAND_VIEWS = setOf("hour_hand", "minute_hand", "second_hand")
+        private val SYSTEM_FONTS = setOf("default", "default_bold", "sans_serif", "serif", "monospace", "roboto_condensed_bold", "roboto_condensed_light", "roboto_condensed_regular", "roboto_slab_light")
 
-        fun box(v: JSONObject) = DesignRect(v.optDouble("leftmargin", 0.0).toFloat(), v.optDouble("topmargin", 0.0).toFloat(), v.optDouble("width", 0.0).toFloat(), v.optDouble("height", 0.0).toFloat())
+        private fun box(v: JSONObject) = DesignRect(v.optDouble("leftmargin", 0.0).toFloat(), v.optDouble("topmargin", 0.0).toFloat(), v.optDouble("width", 0.0).toFloat(), v.optDouble("height", 0.0).toFloat())
 
-        fun union(a: DesignRect, b: DesignRect): DesignRect {
+        private fun union(a: DesignRect, b: DesignRect): DesignRect {
             val left = minOf(a.left, b.left)
             val top = minOf(a.top, b.top)
             return DesignRect(left, top, maxOf(a.right, b.right) - left, maxOf(a.bottom, b.bottom) - top)
@@ -650,7 +684,7 @@ class WffFaceWriter(
          * layer has a point ([LayerSource.Text.align] says which end is at x, y is the base line); WFF
          * puts a text in a box, so the box is as wide as the face and as high as the font.
          */
-        fun textBox(source: LayerSource.Text, props: Map<LayerProp, String>, metrics: WffFontMetrics): DesignRect? {
+        private fun textBox(source: LayerSource.Text, props: Map<LayerProp, String>, metrics: WffFontMetrics): DesignRect? {
             val x = constant(props[LayerProp.X]) ?: return null
             val y = constant(props[LayerProp.Y]) ?: return null
             val left = when (source.align) {
@@ -671,22 +705,22 @@ class WffFaceWriter(
         }
 
         /** How high the box of a text layer is, in parts of the font size. */
-        const val LINE_HEIGHT = 1.25
+        private const val LINE_HEIGHT = 1.25
 
-        fun align(gravity: String) = when (gravity) {
+        private fun align(gravity: String) = when (gravity) {
             "left"  -> "START"
             "right" -> "END"
             else    -> "CENTER"
         }
 
-        fun align(a: TextAlign) = when (a) {
+        private fun align(a: TextAlign) = when (a) {
             TextAlign.LEFT   -> "START"
             TextAlign.CENTER -> "CENTER"
             TextAlign.RIGHT  -> "END"
         }
 
         /** A colour of the design (`#RRGGBB` or `#AARRGGBB`) as WFF writes it, `#AARRGGBB`. */
-        fun color(text: String, default: String): String {
+        private fun color(text: String, default: String): String {
             val t = text.trim()
             return when {
                 Regex("#[0-9A-Fa-f]{8}").matches(t) -> t.uppercase(Locale.ROOT)
@@ -695,14 +729,14 @@ class WffFaceWriter(
             }
         }
 
-        fun argb(colour: Int) = String.format(Locale.ROOT, "#%08X", colour)
+        private fun argb(colour: Int) = String.format(Locale.ROOT, "#%08X", colour)
 
-        fun num(x: Double) = WffExpressionPrinter.number(x) ?: "0"
+        private fun num(x: Double) = WffExpressionPrinter.number(x) ?: "0"
 
-        fun xml(text: String) = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+        private fun xml(text: String) = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
         /** [text] as a fixed number, or null when it is not one. */
-        fun constant(text: String?): Double? = try {
+        private fun constant(text: String?): Double? = try {
             text?.let { Formula.parse(it) { null } }?.takeIf { it.isConstant }?.eval(DoubleArray(0))
         } catch (_: FormulaException) {
             null

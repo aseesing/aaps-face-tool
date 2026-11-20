@@ -1095,7 +1095,13 @@ build on the phone, send, push) is not built.
   between them lies over it.
 - **The old-reading mark of a shape layer** (Aurora) is in the data picture, not live.
 - A wearer's slot starts with the source the code-based face gives it (heart rate, steps, carbs,
-  insulin in slots 1 to 4) when the design turns the slot on.
+  insulin in slots 1 to 4) when the design turns the slot on. Since 2026-11-20 the heart rate and
+  the steps come from the watch itself (`defaultSystemProvider` `HEART_RATE`, `STEP_COUNT`): AAPS
+  removed its own providers for them.
+- The writer writes WFF 4 or WFF 2 (`WffFaceWriter.version`). WFF 2 (Wear OS 5) has no
+  `blendMode`, so frames of light that adds to what lies below are left out there, with a lint
+  line. The face zip (`WffFaceZip`, `docs/wff-apk.md`) holds both versions for each wear app, and
+  `data.zip`: the data picture's design, made here instead of on the watch.
 - The fitted sun times (4.3), `[REFERENCE]` across slots and the expression printer are proven or
   built but not needed by the writer so far.
 

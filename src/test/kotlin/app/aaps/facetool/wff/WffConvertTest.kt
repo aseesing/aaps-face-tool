@@ -7,6 +7,9 @@ package app.aaps.facetool.wff
 import android.app.Application
 import android.graphics.Color
 import app.aaps.core.interfaces.rx.weardata.CwfData
+import app.aaps.core.interfaces.rx.weardata.ResData
+import app.aaps.core.interfaces.rx.weardata.ResFormat
+import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import app.aaps.wear.watchfaces.animation.DesignRect
 import app.aaps.wear.watchfaces.animation.WakeAnimationJson
 import app.aaps.wear.watchfaces.wff.WffDesignParts
@@ -21,6 +24,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.nio.file.Files
+import java.util.zip.ZipFile
 import javax.imageio.ImageIO
 
 /**
@@ -61,15 +66,18 @@ class WffConvertTest {
     private val animation = WakeAnimationJson({ text, default -> runCatching { Color.parseColor(text) }.getOrDefault(default) }) { null }.read(design)
     private val plan = WffPlanner().plan(design, animation)
 
+    private val assets = WffAssets(
+        statics = mapOf(0 to WffAssets.Picture("static_0", DesignRect.FULL), 1 to WffAssets.Picture("static_1", DesignRect(10f, 10f, 380f, 380f))),
+        loops = listOf(
+            WffAssets.Loop(layers = setOf(2), frames = listOf("loop0_000", "loop0_001"), fps = 15, box = DesignRect(0f, 80f, 400f, 40f), loopCount = 3, blend = "PLUS", condition = "[MONTH] == 12 && [DAY] >= 24"),
+            WffAssets.Loop(layers = emptySet(), frames = listOf("sky_000", "sky_001"), fps = 6, box = DesignRect(0f, 0f, 400f, 200f), overRun = 0)
+        )
+    )
+
+    private fun valid(xml: String, version: Int): Boolean = WatchFaceXmlValidator().validate(File.createTempFile("watchface", ".xml").apply { writeText(xml) }.path, version.toString())
+
     @Test
     fun aSmallDesignGivesAValidFace() {
-        val assets = WffAssets(
-            statics = mapOf(0 to WffAssets.Picture("static_0", DesignRect.FULL), 1 to WffAssets.Picture("static_1", DesignRect(10f, 10f, 380f, 380f))),
-            loops = listOf(
-                WffAssets.Loop(layers = setOf(2), frames = listOf("loop0_000", "loop0_001"), fps = 15, box = DesignRect(0f, 80f, 400f, 40f), loopCount = 3, blend = "PLUS", condition = "[MONTH] == 12 && [DAY] >= 24"),
-                WffAssets.Loop(layers = emptySet(), frames = listOf("sky_000", "sky_001"), fps = 6, box = DesignRect(0f, 0f, 400f, 200f), overRun = 0)
-            )
-        )
         val face = WffFaceWriter(providerApp = "info.nightscout.androidaps").write(design, animation, plan, assets)
         val file = File.createTempFile("watchface", ".xml").apply { writeText(face.xml) }
         assertWithMessage("%s", face.xml).that(WatchFaceXmlValidator().validate(file.path, "4")).isTrue()
@@ -99,13 +107,68 @@ class WffConvertTest {
         // The time view is a text of the hour and the minute (a TimeText spaces its signs wider), the clock() layer a TimeText
         assertThat(Regex("<TimeText").findAll(xml).count()).isEqualTo(1)
         assertThat(xml).contains("[MINUTE_Z]")
-        // The wearer's slot starts with the heart rate of AAPS, as on the code-based face, because the design turns it on
+        // The wearer's slot starts with the heart rate, as on the code-based face, because the design turns it on.
+        // It comes from the watch itself: AAPS has no heart rate provider any more.
         assertThat(xml).contains("""slotId="1"""")
-        assertThat(xml).contains("info.nightscout.androidaps/app.aaps.wear.health.HeartRateComplication")
+        assertThat(xml).contains("""<DefaultProviderPolicy defaultSystemProvider="HEART_RATE" defaultSystemProviderType="SHORT_TEXT" />""")
+        assertThat(xml).doesNotContain("app.aaps.wear.health")
         assertThat(xml).contains("<Upper>")
         assertThat(xml).contains("<HourHand")
         assertThat(face.strings.keys).containsAtLeast("app_name", "slot_1", "glucose", "glucose_age", "data")
         assertThat(face.notWritten).isEmpty()
+    }
+
+    @Test
+    fun versionTwoLeavesOutTheFramesThatNeedABlend() {
+        val face = WffFaceWriter(providerApp = "info.nightscout.androidaps", version = WffFaceWriter.VERSION_2).write(design, animation, plan, assets)
+        assertWithMessage("%s", face.xml).that(valid(face.xml, 2)).isTrue()
+        // The face of version 4 has the blend, which the schema of version 2 does not allow
+        assertThat(valid(WffFaceWriter(providerApp = "info.nightscout.androidaps").write(design, animation, plan, assets).xml, 2)).isFalse()
+        assertThat(face.xml).doesNotContain("blendMode")
+        assertThat(face.xml).doesNotContain("\"loop0_000\"")
+        // Frames without a blend stay, and so does the rest of the face
+        assertThat(face.xml).contains("\"sky_000\"")
+        assertThat(face.xml).contains("WffGlucoseComplication")
+        assertThat(face.xml).contains("""defaultSystemProvider="HEART_RATE"""")
+        assertThat(face.notWritten).containsExactly("the wake frames of the layers [2]: they add light, and WFF 2 has no blendMode")
+    }
+
+    @Test
+    fun theDataZipLoadsAsADesignZipAndKeepsTheArrows() {
+        val png = WffDesignParts.CLEAR_PNG
+        val res = listOf("CustomWatchface", "Background", "BackgroundHigh", "ArrowFlat", "ArrowDoubleUp", "Frame").associateWith { ResData(byteArrayOf(1, 2, 3), ResFormat.PNG) }
+        val source = CwfData(design.toString(), mutableMapOf(), res.toMutableMap())
+        val bytes = WffFaceZip.dataZip(source, WffDesignParts(design, animation, plan))
+        val data = ZipWatchfaceFormat.loadCustomWatchface(bytes, WffFaceZip.DATA_ZIP, authorization = true)?.cwfData
+        assertThat(data).isNotNull()
+        // The arrows stay, though the arrow of this design is live in the glucose slot
+        assertThat(data!!.resData.keys).containsExactly("CustomWatchface", "Background", "ArrowFlat", "ArrowDoubleUp", "Frame")
+        assertThat(data.resData.getValue("Background").value).isEqualTo(png)
+        val json = JSONObject(data.json)
+        assertThat(json.getJSONObject("metadata").getString("name")).isEqualTo("Small")
+        assertThat(json.getJSONObject("chart").getString("visibility")).isEqualTo("visible")
+        assertThat(json.getJSONObject("sgv").getString("visibility")).isEqualTo("gone")
+        assertThat(json.getJSONObject("direction").getString("visibility")).isEqualTo("gone")
+    }
+
+    @Test
+    fun theFaceZipHoldsTheEntriesOfFormatOne() {
+        val dir = Files.createTempDirectory("facezip").toFile()
+        val apk4 = File(dir, "a4.apk").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        val apk2 = File(dir, "a2.apk").apply { writeBytes(byteArrayOf(4, 5)) }
+        val file = File(dir, WffFaceZip.nameOf("Small.zip"))
+        val app = "info.nightscout.aapsclient"
+        WffFaceZip.write(file, "Small", byteArrayOf(9), listOf(WffFaceZip.Face(app, 4, apk4, "token4"), WffFaceZip.Face(app, 2, apk2, null)))
+        assertThat(file.name).isEqualTo("Small-wff.zip")
+        val entries = ZipFile(file).use { zip -> zip.entries().asSequence().toList().associate { it.name to zip.getInputStream(it).readBytes() } }
+        assertThat(entries.keys).containsExactly("face.json", "data.zip", "wff4/$app.apk", "wff4/$app.token", "wff2/$app.apk").inOrder()
+        val faceJson = JSONObject(String(entries.getValue("face.json"), Charsets.UTF_8))
+        assertThat(faceJson.getInt("format")).isEqualTo(1)
+        assertThat(faceJson.getString("name")).isEqualTo("Small")
+        assertThat(String(entries.getValue("wff4/$app.token"), Charsets.UTF_8)).isEqualTo("token4")
+        assertThat(entries.getValue("wff2/$app.apk")).isEqualTo(byteArrayOf(4, 5))
+        assertThat(WffFaceZip.packageOf(app)).isEqualTo("info.nightscout.aapsclient.watchfacepush.design")
+        dir.deleteRecursively()
     }
 
     @Test

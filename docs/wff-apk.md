@@ -73,20 +73,45 @@ Things to know about Pack:
 ./gradlew testDebugUnitTest -PwffOut=build/wff
 ```
 
-This makes a face of every zip in the `cwf-designs` folder of the designs repository
+This makes the face zip of every zip in the `cwf-designs` folder of the designs repository
 (`aaps-watchfaces`, set `designsDir` in `local.properties`), each in its own test JVM. One design:
 `-PwffOnly=Aurora_Town`. Other settings: `-PwffZips=<folder>` (where the zips are) and
-`-PwffClient=<application id>` (the wear app that will install the face and feed it; default
-`info.nightscout.androidaps`, the full app. A face only works with the app it was made for.)
+`-PwffClient=<application id>` (only the faces for this one wear app, which is quicker; default: all
+five, see below. A face only works with the app it was made for.)
 
-Per design, in `build/wff/<design>/`:
+### The face zip
+
+The AAPS phone app loads one zip per design: `build/wff/<design>-wff.zip`. The user picks it on the
+phone like an old design zip. It holds:
+
+| Entry | What |
+|---|---|
+| `face.json` | `{"format": 1, "name": "<design name>"}` |
+| `data.zip` | the design with only the parts of the data picture, as an old design zip (`CustomWatchface.json`, the `CustomWatchface` picture, the resource files with a clear background). It keeps the arrow pictures (`ArrowFlat` and the others), also when no view of the data picture uses them. The watch draws it into the data picture. |
+| `wff4/<app id>.apk` | the face in WFF version 4, for Wear OS 6 (API 36), installed with Watch Face Push |
+| `wff4/<app id>.token` | the Watch Face Push token of exactly that APK |
+| `wff2/<app id>.apk` | the face in WFF version 2, for Wear OS 5 (API 34), installed as a normal app. No token. |
+
+The app ids are those of the wear apps: `info.nightscout.androidaps`, `info.nightscout.aapsclient`,
+`info.nightscout.aapsclient2`, `info.nightscout.aapsclient3` and `info.nightscout.aapspumpcontrol`.
+The package of each face is `<app id>.watchfacepush.design`, and its slots read the complications
+of that app. The phone takes the highest version the watch can run. The class `WffFaceZip` writes
+the zip.
+
+WFF 2 has no `blendMode`. The wake frames of light that adds to what lies below (layers with blend
+`add` or `screen`) are left out of the WFF 2 face; the lint has a line with `!` for each.
+
+### Per design
+
+In `build/wff/<design>/`:
 
 | File | What |
 |---|---|
-| `lint.txt` | one line per view and layer: live, baked, in the data picture, or left out, and every warning |
-| `face/` | the folder Pack reads: `AndroidManifest.xml`, `res/raw/watchface.xml`, the pictures, the fonts |
-| `face.apk` | the face |
+| `lint.txt` | one line per view and layer: live, baked, in the data picture, or left out, every warning, what the WFF 2 face leaves out, and a line about the face zip |
+| `face/` | the folder Pack reads, for the first app id in WFF 4: `AndroidManifest.xml`, `res/raw/watchface.xml`, the pictures, the fonts |
+| `face.apk` | that face; the emulator scripts install this one |
 | `validator.txt`, `token.txt` | the answer of the Watch Face Push validator, and its token when the face passed |
+| `faces/<app id>/` | the other faces of the zip: `wff4/` and `wff2/` (the folders), `wff4.apk`, `wff2.apk`, and the answers of the validator. The validator also checks a WFF 2 face against the schema of version 2. |
 | `scene/` | for the emulator: the stores of the watch app with fixed values of now, and `reference.png`, the face as our own engine draws it with those values |
 
 Read `lint.txt` after every change of a design. A line with `!` means something looks or behaves in
@@ -144,6 +169,9 @@ for fresh ones.
   chosen on the watch, does not reach the face.
 - A view that only moves during the wake (a blink, a hop) stays at its rest place.
 - In always-on the face shows the clock, the glucose, its age and your own slots.
+- Your own slots 1 and 2 start with the heart rate and the steps of the watch itself (the face
+  only sets them when the design turns the slot on); slots 3 and 4 start with carbs and insulin from
+  AAPS.
 - A tap anywhere on the data picture opens the AAPS menu.
 
 ## The parity suite

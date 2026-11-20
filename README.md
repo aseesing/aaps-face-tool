@@ -7,7 +7,9 @@ Watches that started with Wear OS 5 or later, and all watches on Wear OS 6, only
 design zip (a `CustomWatchface.json` with pictures and fonts) is made for the code-based Custom watch
 face of the AAPS wear app. This tool turns it into a WFF face: static art baked to pictures by the
 watch's own engine, live parts the watch draws itself (clock, date, hands, glucose, its age), and one
-data picture that the AAPS wear app draws on the watch.
+data picture that the AAPS wear app draws on the watch. Per design it writes one face zip for the AAPS
+phone app: the faces in WFF 4 (Wear OS 6) and WFF 2 (Wear OS 5) for each wear app, and the parts of
+the data picture (`docs/wff-apk.md`).
 
 ## How it is built
 
@@ -43,7 +45,7 @@ designsDir=/Users/you/Projects/aaps-watchfaces
 
 ```
 ./gradlew testDebugUnitTest                         converter tests
-./gradlew testDebugUnitTest -PwffOut=build/wff      a face of every design zip (docs/wff-apk.md)
+./gradlew testDebugUnitTest -PwffOut=build/wff      the face zip of every design zip (docs/wff-apk.md)
 ./gradlew wffParityTest                             the parity suite on the JVM
 ./gradlew wffParityTest -PwffParityEmulator          and on a Wear OS 6 emulator (docs/wff-parity.md)
 ```
