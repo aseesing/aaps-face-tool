@@ -1,11 +1,9 @@
-package app.aaps.watchfaces.wff
+package app.aaps.facetool.wff
 
 import android.graphics.Paint
 import android.graphics.Typeface
 import app.aaps.core.interfaces.rx.weardata.CwfData
 import app.aaps.shared.impl.weardata.toTypeface
-import app.aaps.wear.watchfaces.wff.WffFontMeasure
-import app.aaps.wear.watchfaces.wff.WffFontMetrics
 
 /**
  * The [WffFontMetrics] of the fonts of [design], measured with Android's own `Paint`. A font that is not

@@ -2,16 +2,14 @@
 // PERSONAL PATCH - not part of upstream AAPS (branch local/personal, see .github/README.md).
 // Own file: keep upstream files to small hooks that call into here.
 // ============================================================================================
-package app.aaps.wear.wffconvert
+package app.aaps.facetool.wff
 
 import android.app.Application
 import android.graphics.Color
 import app.aaps.core.interfaces.rx.weardata.CwfData
 import app.aaps.wear.watchfaces.animation.DesignRect
 import app.aaps.wear.watchfaces.animation.WakeAnimationJson
-import app.aaps.wear.watchfaces.wff.WffAssets
 import app.aaps.wear.watchfaces.wff.WffDesignParts
-import app.aaps.wear.watchfaces.wff.WffFaceWriter
 import app.aaps.wear.watchfaces.wff.WffPlanner
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage

@@ -1,4 +1,4 @@
-package app.aaps.watchfaces.snapshot
+package app.aaps.facetool.snapshot
 
 import app.aaps.core.interfaces.rx.weardata.DayNightRule
 import android.app.Application

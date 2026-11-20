@@ -2,10 +2,13 @@
 // PERSONAL PATCH - not part of upstream AAPS (branch local/personal, see .github/README.md).
 // Own file: keep upstream files to small hooks that call into here.
 // ============================================================================================
-package app.aaps.wear.watchfaces.wff
+package app.aaps.facetool.wff
 
-import app.aaps.wear.watchfaces.wff.WffLoops.Group
-import app.aaps.wear.watchfaces.wff.WffLoops.Span
+import app.aaps.facetool.wff.WffLoops.Group
+import app.aaps.facetool.wff.WffLoops.Span
+import app.aaps.wear.watchfaces.wff.WffPlan
+import app.aaps.wear.watchfaces.wff.WffPlanItem
+import app.aaps.wear.watchfaces.wff.WffTier
 import com.google.common.truth.Truth.assertThat
 import org.junit.jupiter.api.Test
 

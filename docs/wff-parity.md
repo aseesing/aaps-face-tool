@@ -30,7 +30,7 @@ the emulator would only show that picture again ("emulator: not needed"). One te
 picture one to one. (A face of 400 units with pictures of 454 px was drawn soft; the converter now
 writes the face in the size of its pictures.)
 
-The tests are in `src/test/kotlin/app/aaps/watchfaces/wffparity/`, one class per group of features.
+The tests are in `src/test/kotlin/app/aaps/facetool/wffparity/`, one class per group of features.
 `WffParityBase` does the work; a test only builds its design with `ParityDesign` and says what to
 expect. `ParityEmulatorCheck` is the compare step.
 
@@ -39,8 +39,8 @@ expect. `ParityEmulatorCheck` is the compare step.
 The suite takes minutes, so it is not part of `testDebugUnitTest`. Run it before you commit a change
 of the layer engine, the WFF converter, the WFF complications of the wear app, `:wear:cwfrender`,
 the manual of the layer engine, or a design zip that will be a WFF face. While you work on one
-feature, run only its group or its test. The AAPS repository has a skill for this:
-`.claude/skills/wff-parity/SKILL.md`.
+feature, run only its group or its test. This repository has a skill for this:
+`.claude/skills/wff-parity/SKILL.md`; AAPS has a short one that points here.
 
 ## How to run it
 

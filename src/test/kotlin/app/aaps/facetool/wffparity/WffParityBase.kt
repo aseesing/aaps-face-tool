@@ -1,11 +1,11 @@
-package app.aaps.watchfaces.wffparity
+package app.aaps.facetool.wffparity
 
 import android.app.Application
-import app.aaps.watchfaces.snapshot.SnapshotClock
-import app.aaps.watchfaces.snapshot.SnapshotData
-import app.aaps.watchfaces.snapshot.SnapshotEngine
-import app.aaps.watchfaces.wff.WffApkBuilder
-import app.aaps.watchfaces.wff.WffBaker
+import app.aaps.facetool.snapshot.SnapshotClock
+import app.aaps.facetool.snapshot.SnapshotData
+import app.aaps.facetool.snapshot.SnapshotEngine
+import app.aaps.facetool.wff.WffApkBuilder
+import app.aaps.facetool.wff.WffBaker
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.After
 import org.junit.Assume.assumeTrue

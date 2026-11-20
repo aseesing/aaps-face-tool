@@ -1,4 +1,4 @@
-package app.aaps.watchfaces.snapshot
+package app.aaps.facetool.snapshot
 
 import android.os.SystemClock
 import org.mockito.MockedStatic

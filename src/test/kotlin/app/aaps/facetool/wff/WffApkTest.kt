@@ -1,9 +1,9 @@
-package app.aaps.watchfaces.wff
+package app.aaps.facetool.wff
 
 import android.app.Application
 import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
-import app.aaps.watchfaces.snapshot.SnapshotClock
-import app.aaps.watchfaces.snapshot.SnapshotEngine
+import app.aaps.facetool.snapshot.SnapshotClock
+import app.aaps.facetool.snapshot.SnapshotEngine
 import org.junit.After
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -19,9 +19,9 @@ import java.io.File
  * Makes the Watch Face Format face APK of one design zip, and the files to try it on an emulator with
  * data. See `docs/wff-apk.md`. Runs only when asked for:
  *
- * `./gradlew testDebugUnitTest -PwffOut=build/wff` (every zip of `cwf-designs`, one test JVM per zip)
+ * `./gradlew testDebugUnitTest -PwffOut=build/wff` (every zip of the designs repository, one test JVM per zip)
  *
- * Settings (Gradle properties): `wffZips` the folder with the zips (default `cwf-designs`), `wffOut`
+ * Settings (Gradle properties): `wffZips` the folder with the zips (default `cwf-designs` of `designsDir`), `wffOut`
  * where the output goes (one folder per design), `wffClient` the application id of the wear app
  * (default `info.nightscout.androidaps`), `wffOnly` one zip name.
  *
@@ -49,7 +49,7 @@ class WffApkTest {
     fun build() {
         val only = System.getProperty("wff.only")
         assumeTrue("Runs only with -PwffOut=..., see the class doc", System.getProperty("wff.out") != null && only != null && only != "-")
-        val zip = File(System.getProperty("wff.zips") ?: "cwf-designs", only!!)
+        val zip = File(System.getProperty("wff.zips") ?: error("Set designsDir in local.properties, or give -PwffZips=..."), only!!)
         val dir = File(System.getProperty("wff.out"), zip.nameWithoutExtension)
         val app = RuntimeEnvironment.getApplication()
         // The clock starts at the real time, so the values of the scene are fresh on the emulator

@@ -959,7 +959,7 @@ What this changes:
 - Step 5 must write string resources.
 
 Found later with the parity suite (one small design per feature, compared with our engine on the
-emulator; `docs/wff-parity.md` of the design repository):
+emulator; `docs/wff-parity.md`):
 
 - A text in a WFF box is centred by the ascent and the descent of its font. A text view of the
   classic face places it by the top and the bottom of the font, and a text higher than its view
@@ -1060,12 +1060,16 @@ or on the watch.
 
 | What | Where |
 |---|---|
-| The plan and the lint | `wear/.../watchfaces/wff/WffPlanner.kt`, `WffPlan.kt` |
-| The copies of a design | `WffDesignParts.kt` |
-| `watchface.xml` | `WffFaceWriter.kt`, with the baked pictures in `WffAssets.kt` |
-| A formula as a WFF expression (section 3; not used by the writer yet) | `WffExpressionPrinter.kt` |
-| The complications | `wear/.../complications/wff/` |
-| Baking, Pack, the push validator, the emulator | the watch face designs repository: `docs/wff-apk.md`, `tools/`, `src/test/.../wff/` |
+| The plan and the lint | AAPS: `wear/.../watchfaces/wff/WffPlanner.kt`, `WffPlan.kt` (the watch uses them for the data picture) |
+| The copies of a design | AAPS: `WffDesignParts.kt` |
+| `watchface.xml` | this repository: `src/main/.../facetool/wff/WffFaceWriter.kt`, with the baked pictures in `WffAssets.kt` |
+| A formula as a WFF expression (section 3; not used by the writer yet) | this repository: `WffExpressionPrinter.kt` |
+| The complications | AAPS: `wear/.../complications/wff/` |
+| Baking, Pack, the push validator, the emulator | this repository: `docs/wff-apk.md`, `tools/`, `src/test/.../facetool/wff/` |
+
+Until 2026-11-20 the converter was in AAPS (branch `local/wear-wff`) and the harness in the
+designs repository (`aaps-watchfaces`, branch `wff-apks`). Both moved here; the paths in the
+sections above are from that time.
 
 The converter runs on a dev machine, not on the phone. The phone side (sections 2.1 steps 5 to 9:
 build on the phone, send, push) is not built.

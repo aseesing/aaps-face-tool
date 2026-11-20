@@ -10,27 +10,30 @@ Watch Face Format (WFF) must look the same. The parity suite has one small desig
 the engine. Each test converts the design, checks the face, and, on the emulator, compares the
 picture of the WFF face with the picture our engine draws at the same moment with the same values.
 
-The suite lives in the design repository (`aaps-watchfaces`, folder
-`src/test/kotlin/app/aaps/watchfaces/wffparity`), because it needs Pack and the emulator tools of
-that repository. Its documentation is `docs/wff-parity.md` there.
+The suite lives in this repository (`aaps-face-tool`, folder
+`src/test/kotlin/app/aaps/facetool/wffparity`), next to the converter, Pack and the emulator tools.
+Its documentation is `docs/wff-parity.md`. AAPS has a short skill of the same name that points here.
 
 ## When to run it
 
 It takes minutes, so it is not part of `testFullDebugUnitTest` or CI. Run it before you commit a
 change to any of these:
 
-- the layer engine: `wear/src/main/kotlin/app/aaps/wear/watchfaces/animation/`
-- the converter: `wear/src/main/kotlin/app/aaps/wear/watchfaces/wff/`
-- the WFF complication providers: `wear/src/main/kotlin/app/aaps/wear/complications/wff/`
-- `CustomWatchface.kt`, the classic views it draws, and `:wear:cwfrender`
-- `docs/watchface-animation.html` (a change of what a feature means)
+- the converter in this repository: `src/main/kotlin/app/aaps/facetool/wff/`
+- in AAPS: the layer engine (`wear/src/main/kotlin/app/aaps/wear/watchfaces/animation/`), the
+  planner of the data picture (`wear/src/main/kotlin/app/aaps/wear/watchfaces/wff/`), the WFF
+  complication providers (`wear/src/main/kotlin/app/aaps/wear/complications/wff/`),
+  `CustomWatchface.kt`, the classic views it draws, and `:wear:cwfrender`
+- `docs/watchface-animation.html` in AAPS (a change of what a feature means)
 - a design zip that will be shipped as a WFF face
 
 A change elsewhere in the wear app does not need it.
 
 ## How to run it
 
-In the design repository, with its `aapsDir` set to the AAPS checkout you changed. Every Gradle build
+In this repository, with `aapsDir` (in `local.properties`) set to the AAPS checkout you changed.
+The build warns when that checkout is not on the commit in `aaps-commit.txt`; after a green run on a
+new AAPS commit, write that commit there. Every Gradle build
 goes through `sh ~/.claude/bin/gradle-locked.sh <folder> <log> <tasks>` (see the global rules).
 
 1. Once: build Pack, `sh tools/build-pack.sh` (see `docs/wff-apk.md`).

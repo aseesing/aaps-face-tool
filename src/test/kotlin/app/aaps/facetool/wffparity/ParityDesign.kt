@@ -1,4 +1,4 @@
-package app.aaps.watchfaces.wffparity
+package app.aaps.facetool.wffparity
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -101,9 +101,10 @@ class ParityDesign(val name: String) {
 
     private companion object {
 
-        /** The fonts of Aurora Town, read once. */
+        /** The fonts of Aurora Town, read once from the designs repository (`designsDir`, see the README). */
         fun fonts(): Map<String, ResData> = cached ?: run {
-            val zip = File("cwf-designs/Aurora_Town.zip")
+            val designs = System.getProperty("wff.zips") ?: error("Set designsDir (the aaps-watchfaces checkout) in local.properties: the parity tests use the fonts of Aurora Town")
+            val zip = File(designs, "Aurora_Town.zip")
             val data = ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)!!.cwfData.resData
             data.filterValues { it.format == ResFormat.TTF || it.format == ResFormat.OTF }.also { cached = it }
         }

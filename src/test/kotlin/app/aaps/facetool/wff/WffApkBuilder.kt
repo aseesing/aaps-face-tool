@@ -1,4 +1,4 @@
-package app.aaps.watchfaces.wff
+package app.aaps.facetool.wff
 
 import android.app.Application
 import android.graphics.Bitmap
@@ -9,14 +9,8 @@ import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import app.aaps.shared.impl.weardata.toDrawable
 import app.aaps.wear.R
 import app.aaps.wear.watchfaces.animation.WakeAnimationJson
-import app.aaps.wear.watchfaces.wff.WffAssets
 import app.aaps.wear.watchfaces.wff.WffDesignParts
-import app.aaps.wear.watchfaces.wff.WffFaceWriter
-import app.aaps.wear.watchfaces.wff.WffLoops
-import app.aaps.wear.watchfaces.wff.WffPictures
 import app.aaps.wear.watchfaces.wff.WffPlanner
-import app.aaps.wear.watchfaces.wff.WffResources
-import app.aaps.wear.watchfaces.wff.WffShowDays
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant

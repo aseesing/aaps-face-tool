@@ -2,8 +2,10 @@
 // PERSONAL PATCH - not part of upstream AAPS (branch local/personal, see .github/README.md).
 // Own file: keep upstream files to small hooks that call into here.
 // ============================================================================================
-package app.aaps.wear.watchfaces.wff
+package app.aaps.facetool.wff
 
+import app.aaps.wear.watchfaces.wff.WffPlan
+import app.aaps.wear.watchfaces.wff.WffPlanner
 import kotlin.math.ceil
 
 /**
@@ -196,15 +198,7 @@ class WffLoops(private val wakeMs: Long, private val fadeMs: Long) {
         /** How closely the wake is looked at to find when a layer shows. */
         const val SPAN_STEP_MS = 500L
 
-        /**
-         * True when the static picture [run] can be shown in motion in the wake, with [items] the
-         * layers of it that move.
-         *
-         * Only picture 0: it holds the background, so it is opaque, and its frames hide it fully while
-         * they play. The frames of a later, see-through picture cannot hide the picture under them:
-         * where a moved part leaves a hole, the rest pose would show through, so the part would be seen
-         * twice. Such a picture keeps its rest pose.
-         */
-        fun runCanMove(run: Int): Boolean = run == 0
+        /** True when the static picture [run] can be shown in motion in the wake: the rule of the plan, [WffPlanner.runCanMove]. */
+        fun runCanMove(run: Int): Boolean = WffPlanner.runCanMove(run)
     }
 }

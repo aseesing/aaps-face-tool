@@ -2,12 +2,13 @@
 // PERSONAL PATCH - not part of upstream AAPS (branch local/personal, see .github/README.md).
 // Own file: keep upstream files to small hooks that call into here.
 // ============================================================================================
-package app.aaps.wear.watchfaces.wff
+package app.aaps.facetool.wff
 
 import android.graphics.Bitmap
 import app.aaps.wear.watchfaces.animation.DESIGN_SIZE
 import app.aaps.wear.watchfaces.animation.DesignRect
 import app.aaps.wear.watchfaces.animation.LayerBlend
+import app.aaps.wear.watchfaces.wff.WffDesignParts
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 
@@ -97,11 +98,8 @@ object WffPictures {
     /** A PNG of one white pixel, the background of the second drawing of a frame, see [matte]. */
     val WHITE_PNG: ByteArray = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=")
 
-    /**
-     * A PNG of one clear pixel (RGBA 0, 0, 0, 0): the background of a copy of a design that must be
-     * see-through. Without a background picture the face draws its own default background.
-     */
-    val CLEAR_PNG: ByteArray = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=")
+    /** A PNG of one clear pixel, the background of a see-through copy of a design: [WffDesignParts.CLEAR_PNG]. */
+    val CLEAR_PNG: ByteArray get() = WffDesignParts.CLEAR_PNG
 
     /**
      * One see-through frame from the same frame drawn twice: [onBlack] on a black background

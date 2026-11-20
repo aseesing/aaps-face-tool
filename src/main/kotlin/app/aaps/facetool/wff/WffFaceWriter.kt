@@ -2,7 +2,7 @@
 // PERSONAL PATCH - not part of upstream AAPS (branch local/personal, see .github/README.md).
 // Own file: keep upstream files to small hooks that call into here.
 // ============================================================================================
-package app.aaps.wear.watchfaces.wff
+package app.aaps.facetool.wff
 
 import app.aaps.wear.watchfaces.animation.DesignRect
 import app.aaps.wear.watchfaces.animation.Formula
@@ -12,6 +12,10 @@ import app.aaps.wear.watchfaces.animation.LayerSource
 import app.aaps.wear.watchfaces.animation.TextAlign
 import app.aaps.wear.watchfaces.animation.TextAnchor
 import app.aaps.wear.watchfaces.animation.WakeAnimationSpec
+import app.aaps.wear.watchfaces.wff.WffPlan
+import app.aaps.wear.watchfaces.wff.WffPlanItem
+import app.aaps.wear.watchfaces.wff.WffPlanner
+import app.aaps.wear.watchfaces.wff.WffTier
 import org.json.JSONObject
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -88,6 +92,7 @@ class WffFaceWriter(
         /** Writes what [item] stands for, once: a picture, a loop and a slot hold many items. */
         private fun part(item: WffPlanItem) {
             val layer = item.layer?.let { animation?.layers?.getOrNull(it) }
+            val view = item.view // a local copy: WffPlanItem is in AAPS, so its property cannot be smart cast
             when {
                 item.tier == WffTier.OMIT                              -> Unit
                 item.tier == WffTier.BAKE && item.loop                 ->
@@ -103,9 +108,9 @@ class WffFaceWriter(
                 item.where == WffPlanner.GLUCOSE                       -> if (done.add("glucose")) glucoseSlot()
                 item.where == WffPlanner.AGE                           -> if (done.add("age")) ageSlot()
                 item.where == WffPlanner.DATA                          -> if (done.add("data")) dataSlot()
-                item.view != null && item.view in CLOCK_VIEWS          -> clockView(item.view)
-                item.view != null && item.view in DATE_VIEWS           -> dateView(item.view)
-                item.view != null && item.view in HAND_VIEWS           -> hand(item.view)
+                view != null && view in CLOCK_VIEWS                    -> clockView(view)
+                view != null && view in DATE_VIEWS                     -> dateView(view)
+                view != null && view in HAND_VIEWS                     -> hand(view)
                 layer != null && layer.source is LayerSource.Text      -> if (!clockLayer(layer.source as LayerSource.Text, layer.props)) notWritten += "${item.name}: its place is not a fixed number"
                 else                                                   -> notWritten += "${item.name}: ${item.note}"
             }

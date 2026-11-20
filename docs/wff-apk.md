@@ -5,8 +5,8 @@ watch faces. They only run Watch Face Format (WFF) faces: an APK with pictures a
 no code. This page tells how to turn a design zip into such a face APK on your own computer, and how
 to try it on an emulator.
 
-How the converter decides what goes where is in the AAPS repository, in
-`docs/wff-converter-design.md` and in the class `WffPlanner`. In short, a converted face has:
+How the converter decides what goes where is in `docs/wff-converter-design.md` and in the class
+`WffPlanner` of AAPS (the watch needs it for the data picture). In short, a converted face has:
 
 - pictures of the static art, drawn once on your computer by the watch's own engine;
 - frames of the wake-up effects that only show during the wake (snow, rain);
@@ -19,7 +19,7 @@ How the converter decides what goes where is in the AAPS repository, in
 
 | | macOS | Linux | Windows |
 |---|---|---|---|
-| This project and its AAPS checkout, as in the README | yes | yes | yes |
+| This project and its AAPS checkout (`aapsDir`), as in the README | yes | yes | yes |
 | Git | Xcode command line tools: `xcode-select --install` | your package manager | [Git for Windows](https://git-scm.com/download/win) |
 | A C compiler and linker (Rust needs one) | the same Xcode command line tools | `build-essential` (Debian, Ubuntu) or `gcc` | "Desktop development with C++" of the Visual Studio Build Tools; the Rust installer offers it |
 | Rust | [rustup.rs](https://rustup.rs) | [rustup.rs](https://rustup.rs) | [rustup.rs](https://rustup.rs) (`rustup-init.exe`) |
@@ -61,7 +61,7 @@ then only builds what changed.
 Things to know about Pack:
 
 - It reads pictures from `res/drawable`, not from `res/drawable-nodpi`. The class `WffResources` of
-  the converter (AAPS) says where each file of a face goes.
+  the converter (`src/main`) says where each file of a face goes.
 - It ends with exit code 0 also after an error. The harness looks for its line
   `Compiled, aligned & signed successfully!`.
 - To use it by hand: `pack-cli <folder> <output without extension> <dev-key.pem>` writes
@@ -73,7 +73,8 @@ Things to know about Pack:
 ./gradlew testDebugUnitTest -PwffOut=build/wff
 ```
 
-This makes a face of every zip in `cwf-designs`, each in its own test JVM. One design:
+This makes a face of every zip in the `cwf-designs` folder of the designs repository
+(`aaps-watchfaces`, set `designsDir` in `local.properties`), each in its own test JVM. One design:
 `-PwffOnly=Aurora_Town`. Other settings: `-PwffZips=<folder>` (where the zips are) and
 `-PwffClient=<application id>` (the wear app that will install the face and feed it; default
 `info.nightscout.androidaps`, the full app. A face only works with the app it was made for.)

@@ -1,4 +1,4 @@
-package app.aaps.watchfaces.wffparity
+package app.aaps.facetool.wffparity
 
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test

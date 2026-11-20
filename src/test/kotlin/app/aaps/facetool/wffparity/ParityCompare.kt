@@ -1,4 +1,4 @@
-package app.aaps.watchfaces.wffparity
+package app.aaps.facetool.wffparity
 
 import java.awt.Color
 import java.awt.RenderingHints

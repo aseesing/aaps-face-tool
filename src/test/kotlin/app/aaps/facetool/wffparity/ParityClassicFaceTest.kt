@@ -1,4 +1,4 @@
-package app.aaps.watchfaces.wffparity
+package app.aaps.facetool.wffparity
 
 import android.graphics.Bitmap
 import android.graphics.Canvas

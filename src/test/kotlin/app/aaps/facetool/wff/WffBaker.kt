@@ -1,13 +1,12 @@
-package app.aaps.watchfaces.wff
+package app.aaps.facetool.wff
 
 import android.graphics.Bitmap
 import app.aaps.core.interfaces.rx.weardata.CwfData
 import app.aaps.core.interfaces.rx.weardata.ResData
 import app.aaps.core.interfaces.rx.weardata.ResFormat
-import app.aaps.watchfaces.snapshot.SnapshotClock
-import app.aaps.watchfaces.snapshot.SnapshotData
-import app.aaps.watchfaces.snapshot.SnapshotEngine
-import app.aaps.wear.watchfaces.wff.WffPictures
+import app.aaps.facetool.snapshot.SnapshotClock
+import app.aaps.facetool.snapshot.SnapshotData
+import app.aaps.facetool.snapshot.SnapshotEngine
 import java.io.File
 
 /**

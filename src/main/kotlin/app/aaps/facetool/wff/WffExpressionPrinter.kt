@@ -2,7 +2,7 @@
 // PERSONAL PATCH - not part of upstream AAPS (branch local/personal, see .github/README.md).
 // Own file: keep upstream files to small hooks that call into here.
 // ============================================================================================
-package app.aaps.wear.watchfaces.wff
+package app.aaps.facetool.wff
 
 import app.aaps.wear.watchfaces.animation.Formula
 import app.aaps.wear.watchfaces.animation.FormulaVisitor
