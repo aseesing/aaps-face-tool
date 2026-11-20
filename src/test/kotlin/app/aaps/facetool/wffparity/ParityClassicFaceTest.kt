@@ -261,9 +261,12 @@ class ParityClassicFaceDataTest : WffParityBase() {
     // ---- the wearer's slots ----
 
     // The values in the wearer's slots: slots 1 and 2 start with the heart rate and the steps. Our
-    // engine shows those of the scene (72, 6482). The emulator shows them too until its own sensors
-    // report, then its own values (105 and 26 were seen), so a value can differ between runs. Slots 3
-    // to 5 cannot be used: our engine has no data for them in the test and draws them empty.
+    // engine shows those of the AAPS providers, which the scene feeds (72, 6482, each a ranged value).
+    // The WFF face starts with the watch's own heart rate and steps (a short text), so the emulator
+    // shows its own values (105, 644 and 10 were seen), and a value can differ between runs. A test of
+    // the look of a slot therefore gives slot 2 the AAPS steps on the emulator too, see
+    // aapsStepsInSlot2. Slots 3 to 5 cannot be used: our engine has no data for them in the test and
+    // draws them empty.
 
     /** As D2 and Cyberpunk: two text slots without a fill, in a zip font. */
     @Test
@@ -275,7 +278,7 @@ class ParityClassicFaceDataTest : WffParityBase() {
         lint = listOf("user slot 1", "user slot 2")
     )
 
-    /** As Grand Complication: a round slot with a fill, a ring and an icon (slot 2, the steps). */
+    /** As Grand Complication: a round slot with a fill, a ring and an icon (slot 2, the AAPS steps on both sides). */
     @Test
     fun complicationRoundRing() = check(
         ParityDesign("SlotRound").meta("key_show_complication2", "true")
@@ -289,7 +292,8 @@ class ParityClassicFaceDataTest : WffParityBase() {
             WHOLE,
             // Above the text, so the value does not count: the icon our engine draws over the text
             ParityCompare.Region("the icon", 1.0, intArrayOf(189, 172, 22, 16))
-        )
+        ),
+        editFace = ::aapsStepsInSlot2
     )
 
     /** The style in the design's `complicationStyle` section, nothing on the slot itself: our engine uses the section. */
@@ -303,7 +307,8 @@ class ParityClassicFaceDataTest : WffParityBase() {
             WHOLE,
             // A strip of the fill above the text and right of the icon, so the value does not count
             ParityCompare.Region("the fill", 1.0, intArrayOf(175, 172, 110, 6))
-        )
+        ),
+        editFace = ::aapsStepsInSlot2
     )
 
     // ---- always-on ----
@@ -352,6 +357,26 @@ private fun hand(colour: Int, width: Float, tip: Float): ResData {
     Canvas(b).drawRoundRect(200f - width / 2, tip, 200f + width / 2, 220f, width / 2, width / 2, paint)
     return ResData(ByteArrayOutputStream().also { b.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray(), ResFormat.PNG)
 }
+
+/**
+ * The face [xml] with the AAPS steps (a ranged value) as the source that slot 2 starts with, in place
+ * of the watch's own steps that the converter writes there. Our engine starts slot 2 with the AAPS
+ * steps, and the scene feeds them on both sides (6482; on the emulator the scene's value is kept over
+ * the emulator's own steps, see `WffBaker.aheadOfSensors`), so a test of the look of a slot sees the
+ * same value, ring and icon on both sides. The wear app of `aapsDir` must still have this provider.
+ */
+private fun aapsStepsInSlot2(xml: String): String {
+    check(runCatching { Class.forName(AAPS_STEPS, false, WffParityBase::class.java.classLoader) }.isSuccess) { "the wear app of aapsDir has no $AAPS_STEPS: this test needs another source for slot 2" }
+    val policy = Regex("""(<ComplicationSlot slotId="2"[^>]*>\s*)<DefaultProviderPolicy [^>]*/>""")
+    check(policy.containsMatchIn(xml)) { "slot 2 has no DefaultProviderPolicy in the face:\n$xml" }
+    return policy.replace(xml) { match ->
+        match.groupValues[1] +
+            """<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="${WffParityBase.CLIENT}/$AAPS_STEPS" primaryProviderType="RANGED_VALUE" />"""
+    }
+}
+
+/** The steps provider of the AAPS wear app, which reads the steps that the scene writes. */
+private const val AAPS_STEPS = "app.aaps.wear.health.StepsComplication"
 
 /** A row of the lint: [name] is live in WFF. */
 private fun live(name: String) = name.padEnd(NAME) + " live"

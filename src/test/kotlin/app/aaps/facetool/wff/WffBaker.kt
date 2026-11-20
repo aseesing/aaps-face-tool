@@ -103,7 +103,7 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
             File(filesDir, "scene/datastore").listFiles()?.forEach { it.copyTo(File(out, "datastore/${it.name}"), overwrite = true) }
             File(out, "shared_prefs").mkdirs()
             File(out, "shared_prefs/watch_settings.xml").writeText(preferencesXml(preferences("scene_watch_settings")))
-            File(out, "shared_prefs/aaps_health_values.xml").writeText(preferencesXml(preferences("scene_aaps_health_values")))
+            File(out, "shared_prefs/aaps_health_values.xml").writeText(preferencesXml(aheadOfSensors(preferences("scene_aaps_health_values"))))
             // The battery of the watch is no store of the app: the emulator driver sets it (dumpsys battery)
             data.watchBattery?.let { File(out, WATCH_BATTERY_FILE).writeText("$it\n") }
             clock.setTo(clock.now + REST_LEAD_MS)
@@ -112,6 +112,16 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
             face.release()
         }
     }
+
+    /**
+     * The heart rate and the steps of the scene for the emulator, with their times a few minutes after
+     * the scene. On the emulator the wear app also gets the emulator's own heart rate and steps (Health
+     * Services), as soon as a face shows the AAPS heart rate or steps, and it keeps a value only when it
+     * is newer than the one it has (`HealthValues`). With these times it keeps the values of the scene
+     * while the face is shown. The values do not change, so the face shows what our engine shows.
+     */
+    private fun aheadOfSensors(values: Map<String, *>): Map<String, *> =
+        values.mapValues { (name, value) -> if (name in HEALTH_TIMES && value is Long) clock.now + SENSORS_GUARD_MS else value }
 
     /** A preferences map as Android writes its xml file. */
     private fun preferencesXml(values: Map<String, *>): String = buildString {
@@ -136,6 +146,16 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
 
         /** The file of the scene with the battery level of the watch in percent, for the emulator driver. */
         const val WATCH_BATTERY_FILE = "watch_battery.txt"
+
+        /** The times of the heart rate and the steps in the store of the wear app (`HealthValues`). */
+        private val HEALTH_TIMES = setOf("heart_rate_at", "steps_at")
+
+        /**
+         * How far after the scene the times of the heart rate and the steps lie on the emulator: more
+         * than the seconds a face is shown, less than the 5 minutes that `HealthValues` allows a time to
+         * lie ahead of the clock (a time further ahead counts as none).
+         */
+        private const val SENSORS_GUARD_MS = 4 * 60_000L
 
         /** Longer than the longest wake-up animation the engine allows (30 s). */
         const val REST_LEAD_MS = 31_000L

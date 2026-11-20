@@ -70,10 +70,12 @@ abstract class WffParityBase {
      *   WFF must not show or move in the wake)
      * @param onEmulator also on the emulator when the face is only one picture of our engine: for the
      *   test that proves such a picture is drawn one to one
+     * @param editFace changes the `watchface.xml` the converter wrote before the face is packed: for a
+     *   test that needs a part the converter does not write by itself (see [WffApkBuilder])
      */
     protected fun check(
         design: ParityDesign, lint: List<String> = emptyList(), regions: List<ParityCompare.Region> = listOf(WHOLE), wake: Boolean = false,
-        stillInWake: List<ParityCompare.Region> = emptyList(), onEmulator: Boolean = false
+        stillInWake: List<ParityCompare.Region> = emptyList(), onEmulator: Boolean = false, editFace: (String) -> String = { it }
     ) {
         val dir = File("build/wff-parity/${javaClass.simpleName}/${testName.methodName}")
         // The last pictures of the emulator stay: the driver keeps them when the face did not change
@@ -94,7 +96,7 @@ abstract class WffParityBase {
         val scene = File(app.cacheDir, "scene").apply { deleteRecursively() }
         baker.scene(cwf, scene, app.filesDir) { name -> app.getSharedPreferences(name, 0).all }
         val sceneAt = SnapshotClock.epochMs(MOMENT) + WffBaker.REST_LEAD_MS
-        val result = WffApkBuilder(app, baker, CLIENT, pack, File(cache, "dev-key.pem")).build(cwf, dir)
+        val result = WffApkBuilder(app, baker, CLIENT, pack, File(cache, "dev-key.pem"), editFace).build(cwf, dir)
         // The builder starts with an empty folder too: the kept pictures go back after it
         kept.forEach { (name, bytes) -> File(dir, name).writeBytes(bytes) }
         scene.copyRecursively(File(dir, "scene"), overwrite = true)

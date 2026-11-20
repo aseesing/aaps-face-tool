@@ -27,8 +27,13 @@ import java.util.concurrent.TimeUnit
  * @param client the application id of the wear app that installs the face and feeds its slots
  * @param packCli the `pack-cli` binary, see `tools/build-pack.sh`
  * @param key the PEM file with the signing certificate and key, see `tools/build-pack.sh`
+ * @param editXml only for a test: changes the `watchface.xml` of each face before it is packed. The
+ *   default leaves it as the converter wrote it, as for every real face.
  */
-class WffApkBuilder(private val app: Application, private val baker: WffBaker, private val client: String, private val packCli: File, private val key: File) {
+class WffApkBuilder(
+    private val app: Application, private val baker: WffBaker, private val client: String, private val packCli: File, private val key: File,
+    private val editXml: (String) -> String = { it }
+) {
 
     /**
      * What came out for one design.
@@ -274,11 +279,12 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
      * strings and the manifest. A picture the xml does not show is removed (frames that WFF 2 leaves out).
      */
     private fun writeFace(folder: File, written: WffFaceWriter.Face, appId: String, version: Int) {
-        write(folder, WffResources.WATCH_FACE_XML, written.xml)
+        val xml = editXml(written.xml)
+        write(folder, WffResources.WATCH_FACE_XML, xml)
         write(folder, WffResources.STRINGS_XML, "<resources>\n" + written.strings.entries.joinToString("") { (name, text) -> "    <string name=\"$name\">${escape(text)}</string>\n" } + "</resources>\n")
         write(folder, WffResources.MANIFEST, manifest(appId, version))
         File(folder, WffResources.picture(PREVIEW, WffPictures.Format.PNG)).parentFile?.listFiles()
-            ?.filter { it.nameWithoutExtension != PREVIEW && "resource=\"${it.nameWithoutExtension}\"" !in written.xml }
+            ?.filter { it.nameWithoutExtension != PREVIEW && "resource=\"${it.nameWithoutExtension}\"" !in xml }
             ?.forEach { it.delete() }
     }
 

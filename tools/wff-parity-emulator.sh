@@ -4,7 +4,8 @@
 #
 # It works through the queue that the parity tests write (one test folder per line) while the tests
 # still run, and stops when the done file appears and the queue is empty. Per face it pushes the
-# design and the values of the scene into the stores of the wear app (only when they changed), installs
+# design and the values of the scene into the stores of the wear app (only when they changed, or when
+# the face shows the AAPS heart rate or steps, which the app changes by itself), installs
 # the face, sets the clock and the watch battery of the scene, and takes the picture as soon as the
 # screen stops changing. Afterwards the emulator follows the network time and its own battery again.
 # A face whose files, scene, wear app and clock are the same as at its last picture keeps that picture.
@@ -88,9 +89,11 @@ face() {
     WAKE="$(sed -n 's/^wake=//p' "$DIR/parity.job")"
     REST_AFTER="$(sed -n 's/^restAfterSeconds=//p' "$DIR/parity.job")"
     MIN=4
-    # The data picture comes from the wear app, which may need to start first: the screen can look
-    # still before it is there
-    grep -q "WffDataComplication" "$DIR/face/res/raw/watchface.xml" && MIN=7
+    # The data picture and the AAPS heart rate and steps come from the wear app, which may need to start
+    # first: the screen can look still before they are there
+    HEALTH=""
+    grep -q "app.aaps.wear.health." "$DIR/face/res/raw/watchface.xml" && HEALTH=1
+    { grep -q "WffDataComplication" "$DIR/face/res/raw/watchface.xml" || [ -n "$HEALTH" ]; } && MIN=7
     [ -n "$REST_AFTER" ] && [ "$REST_AFTER" -gt "$MIN" ] && MIN="$REST_AFTER"
     LIMIT=$((WAIT > MIN + 2 ? WAIT : MIN + 2))
     # The battery of the watch in the scene, when it sets one: both our engine and WFF read it from the system
@@ -104,8 +107,10 @@ face() {
     [ -f "$DIR/emulator.key" ] && echo "changed: $DIR (key $(cat "$DIR/emulator.key") -> $KEY)"
     rm -f "$DIR/emulator.png" "$DIR/emulator.key" "$DIR"/wake_*.png
 
-    # The design and the values. The app reads them when it starts, so it is stopped first.
-    if [ "$STORE" != "$LAST_STORE" ]; then
+    # The design and the values. The app reads them when it starts, so it is stopped first. The wear
+    # app also changes the heart rate and the steps by itself, from the emulator's own sensors (Health
+    # Services), so a face that shows the AAPS heart rate or steps gets the values of the scene again.
+    if [ "$STORE" != "$LAST_STORE" ] || [ -n "$HEALTH" ]; then
         adb_ shell am force-stop "$APP"
         adb_ shell "rm -rf $TMP; mkdir -p $TMP"
         for f in "$DIR"/scene/datastore/*; do put "$f" "files/datastore/$(basename "$f")"; done

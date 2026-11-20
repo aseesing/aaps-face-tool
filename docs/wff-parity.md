@@ -14,9 +14,13 @@ A run has two steps that overlap:
    compare) and puts its folder in the queue `build/wff-parity/queue.txt`.
 2. **The emulator** (one driver, `tools/wff-parity-emulator.sh`). It starts with the tests and shows
    the queued faces one after the other while the tests still run. Per face it pushes the design and
-   the values into the wear app (only when they changed), installs the face, sets the clock of the
-   scene, and takes the picture as soon as the screen stops changing (about 6 seconds a face; a face
-   with a data picture waits at least 7, for the wear app to draw it; a test of the wake about 20).
+   the values into the wear app (only when they changed, or when the face shows the AAPS heart rate or
+   steps: the wear app changes those by itself from the emulator's sensors), installs the face, sets
+   the clock of the scene, and takes the picture as soon as the screen stops changing (about 6 seconds
+   a face; a face with a data picture or the AAPS heart rate or steps waits at least 7, for the wear
+   app to draw it; a test of the wake about 20). In the store for the emulator the times of the heart
+   rate and the steps lie 4 minutes after the scene, so the wear app keeps the values of the scene and
+   not those of the emulator's sensors.
    A face with hands or seconds never stops changing: it is shown at the time of the scene again
    just before its picture. A face that took much longer than it should (a busy emulator) is shown
    once more. A face whose files, scene, wear app and clock did not change since its last
