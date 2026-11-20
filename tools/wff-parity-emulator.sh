@@ -85,6 +85,9 @@ face() {
     WAKE="$(sed -n 's/^wake=//p' "$DIR/parity.job")"
     REST_AFTER="$(sed -n 's/^restAfterSeconds=//p' "$DIR/parity.job")"
     MIN=4
+    # The data picture comes from the wear app, which may need to start first: the screen can look
+    # still before it is there
+    grep -q "WffDataComplication" "$DIR/face/res/raw/watchface.xml" && MIN=7
     [ -n "$REST_AFTER" ] && [ "$REST_AFTER" -gt "$MIN" ] && MIN="$REST_AFTER"
     LIMIT=$((WAIT > MIN + 2 ? WAIT : MIN + 2))
     # The battery of the watch in the scene, when it sets one: both our engine and WFF read it from the system
@@ -110,32 +113,52 @@ face() {
 
     if [ -n "$BATTERY" ]; then adb_ shell dumpsys battery set level "$BATTERY"; else adb_ shell dumpsys battery reset; fi
 
-    T_STORE=$(date +%s)
-    # Removed first: the watch gives a slot its default source only the first time it sees the slot
-    adb_ uninstall "$FACE" >/dev/null 2>&1 || true
-    adb_ install -r "$DIR/face.apk" >/dev/null
-    adb_ shell cmd alarm set-time "$AT" >/dev/null
-    adb_ shell input keyevent KEYCODE_WAKEUP
-    adb_ shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE --es operation set-watchface --es watchFaceId "$FACE" >/dev/null
-    sleep 1
-    adb_ shell input keyevent KEYCODE_BACK
-    T_SHOWN=$(date +%s)
-
-    # The picture, when three pictures a second apart are the same (a face with seconds never is: it
-    # gets the full wait). A picture can come out cut off: only whole ones (ending with IEND) count.
-    PREV=""
-    SAME=0
-    T=0
-    while [ "$T" -lt "$LIMIT" ]; do
+    # Shows the face and takes its picture. On a busy computer an emulator can be slow for a while: a
+    # face that took long (the clock may have gone to the next minute, the data picture may not be
+    # there yet) is shown once more.
+    shoot() {
+        T_STORE=$(date +%s)
+        # Removed first: the watch gives a slot its default source only the first time it sees the slot
+        adb_ uninstall "$FACE" >/dev/null 2>&1 || true
+        adb_ install -r "$DIR/face.apk" >/dev/null
+        adb_ shell cmd alarm set-time "$AT" >/dev/null
+        adb_ shell input keyevent KEYCODE_WAKEUP
+        adb_ shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE --es operation set-watchface --es watchFaceId "$FACE" >/dev/null
         sleep 1
-        T=$((T + 1))
-        adb_ exec-out screencap -p > "$DIR/emulator.tmp.png"
-        tail -c 12 "$DIR/emulator.tmp.png" | grep -q IEND || continue
-        SUM="$(shasum < "$DIR/emulator.tmp.png")"
-        if [ "$SUM" = "$PREV" ]; then SAME=$((SAME + 1)); else SAME=0; fi
-        PREV="$SUM"
-        [ "$T" -ge "$MIN" ] && [ "$SAME" -ge 2 ] && break
-    done
+        adb_ shell input keyevent KEYCODE_BACK
+        T_SHOWN=$(date +%s)
+
+        # The picture, when three pictures a second apart are the same (a face with seconds never is: it
+        # gets the full wait). A picture can come out cut off: only whole ones (ending with IEND) count.
+        PREV=""
+        SAME=0
+        T=0
+        while [ "$T" -lt "$LIMIT" ]; do
+            sleep 1
+            T=$((T + 1))
+            adb_ exec-out screencap -p > "$DIR/emulator.tmp.png"
+            tail -c 12 "$DIR/emulator.tmp.png" | grep -q IEND || continue
+            SUM="$(shasum < "$DIR/emulator.tmp.png")"
+            if [ "$SUM" = "$PREV" ]; then SAME=$((SAME + 1)); else SAME=0; fi
+            PREV="$SUM"
+            [ "$T" -ge "$MIN" ] && [ "$SAME" -ge 2 ] && break
+        done
+        # A face that never stops changing (hands, seconds) is shown at the time of the scene again, so the
+        # hands stand where ours stand
+        if [ "$SAME" -lt 2 ]; then
+            adb_ shell cmd alarm set-time "$AT" >/dev/null
+            sleep 1
+            for i in 1 2 3; do
+                adb_ exec-out screencap -p > "$DIR/emulator.tmp.png"
+                tail -c 12 "$DIR/emulator.tmp.png" | grep -q IEND && break
+            done
+        fi
+    }
+    shoot
+    if [ $(( $(date +%s) - T_STORE )) -gt $((LIMIT + 15)) ]; then
+        echo "slow, shown again: $DIR"
+        shoot
+    fi
     mv "$DIR/emulator.tmp.png" "$DIR/emulator.png"
     [ "$WAKE" = "true" ] && sh "$TOOLS/wff-wake.sh" "$DIR" 4 >/dev/null
     echo "$KEY" > "$DIR/emulator.key"
