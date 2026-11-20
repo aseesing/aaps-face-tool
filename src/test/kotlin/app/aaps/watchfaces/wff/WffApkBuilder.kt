@@ -167,7 +167,7 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
             }
         }
 
-        val written = WffFaceWriter(providerApp = client).write(design, animation, plan, WffAssets(statics, loops))
+        val written = WffFaceWriter(providerApp = client, measure = PaintFontMeasure(cwf), faceSize = baker.size).write(design, animation, plan, WffAssets(statics, loops))
         val lint = plan.lint() + notes.joinToString("") { " note: $it\n" } + written.notWritten.joinToString("") { " ! not written: $it\n" } +
             "Pictures: ${statics.size} static, ${loops.size} loops with ${loops.sumOf { it.frames.size }} frames of ${WffLoops.MAX_FRAMES}\n"
         File(dir, "lint.txt").writeText(lint)

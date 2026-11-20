@@ -61,8 +61,12 @@ abstract class WffParityBase {
      * @param lint texts the lint must have (for example "omit" next to a part WFF cannot show)
      * @param regions how much each part of the face may differ from our engine on the emulator
      * @param wake a test of the wake-up animation: also takes pictures during a wake on the emulator
+     * @param onEmulator also on the emulator when the face is only one picture of our engine: for the
+     *   test that proves such a picture is drawn one to one
      */
-    protected fun check(design: ParityDesign, lint: List<String> = emptyList(), regions: List<ParityCompare.Region> = listOf(WHOLE), wake: Boolean = false) {
+    protected fun check(
+        design: ParityDesign, lint: List<String> = emptyList(), regions: List<ParityCompare.Region> = listOf(WHOLE), wake: Boolean = false, onEmulator: Boolean = false
+    ) {
         val dir = File("build/wff-parity/${javaClass.simpleName}/${testName.methodName}").apply { deleteRecursively(); mkdirs() }
         val app = RuntimeEnvironment.getApplication()
         clock.setTo(SnapshotClock.epochMs(MOMENT))
@@ -86,6 +90,11 @@ abstract class WffParityBase {
                 report.append("emulator: not run\n")
                 return
             }
+            // The face is one picture that our engine drew: the emulator would only show that picture again
+            if (!wake && !onEmulator && onlyOneBakedPicture(result.lint)) {
+                report.append("emulator: not needed, the face is one picture drawn by our engine\n")
+                return
+            }
             emulator(dir, sceneAt, wake)
             val results = ParityCompare.compare(File(dir, "reference.png"), File(dir, "emulator.png"), regions, File(dir, "diff.png"))
             results.forEach { report.append("compare ").append(it).append('\n') }
@@ -98,6 +107,15 @@ abstract class WffParityBase {
         } finally {
             File(dir, "result.txt").writeText(report.toString())
         }
+    }
+
+    /** True when every part of the face is baked into static picture 0, and the face has nothing else. */
+    private fun onlyOneBakedPicture(lint: String): Boolean {
+        val lines = lint.lines()
+        val items = lines.drop(1).takeWhile { !it.startsWith("Slots") }
+        return items.isNotEmpty() && items.all { " bake " in it && "picture 0" in it } &&
+            lines.any { it.startsWith("Slots 0 /") && "static pictures 1" in it } && lines.any { it.startsWith("Pictures: 1 static, 0 loops") } &&
+            lines.none { it.startsWith(" ! not written") }
     }
 
     /** Shows the face of [dir] on the emulator with the values of its scene, at [atMs], and takes its picture. */

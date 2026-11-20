@@ -14,7 +14,10 @@ class ParitySampleTest : WffParityBase() {
             {"shape": "line", "color": "#FFD166", "rest": 0, "x": 300, "y": 150, "length": 100, "thickness": 8, "angle": 30}
             """,
             "\"durationMs\": 4000"
-        )
+        ),
+        // The one test of a face that is only a baked picture which still runs on the emulator: it proves
+        // that the watch draws such a picture one to one (a face of 400 units drew it soft)
+        onEmulator = true
     )
 
     @Test

@@ -13,6 +13,11 @@ Each test:
    designer knows it;
 4. with the emulator: shows the face on a Wear OS 6 emulator with the same values at the same
    moment, takes its picture and compares it with the picture of our engine, region by region.
+   Not when the whole face is one picture that our engine drew (all parts baked into picture 0):
+   the emulator would only show that picture again, so the test says "emulator: not needed".
+   One test (`ParitySampleTest.restShapes`) still runs such a face on the emulator: it proves that the
+   watch draws a baked picture one to one. (A face of 400 units with pictures of 454 px was drawn
+   soft; the converter now writes the face in the size of its pictures.)
 
 The tests are in `src/test/kotlin/app/aaps/watchfaces/wffparity/`, one class per group of features.
 `WffParityBase` does the work; a test only builds its design with `ParityDesign` and says what to
