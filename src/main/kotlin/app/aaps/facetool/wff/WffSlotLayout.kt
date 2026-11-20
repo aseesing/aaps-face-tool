@@ -50,9 +50,39 @@ internal object WffSlotLayout {
      * @param text the box of the text
      * @param textStart the room left of a text that starts at the left
      * @param centred the text is centred in its box; otherwise it starts at the left
-     * @param textSize the size of the text: the size the design asks for, at most the height of the text box, and small enough for 4 digits
+     * @param textSize the size of a text that fits: the size the design asks for, at most the height of the text box. A longer text is smaller, see [sizesByLength].
      */
-    data class Parts(val radius: Int, val ring: Box?, val icon: Box?, val text: Box, val textStart: Int, val centred: Boolean, val textSize: Int)
+    data class Parts(val radius: Int, val ring: Box?, val icon: Box?, val text: Box, val textStart: Int, val centred: Boolean, val textSize: Int) {
+
+        /**
+         * The size of a text of each length, as `TextRenderer.updateLayout` picks it: a text that fits
+         * keeps [textSize]. A longer one gets smaller in steps of 1 until its first 8 letters fit (7, and
+         * one for the "…" at its end). WFF cannot measure a text, so the face picks the size by the
+         * length of the text (`textLength()`), and each letter counts as a digit of [digitWidth] (the
+         * mean width of a digit of the font, in parts of its size).
+         *
+         * Lengths with the same size share one entry, shortest first. The last entry also holds every
+         * longer text.
+         */
+        fun sizesByLength(digitWidth: Double): List<LengthSize> {
+            val room = text.width - textStart
+            val sizes = (1..SHOWN_CHARACTERS).map { length ->
+                var size = textSize
+                while (size > 1 && length * digitWidth * size > room) size--
+                size
+            }
+            val out = ArrayList<LengthSize>()
+            sizes.forEachIndexed { i, size ->
+                val last = out.lastOrNull()
+                if (last != null && last.size == size) out[out.size - 1] = last.copy(lengths = last.lengths.first..i + 1)
+                else out += LengthSize(i + 1..i + 1, size)
+            }
+            return out
+        }
+    }
+
+    /** The text [size] for texts with a number of letters in [lengths]. */
+    data class LengthSize(val lengths: IntRange, val size: Int)
 
     /**
      * The parts of a slot of [width] x [height] pixels.
@@ -98,10 +128,6 @@ internal object WffSlotLayout {
         val innerBounds = bounds.inset(cornerInset(radius), cornerInset(radius))
         val textBox = text.intersect(innerBounds) ?: Box(0, 0, 0, 0)
         val textStart = (textBox.width * padding).toInt()
-        // TextRenderer.updateLayout makes a text smaller until its first 7 letters fit the width. WFF
-        // cannot do that for a text it does not know, so the size is kept small enough for 4 digits
-        // (steps, a heart rate, carbs): longer texts are cut, shorter ones are a little smaller.
-        val fitWidth = ((textBox.width - textStart) / (FIT_CHARACTERS * DIGIT_WIDTH)).toInt()
         return Parts(
             radius = radius,
             ring = ring,
@@ -111,7 +137,7 @@ internal object WffSlotLayout {
             textStart = textStart,
             centred = centred,
             // TextRenderer.updateLayout: one line, at most as high as its box
-            textSize = minOf(textBox.height, textSize ?: Int.MAX_VALUE, fitWidth)
+            textSize = minOf(textBox.height, textSize ?: Int.MAX_VALUE)
         )
     }
 
@@ -160,11 +186,8 @@ internal object WffSlotLayout {
     /** The colour our engine uses for a colour key it cannot read (Android's `Color.GRAY`). */
     const val ENGINE_GRAY = "#FF888888"
 
-    /** How many digits the text of a slot must fit, see [of]. */
-    private const val FIT_CHARACTERS = 4
-
-    /** The width of a digit of Roboto, the font of the watch, as a share of the text size. */
-    private const val DIGIT_WIDTH = 0.5615
+    /** How many letters of a long text `TextRenderer` makes fit: its 7, and one for the "…". */
+    private const val SHOWN_CHARACTERS = 8
 
     private const val WIDE_RATIO = 2
     private const val RANGED_VALUE_SIZE_FRACTION = 0.95f

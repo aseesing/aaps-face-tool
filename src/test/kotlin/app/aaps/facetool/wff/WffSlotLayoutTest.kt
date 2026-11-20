@@ -49,9 +49,30 @@ internal class WffSlotLayoutTest {
     }
 
     @Test
-    fun theTextIsSmallEnoughForFourDigits() {
-        // The text box of a round slot of 114 is 56 wide: our engine shows 6482 at 24 px there, not 27
-        assertThat(WffSlotLayout.of(114, 114, 56, 7, ranged = true, textSize = 27).textSize).isEqualTo(24)
+    fun aTextGetsSmallerOnlyWhenItDoesNotFit() {
+        // The text box of a round slot of 114 is 56 wide: our engine shows 72 at 27 px there, and 6482 at 24
+        val sizes = WffSlotLayout.of(114, 114, 56, 7, ranged = true, textSize = 27).sizesByLength(WffFontMetrics.ROBOTO_DIGIT_WIDTH)
+        assertThat(sizes).containsExactly(
+            WffSlotLayout.LengthSize(1..3, 27),
+            WffSlotLayout.LengthSize(4..4, 24),
+            WffSlotLayout.LengthSize(5..5, 19),
+            WffSlotLayout.LengthSize(6..6, 16),
+            WffSlotLayout.LengthSize(7..7, 14),
+            // 7 letters and one for the "…": every longer text has this size too
+            WffSlotLayout.LengthSize(8..8, 12)
+        ).inOrder()
+    }
+
+    @Test
+    fun aNarrowFontKeepsTheSizeForLongerTexts() {
+        val sizes = WffSlotLayout.of(114, 114, 56, 7, ranged = true, textSize = 27).sizesByLength(0.4)
+        assertThat(sizes.first()).isEqualTo(WffSlotLayout.LengthSize(1..5, 27))
+    }
+
+    @Test
+    fun aTextThatAlwaysFitsHasOneSize() {
+        assertThat(WffSlotLayout.of(600, 100, 0, 7, ranged = false, textSize = 10).sizesByLength(WffFontMetrics.ROBOTO_DIGIT_WIDTH))
+            .containsExactly(WffSlotLayout.LengthSize(1..8, 10))
     }
 
     @Test

@@ -1102,6 +1102,15 @@ build on the phone, send, push) is not built.
   `blendMode`, so frames of light that adds to what lies below are left out there, with a lint
   line. The face zip (`WffFaceZip`, `docs/wff-apk.md`) holds both versions for each wear app, and
   `data.zip`: the data picture's design, made here instead of on the watch.
+- WFF 2 faces have whole font sizes only. The WFF runtime of Wear OS 5 (seen with 332917000 on
+  the emulator and 332919060 on the owner's watch) ignores a `Font size` with decimals and draws
+  a default size instead: on a face of 450, the glucose at 78.75 came out half as high, the age
+  at 19.13 twice as high. Wear OS 6 reads decimals, also in a WFF 2 face.
+- The text of a wearer's slot gets smaller only when it is longer, as the renderer of our engine
+  (`TextRenderer`) does it: a `Condition` on `textLength([COMPLICATION.TEXT])` picks a size per
+  length, with each letter counted as a mean digit of the design's font. `textLength()` works on
+  Wear OS 5 and 6. Before, every slot text was small enough for 4 digits, so a heart rate of 72
+  came out at about half the design's size.
 - The fitted sun times (4.3), `[REFERENCE]` across slots and the expression printer are proven or
   built but not needed by the writer so far.
 

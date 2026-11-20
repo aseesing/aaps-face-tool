@@ -348,18 +348,7 @@ class WffFaceWriter(
                 val icon = parts.icon
                 if (icon != null && visible(iconColor))
                     line(4, """<PartImage x="${icon.left}" y="${icon.top}" width="${icon.width}" height="${icon.height}" tintColor="$iconColor"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage>""")
-                val text = parts.text
-                if (!text.isEmpty && parts.textSize >= 1) {
-                    val size = parts.textSize.toDouble()
-                    // The renderer centres the line by the top and the bottom of the font, WFF by its ascent and descent
-                    val engineBaseline = (text.height - (metrics.bottom - metrics.top) * size) / 2 - metrics.top * size
-                    val y = text.top + (engineBaseline - WffTextPlace.wffBaseline(metrics, size, text.height.toDouble())).roundToInt()
-                    val font = font(fontKey, size / scale, textColor) + fontLook(fontKey, fontStyle)
-                    line(
-                        4, """<PartText x="${text.left + parts.textStart}" y="$y" width="${text.width - parts.textStart}" height="${text.height}">""" +
-                            """<Text align="${if (parts.centred) "CENTER" else "START"}">$font><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText>"""
-                    )
-                }
+                if (!parts.text.isEmpty && parts.textSize >= 1) slotText(parts, metrics) { size -> font(fontKey, size / scale, textColor) + fontLook(fontKey, fontStyle) }
                 line(3, "</Complication>")
             }
             for (type in listOf("SMALL_IMAGE", "MONOCHROMATIC_IMAGE")) {
@@ -368,6 +357,47 @@ class WffFaceWriter(
             }
             line(3, """<Complication type="EMPTY" />""")
             line(2, "</ComplicationSlot>")
+        }
+
+        /**
+         * The text of a slot. Our engine makes a text that does not fit smaller (see
+         * [WffSlotLayout.Parts.sizesByLength]); the face does the same by the length of the text, with
+         * one part per size. A text that fits in every length needs only one.
+         *
+         * @param font the start of the `Font` element for a text of a size in face units
+         */
+        private fun slotText(parts: WffSlotLayout.Parts, metrics: WffFontMetrics, font: (Double) -> String) {
+            val sizes = parts.sizesByLength(metrics.digitWidth)
+            if (sizes.size == 1) {
+                line(4, slotTextPart(parts, metrics, sizes[0].size.toDouble(), font))
+                return
+            }
+            // The shortest texts are the Default: they keep the size of the design
+            val longer = sizes.drop(1)
+            line(4, "<Condition><Expressions>")
+            longer.forEachIndexed { i, s ->
+                val length = "textLength([COMPLICATION.TEXT])"
+                val test = when {
+                    i == longer.lastIndex              -> "$length >= ${s.lengths.first}"
+                    s.lengths.first == s.lengths.last  -> "$length == ${s.lengths.first}"
+                    else                               -> "$length >= ${s.lengths.first} && $length <= ${s.lengths.last}"
+                }
+                line(5, """<Expression name="length$i">${xml(test)}</Expression>""")
+            }
+            line(4, "</Expressions>")
+            longer.forEachIndexed { i, s -> line(4, """<Compare expression="length$i">${slotTextPart(parts, metrics, s.size.toDouble(), font)}</Compare>""") }
+            line(4, "<Default>${slotTextPart(parts, metrics, sizes[0].size.toDouble(), font)}</Default>")
+            line(4, "</Condition>")
+        }
+
+        /** The `PartText` of a slot's text of [size] face units, placed as our engine places it. */
+        private fun slotTextPart(parts: WffSlotLayout.Parts, metrics: WffFontMetrics, size: Double, font: (Double) -> String): String {
+            val text = parts.text
+            // The renderer centres the line by the top and the bottom of the font, WFF by its ascent and descent
+            val engineBaseline = (text.height - (metrics.bottom - metrics.top) * size) / 2 - metrics.top * size
+            val y = text.top + (engineBaseline - WffTextPlace.wffBaseline(metrics, size, text.height.toDouble())).roundToInt()
+            return """<PartText x="${text.left + parts.textStart}" y="$y" width="${text.width - parts.textStart}" height="${text.height}">""" +
+                """<Text align="${if (parts.centred) "CENTER" else "START"}">${font(size)}><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText>"""
         }
 
         /**
@@ -609,11 +639,15 @@ class WffFaceWriter(
          * In the parity suite a `clock()` of 72 design px matched our engine with size 82, and with
          * size 81.72 its five signs were 3 px narrower. A `TimeText` of only "mm" matched better with
          * the fraction.
+         * Below [DECIMAL_SIZE_VERSION] every size is whole: the runtime of Wear OS 5 ignores a size
+         * with decimals and draws its own default size instead (seen on a watch and on the Wear OS 5
+         * emulator: 78.75 came out half as high, 19.13 twice as high).
          */
         private fun font(key: String, size: Double, colour: String, whole: Boolean = false): String {
             val family = if (key.isEmpty() || key in SYSTEM_FONTS) "SYNC_TO_DEVICE" else fonts.getOrPut(key) { "font_" + key.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9_]"), "_") }
             val weight = if (key == BOLD_FONT) """ weight="BOLD"""" else ""
-            return """<Font family="$family" size="${if (whole) px(size).toString() else num((size * scale * 100).roundToInt() / 100.0)}" color="$colour"$weight"""
+            val wholeSize = whole || version < DECIMAL_SIZE_VERSION
+            return """<Font family="$family" size="${if (wholeSize) px(size).toString() else num((size * scale * 100).roundToInt() / 100.0)}" color="$colour"$weight"""
         }
 
         private fun line(depth: Int, text: String) {
@@ -638,6 +672,9 @@ class WffFaceWriter(
 
         /** The first WFF version with `blendMode` on parts. */
         private const val BLEND_VERSION = 3
+
+        /** The first WFF version written here whose faces may have a font size with decimals; see `font()`. */
+        private const val DECIMAL_SIZE_VERSION = 4
 
         /** The face is written in the design's own space. */
         private const val SIZE = 400

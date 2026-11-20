@@ -20,11 +20,15 @@ class PaintFontMeasure(private val design: CwfData) : WffFontMeasure {
             textSize = SIZE
         }
         val m = paint.fontMetrics
-        WffFontMetrics(top = m.top / SIZE.toDouble(), ascent = m.ascent / SIZE.toDouble(), descent = m.descent / SIZE.toDouble(), bottom = m.bottom / SIZE.toDouble())
+        WffFontMetrics(
+            top = m.top / SIZE.toDouble(), ascent = m.ascent / SIZE.toDouble(), descent = m.descent / SIZE.toDouble(), bottom = m.bottom / SIZE.toDouble(),
+            digitWidth = paint.measureText(DIGITS) / DIGITS.length / SIZE.toDouble()
+        )
     }
 
     private companion object {
 
         const val SIZE = 1000f
+        const val DIGITS = "0123456789"
     }
 }

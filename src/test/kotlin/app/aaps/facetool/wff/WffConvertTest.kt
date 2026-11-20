@@ -134,6 +134,32 @@ class WffConvertTest {
     }
 
     @Test
+    fun versionTwoWritesOnlyWholeFontSizes() {
+        // On a face of 450 the sizes of the design get decimals (60 -> 67.5). Wear OS 5 ignores such a
+        // size and draws a default size: the glucose came out half as high on a watch.
+        val decimal = Regex("""<Font [^>]*size="\d+\.\d+"""")
+        val four = WffFaceWriter(providerApp = "info.nightscout.androidaps", faceSize = 450).write(design, animation, plan, assets).xml
+        assertThat(decimal.containsMatchIn(four)).isTrue()
+        val two = WffFaceWriter(providerApp = "info.nightscout.androidaps", faceSize = 450, version = WffFaceWriter.VERSION_2).write(design, animation, plan, assets).xml
+        assertWithMessage("%s", two).that(decimal.containsMatchIn(two)).isFalse()
+        assertThat(two).contains("""size="68"""")
+        assertWithMessage("%s", two).that(valid(two, 2)).isTrue()
+    }
+
+    @Test
+    fun theTextOfASlotGetsSmallerOnlyWhenItIsLonger() {
+        val xml = WffFaceWriter(providerApp = "info.nightscout.androidaps").write(design, animation, plan, assets).xml
+        // complication1 is 100 x 40: right of its icon 56 px for the text, at most 40 high. 72 keeps 40,
+        // 113 gets 33, 6482 gets 24, and from 8 letters on (7 and the "…") 12.
+        val slot = xml.substringAfter("""slotId="1"""").substringBefore("</ComplicationSlot>")
+        assertThat(slot).contains("""<Expression name="length0">textLength([COMPLICATION.TEXT]) == 3</Expression>""")
+        assertThat(slot).contains("""<Expression name="length5">textLength([COMPLICATION.TEXT]) &gt;= 8</Expression>""")
+        assertThat(slot).containsMatch("""<Compare expression="length0"><PartText [^>]*><Text [^>]*><Font [^>]*size="33"""")
+        assertThat(slot).containsMatch("""<Compare expression="length1"><PartText [^>]*><Text [^>]*><Font [^>]*size="24"""")
+        assertThat(slot).containsMatch("""<Default><PartText [^>]*><Text [^>]*><Font [^>]*size="40"""")
+    }
+
+    @Test
     fun theDataZipLoadsAsADesignZipAndKeepsTheArrows() {
         val png = WffDesignParts.CLEAR_PNG
         val res = listOf("CustomWatchface", "Background", "BackgroundHigh", "ArrowFlat", "ArrowDoubleUp", "Frame").associateWith { ResData(byteArrayOf(1, 2, 3), ResFormat.PNG) }

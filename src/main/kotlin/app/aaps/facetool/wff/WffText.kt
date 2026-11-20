@@ -10,10 +10,15 @@ import kotlin.math.floor
 /**
  * The heights of a font in parts of its size, as Android's `Paint.FontMetrics` gives them: [top] and
  * [ascent] lie above the base line and are below 0, [descent] and [bottom] lie below it.
+ * [digitWidth] is the mean width of the digits 0 to 9, also in parts of the size: what the slots of
+ * the wearer use to guess how wide a text is.
  */
-data class WffFontMetrics(val top: Double, val ascent: Double, val descent: Double, val bottom: Double) {
+data class WffFontMetrics(val top: Double, val ascent: Double, val descent: Double, val bottom: Double, val digitWidth: Double = ROBOTO_DIGIT_WIDTH) {
 
     companion object {
+
+        /** The width of a digit of Roboto, in parts of the size. */
+        const val ROBOTO_DIGIT_WIDTH = 0.5615
 
         /** Roboto, the font of the watch when a design names none. */
         val ROBOTO = WffFontMetrics(top = -1.056, ascent = -0.928, descent = 0.244, bottom = 0.271)
