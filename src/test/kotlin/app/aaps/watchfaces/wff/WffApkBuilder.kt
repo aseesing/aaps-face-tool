@@ -42,8 +42,11 @@ class WffApkBuilder(private val app: Application, private val baker: WffBaker, p
      */
     class Result(val lint: String, val apk: File?, val token: String?, val design: CwfData)
 
-    fun build(zip: File, dir: File): Result {
-        val cwf = ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)?.cwfData ?: error("${zip.name} is not a design zip")
+    fun build(zip: File, dir: File): Result =
+        build(ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)?.cwfData ?: error("${zip.name} is not a design zip"), dir)
+
+    /** The face of the design [cwf], see [build]. */
+    fun build(cwf: CwfData, dir: File): Result {
         val design = JSONObject(cwf.json)
         val animation = WakeAnimationJson({ text, default -> runCatching { Color.parseColor(text) }.getOrDefault(default) }) { null }.read(design)
         val planner = WffPlanner()

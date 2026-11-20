@@ -144,3 +144,8 @@ for fresh ones.
 - A view that only moves during the wake (a blink, a hop) stays at its rest place.
 - In always-on the face shows the clock, the glucose, its age and your own slots.
 - A tap anywhere on the data picture opens the AAPS menu.
+
+## The parity suite
+
+To check that a change of the engine or the converter keeps the WFF faces like ours, feature by
+feature, run the parity suite: see `docs/wff-parity.md`.
