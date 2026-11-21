@@ -73,6 +73,8 @@
   details.menu .items button:hover { background: #2a2e36; }
   details.menu .items .sep { border-top: 1px solid var(--line); margin: 3px 0; }
   details.menu .items .hint { color: var(--dim); font-size: 12px; padding: 2px 10px 4px; }
+  details.menu .items label.hint { color: var(--text); font-size: 13px; display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  details.menu .items label[hidden] { display: none; }
   a.button { display: inline-block; color: var(--text); background: #2d4460; border: 1px solid var(--accent); border-radius: 4px; padding: 5px 14px; text-decoration: none; }
   a.button[hidden] { display: none; }
   #exportPath { font: 12px ui-monospace, Menlo, monospace; white-space: normal; word-break: break-all; }
@@ -110,6 +112,8 @@
     <button id="exportFaceZip" title="The zip the AAPS phone app uses to put the WFF face on a watch: the faces in WFF 4 and WFF 2 for each wear app, and the parts of the data picture (facetool wff apk --zip)">WFF face zip for the AAPS phone app</button>
     <button id="exportApk4" title="A WFF 4 face APK for Wear OS 6, checked by the validator (facetool wff apk --version 4). Only to check the converter on an emulator.">WFF 4 APK (Wear OS 6)</button>
     <button id="exportApk2" title="A WFF 2 face APK for Wear OS 5, checked by the validator (facetool wff apk --version 2). Only to check the converter on an emulator.">WFF 2 APK (Wear OS 5)</button>
+    <div class="sep"></div>
+    <label id="driveAlways" class="hint" title="Put each exported file in your Google Drive folder too, over a file of the same name (no copy with (1))"><input type="checkbox" id="driveAuto"> Also to Google Drive</label>
     <div class="hint">APKs are only to check the converter on an emulator, not for a watch.<br>The first WFF build of a design takes about a minute.</div>
   </div></details>
   <details class="menu" id="helpMenu"><summary title="How to make a design, and the manual of the design format">Help ▾</summary><div class="items">
@@ -166,7 +170,9 @@
 <dialog id="exportDialog">
   <div class="bar"><b id="exportTitle">Export</b> <button id="exportClose" title="Close this window. The file stays where it is.">Close</button></div>
   <p id="exportState"></p>
-  <p><a id="exportLink" class="button" href="#" hidden title="Download the file again into the downloads folder of your browser">Download</a></p>
+  <p><a id="exportLink" class="button" href="#" hidden title="Download the file again into the downloads folder of your browser">Download</a>
+     <button id="exportDrive" hidden title="Put the file in your Google Drive folder. A file of the same name there is written over: the same Drive file, not a copy with (1).">Save to Google Drive</button></p>
+  <div class="info" id="exportDriveState"></div>
   <div class="place" id="exportPlace" hidden><span class="what" id="exportPath"></span> <button id="exportCopy" title="Copy the place of the file on this computer">Copy path</button></div>
   <div class="message" id="exportText"></div>
 </dialog>
@@ -605,6 +611,7 @@ const SCENE_HELP = {
 };
 // The switches of the design (metadata.key_show_...): the complication slots first, then the others.
 // A switch keeps the form it has in the JSON: the text "true"/"false" of most designs, or true/false.
+// A switch the design does not have yet is written as a JSON boolean (the engine reads both).
 const SWITCH_NAMES = {
   date: 'Date', seconds: 'Seconds', delta: 'Delta', avg_delta: 'Average delta', uploader_battery: 'Phone battery',
   rig_battery: 'Rig battery', iob: 'IOB', detailed_iob: 'Detailed IOB', cob: 'COB', temp_basal: 'Temp basal',
@@ -639,8 +646,8 @@ async function loadSwitches() {
     if (slot && !slots.has(name)) { const where = document.createElement('span'); where.className = 'where'; where.textContent = '(no place in the design)'; row.append(where); }
     box1.onchange = async () => {
       const on = box1.checked;
-      // The form of the JSON stays: text for a design that has text, else a JSON boolean
-      const asText = typeof value === 'string' || value === undefined;
+      // The form of the JSON stays: text for a design that has text; a new switch is a JSON boolean
+      const asText = typeof value === 'string';
       const answer = await edit('set', { path: 'metadata.' + key, value: asText ? String(on) : on });
       if (answer.error) { box1.checked = !on; return; }
       forgetFrames(); await loadLayers(true); render();
@@ -814,8 +821,34 @@ function exportStart(title, waiting) {
   $('exportTitle').textContent = title;
   $('exportState').textContent = waiting;
   $('exportLink').hidden = true; $('exportPlace').hidden = true; $('exportText').textContent = '';
+  $('exportDrive').hidden = true; $('exportDriveState').textContent = ''; exported = null;
   if (!$('exportDialog').open) $('exportDialog').showModal();
 }
+// Google Drive for desktop: the server knows the folder (driveDir in local.properties, else My Drive/AAPS/latest)
+let driveFolder = null;
+async function loadDrive() {
+  try { driveFolder = (await (await fetch('/api/drive', { headers: { 'X-Facetool-Token': token } })).json()).folder; } catch (error) { driveFolder = null; }
+  $('driveAlways').hidden = !driveFolder;
+  if (driveFolder) $('driveAlways').title = 'Put each exported file in ' + driveFolder + ' too, over a file of the same name (no copy with (1))';
+  try { $('driveAuto').checked = localStorage.getItem('facetoolDriveAuto') === '1'; } catch (error) { /* no storage: off */ }
+}
+$('driveAuto').onchange = () => { try { localStorage.setItem('facetoolDriveAuto', $('driveAuto').checked ? '1' : '0'); } catch (error) { /* no storage */ } };
+let exported = null;
+async function toDrive() {
+  if (!exported) return;
+  $('exportDrive').disabled = true;
+  $('exportDriveState').textContent = 'Putting it in Google Drive ...';
+  try {
+    const response = await fetch('/api/drive', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify(exported) });
+    const answer = await response.json();
+    $('exportDriveState').textContent = answer.text;
+    if (!answer.error) logLine('(Google Drive) ' + answer.file);
+  } catch (error) {
+    $('exportDriveState').textContent = 'The editor server does not answer.';
+  }
+  $('exportDrive').disabled = false;
+}
+$('exportDrive').onclick = toDrive;
 function exportDone(path, name, text) {
   $('exportLink').href = fileUrl(path); $('exportLink').download = name;
   $('exportLink').textContent = 'Download ' + name;
@@ -823,7 +856,11 @@ function exportDone(path, name, text) {
   $('exportPath').textContent = path; $('exportPlace').hidden = false;
   $('exportState').textContent = 'Ready. The browser downloads it as ' + name + ' into its downloads folder. Not there? Click the button.';
   $('exportText').textContent = text || '';
+  exported = { path, name };
+  $('exportDrive').hidden = !driveFolder;
+  if (driveFolder) $('exportDrive').title = 'Put the file in ' + driveFolder + '. A file of the same name there is written over: the same Drive file, not a copy with (1).';
   download(path, name);
+  if (driveFolder && $('driveAuto').checked) toDrive();
 }
 function exportFailed(text) {
   $('exportState').textContent = 'No file was made.';
@@ -1044,6 +1081,7 @@ function start() {
 // The start: the controls stay off until the first picture is there.
 async function first() {
   const began = Date.now();
+  loadDrive();
   await loadInfo(); await loadLayers(false); await loadSwitches(); await loadScene();
   cover('Drawing the first picture…', 'The first picture of a design takes a few seconds. The next ones come much faster.');
   await render();

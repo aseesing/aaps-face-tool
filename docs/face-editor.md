@@ -137,6 +137,13 @@ change.
 
 The first WFF build of a design takes about a minute.
 
+**Google Drive.** The export window has **Save to Google Drive**, and the Export menu a switch **Also
+to Google Drive** that does it for every export. The file goes into the Google Drive for desktop
+folder: `driveDir` in `local.properties` of the editor checkout, else `My Drive/AAPS/latest` of the
+first Google Drive account on the Mac that has it (the folder the phone imports designs from). A file
+of the same name there is written over in place, so Drive keeps one file with a new version and never
+makes `name (1).zip`. Google Drive for desktop must run; the editor only writes the local folder.
+
 While the page starts, a cover says what it waits for. Later the top bar shows "Working" while the
 server is busy. You can go on clicking: a change waits for its turn, and the picture always ends at
 the newest state. When the server has stopped, the page says so; run `facetool gui` again.

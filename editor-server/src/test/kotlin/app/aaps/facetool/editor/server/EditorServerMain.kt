@@ -52,7 +52,8 @@ class EditorServerMain {
                 editingRoot = File(System.getProperty("editor.editing") ?: "$home/Projects/aaps-face-editing"),
                 cacheRoot = File(System.getProperty("editor.cache") ?: "$home/.cache/aaps-face-editor"),
                 designsDir = designsDir(),
-                guiDir = System.getProperty("editor.gui")?.let { File(it) }
+                guiDir = System.getProperty("editor.gui")?.let { File(it) },
+                driveDir = DriveExport.find(System.getProperty("editor.checkout")?.let { File(it, "local.properties") }, File(home))
             ).serve(ManagementFactory.getRuntimeMXBean().startTime)
         } finally {
             clock.stop()

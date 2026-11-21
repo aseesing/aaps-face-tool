@@ -30,7 +30,8 @@ import java.util.concurrent.Executors
 class HttpApi(
     private val commands: ServerCommands, private val table: CommandTable, private val token: String, private val facts: ServerFacts,
     private val events: Events, private val places: ProjectPlaces, private val frameStops: FrameStops, private val gui: (String) -> ByteArray?, private val onRequest: () -> Unit,
-    private val follow: FollowPictures? = null
+    private val follow: FollowPictures? = null,
+    private val drive: DriveExport = DriveExport(null)
 ) {
 
     private var server: HttpServer? = null
@@ -62,6 +63,7 @@ class HttpApi(
             }
         }
         http.createContext("/api/upload") { exchange -> api(exchange) { upload(exchange) } }
+        http.createContext("/api/drive") { exchange -> api(exchange) { drive(exchange) } }
         http.createContext("/") { exchange -> page(exchange) }
         http.start()
         server = http
@@ -110,6 +112,29 @@ class HttpApi(
         val answer = try {
             if (bytes.size > MAX_UPLOAD) wrongUse("The zip is over ${MAX_UPLOAD / 1024 / 1024} MB: that is no design zip")
             places.storeUpload(query(exchange)["name"] ?: "design.zip", bytes)
+        } catch (e: FacetoolException) {
+            buildJsonObject { put("error", e.message); put("exitCode", e.exitCode); put("text", e.message) }
+        }
+        json(exchange, 200, answer)
+    }
+
+    /**
+     * Google Drive for desktop. `GET`: the folder, or null. `POST {"path", "name"}`: copies an exported
+     * file (under `.facetool/out/`) into that folder as `name`, over a file of that name in place.
+     */
+    private fun drive(exchange: HttpExchange) {
+        if (exchange.requestMethod == "GET") return json(exchange, 200, buildJsonObject { put("folder", drive.folder?.path) })
+        if (exchange.requestMethod != "POST") return json(exchange, 405, buildJsonObject { put("error", "GET or POST"); put("text", "GET or POST") })
+        val body = AndroidJson.parseObject(exchange.requestBody.readBytes().toString(Charsets.UTF_8), "the request")
+        val answer = try {
+            val path = (body["path"] as? JsonPrimitive)?.content ?: wrongUse("The request names no file")
+            val name = (body["name"] as? JsonPrimitive)?.content ?: File(path).name
+            val copied = drive.copy(File(path), name)
+            buildJsonObject {
+                put("file", copied.file.path)
+                put("replaced", copied.replaced)
+                put("text", if (copied.replaced) "Wrote over ${copied.file.name} in Google Drive (${copied.file.parent}): the same Drive file, a new version." else "Copied ${copied.file.name} to Google Drive (${copied.file.parent}).")
+            }
         } catch (e: FacetoolException) {
             buildJsonObject { put("error", e.message); put("exitCode", e.exitCode); put("text", e.message) }
         }

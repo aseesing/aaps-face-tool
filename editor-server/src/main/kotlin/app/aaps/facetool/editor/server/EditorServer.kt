@@ -29,7 +29,7 @@ import java.time.Clock
  */
 class EditorServer(
     app: Application, logger: AAPSLogger, clock: EngineClock, private val checkout: String?, private val aapsDir: File?, editingRoot: File, cacheRoot: File, designsDir: File?, private val guiDir: File? = null,
-    private val renderThread: RenderThread = RenderThread()
+    private val renderThread: RenderThread = RenderThread(), driveDir: File? = null
 ) {
 
     private val table = CommandTable.standard()
@@ -118,7 +118,7 @@ class EditorServer(
         }
     }
 
-    private val api = HttpApi(commands, table, token, facts, events, places, frameStops, ::guiFile, life::requestSeen, FollowPictures { name, data, dir -> events.send(name, data, dir) })
+    private val api = HttpApi(commands, table, token, facts, events, places, frameStops, ::guiFile, life::requestSeen, FollowPictures { name, data, dir -> events.send(name, data, dir) }, DriveExport(driveDir))
 
     /**
      * The two help pages of the page's Help menu, and no other file: the page of this checkout about
