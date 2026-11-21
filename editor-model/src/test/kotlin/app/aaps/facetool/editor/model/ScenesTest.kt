@@ -40,6 +40,18 @@ class ScenesTest {
     }
 
     @Test
+    fun `the slots of a scene are single choices, and the default is no choice`() {
+        assertThat(Scenes.defaults()["slots"]!!.compact()).isEqualTo("{}")
+        // A layer changes single slots, as it does for the options
+        val scene = Scenes.merge(obj("""{"slots": {"1": "heartRate", "2": "steps"}}"""), null, listOf("slots.2=bg", "slots.3=none", "slots.1=null"))
+        assertThat(scene["slots"]!!.compact()).isEqualTo("""{"1":null,"2":"bg","3":"none"}""")
+        // The help of the key names every source
+        val help = Scenes.KEYS.single { it.name == "slots" }.help
+        for (source in Scenes.SLOT_SOURCES) assertThat(help).contains(source)
+        assertThat(Scenes.SLOT_SOURCES).containsExactly("none", "cob", "iob", "bg", "basal", "phoneBattery", "heartRate", "steps").inOrder()
+    }
+
+    @Test
     fun `the presets are the list of the design`() {
         assertThat(Scenes.PRESETS.keys).containsExactly("default", "high", "low", "no-data", "old-reading", "night", "christmas", "low-battery").inOrder()
         assertThat(Scenes.over(Scenes.defaults(), Scenes.PRESETS.getValue("default"))).isEqualTo(Scenes.defaults())

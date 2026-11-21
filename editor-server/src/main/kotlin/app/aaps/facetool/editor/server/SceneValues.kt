@@ -1,8 +1,10 @@
 package app.aaps.facetool.editor.server
 
+import app.aaps.facetool.editor.model.Scenes
 import app.aaps.facetool.editor.model.wrongUse
 import app.aaps.facetool.snapshot.SnapshotClock
 import app.aaps.facetool.snapshot.SnapshotData
+import app.aaps.wear.phonepreview.PreviewSlotSource
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -26,6 +28,8 @@ import kotlin.math.sin
  * @param options the choice per option name
  * @param colours `colour1` and `colour2`: a colour value of the watch setting
  * @param watch other watch settings, stored name -> value
+ *
+ * The source of each complication slot (the scene key `slots`) is in [data], with the other values the face is fed.
  */
 class SceneValues(
     val timeMs: Long, val size: Int, val wakeMs: Long?, val data: SnapshotData,
@@ -93,7 +97,8 @@ class SceneReader {
             tempTargetText = fixed(number(scene, "tempTarget") ?: 100.0, 0),
             reservoir = reservoir, reservoirText = "${fixed(reservoir, 0)}U",
             rigBattery = text(scene, "rigBattery") ?: "--",
-            graph = graph(scene["graph"])
+            graph = graph(scene["graph"]),
+            slotSources = slots(scene["slots"])
         )
         val wake = number(scene, "wake")
         if (wake != null && wake !in 0.0..60.0) wrongUse("The scene key wake must be 0 to 60 seconds")
@@ -104,6 +109,20 @@ class SceneReader {
             watch = (scene["watch"] as? JsonObject).orEmpty().mapValues { (it.value as JsonPrimitive).content },
             ambient = (scene["ambient"] as? JsonPrimitive)?.booleanOrNull == true
         )
+    }
+
+    /** The source per slot number of the scene key `slots`. A slot with null is left out: it shows the default of the watch. */
+    private fun slots(value: JsonElement?): Map<Int, PreviewSlotSource> {
+        if (value == null || value is JsonNull) return emptyMap()
+        val slots = value as? JsonObject ?: wrongUse("The scene key slots must be an object like {\"3\": \"bg\"}")
+        val result = LinkedHashMap<Int, PreviewSlotSource>()
+        for ((slot, source) in slots) {
+            val number = slot.toIntOrNull()?.takeIf { it in 1..5 } ?: wrongUse("The scene key slots has the slots 1 to 5, not '$slot'")
+            if (source is JsonNull) continue
+            val name = (source as? JsonPrimitive)?.content
+            result[number] = SlotNames.source(name) ?: wrongUse("Slot $slot of the scene key slots cannot show '$name'. Sources: ${Scenes.SLOT_SOURCES.joinToString(", ")}")
+        }
+        return result
     }
 
     /** The graph history in mg/dl, oldest first; null is the wave of the harness. */
@@ -140,4 +159,20 @@ class SceneReader {
         const val LOW = 70.0
         const val GRAPH_POINTS = 109
     }
+}
+
+/** The names of the scene key `slots` for the sources of a complication slot of the preview, see `Scenes.SLOT_SOURCES`. */
+object SlotNames {
+
+    private val names = mapOf(
+        "none" to PreviewSlotSource.NONE, "cob" to PreviewSlotSource.COB, "iob" to PreviewSlotSource.IOB, "bg" to PreviewSlotSource.BG,
+        "basal" to PreviewSlotSource.BASAL, "phoneBattery" to PreviewSlotSource.PHONE_BATTERY, "heartRate" to PreviewSlotSource.HEART_RATE,
+        "steps" to PreviewSlotSource.STEPS
+    )
+
+    /** The source with the scene name [name], or null when there is none. */
+    fun source(name: String?): PreviewSlotSource? = names[name]
+
+    /** The scene name of [source]. */
+    fun name(source: PreviewSlotSource): String = names.entries.first { it.value == source }.key
 }

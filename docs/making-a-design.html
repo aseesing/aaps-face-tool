@@ -280,6 +280,13 @@ example <code>--set sgv=250</code>, <code>--set options.stars=2</code>, <code>--
 <code>facetool scene --presets</code> the ready scenes (<code>high</code>, <code>low</code>, <code>no-data</code>,
 <code>old-reading</code>, <code>night</code>, <code>christmas</code>, <code>low-battery</code>). The glucose of a scene
 is in mg/dl; the default scene shows it in mmol/l (<code>--set units=mgdl</code> changes that).</p>
+<p>A design can show up to five <strong>complication slots</strong>, but it cannot say what is in them: the wearer picks
+a source for each slot on the watch. In the preview the scene key <code>slots</code> picks it, by the number of the slot:
+<code>--set slots.1=heartRate</code>. The sources are <code>none</code>, <code>cob</code>, <code>iob</code>,
+<code>bg</code>, <code>basal</code>, <code>phoneBattery</code>, <code>heartRate</code> and <code>steps</code>. The last two
+stand in for the watch's own sources: a number with an icon. A slot you leave out shows what the watch shows before the
+wearer picks: COB in slot 1, IOB in slot 2, nothing in the others. In the page, the drop-down next to a slot under
+"Show on the face" does the same.</p>
 <p>Every picture command answers with the path of its PNG. Open that file and look at it. A picture is drawn by the real
 engine of the AAPS commit in <code>aapsDir</code>.</p>
 

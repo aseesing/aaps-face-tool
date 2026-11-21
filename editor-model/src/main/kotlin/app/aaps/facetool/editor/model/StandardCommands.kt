@@ -310,7 +310,9 @@ object StandardCommands {
             answer = "{\"dir\": folder, \"files\": [{\"moment\", \"file\"}], \"text\": text}"
         ),
         CommandSpec(
-            "scene", PICTURE, "Shows the scene of the project. --set and --scene change it, --use loads a named scene or a preset, --save keeps it under a name, --reset goes back to the defaults.",
+            "scene", PICTURE, "Shows the scene of the project. --set and --scene change it, --use loads a named scene or a preset, --save keeps it under a name, --reset goes back to the defaults. " +
+                "The key slots says what a complication slot shows in the AAPS CWF preview, by its number 1 to 5: --set slots.3=bg (${Scenes.SLOT_SOURCES.joinToString(", ")}; heartRate and steps stand in for the watch's own sources). " +
+                "A slot left out, or set to null, shows what the watch shows before the wearer picks a source: the answer names it in slotDefaults.",
             listOf(
                 opt("scene", FILE, "A scene file (JSON): its keys go over the scene of the project."),
                 opt("set", STRING, "One scene key as key=value. May repeat.", repeat = true),
@@ -322,8 +324,8 @@ object StandardCommands {
                 opt("list", FLAG, "List the named scenes of the project.")
             ),
             server = true,
-            examples = listOf("facetool scene", "facetool scene --set sgv=250 --set direction=↑ --save high-now", "facetool scene --use night", "facetool scene --presets"),
-            answer = "{\"scene\": {...}, \"names\": [text]?, \"presets\": {name: {...}}?, \"text\": text}"
+            examples = listOf("facetool scene", "facetool scene --set sgv=250 --set direction=↑ --save high-now", "facetool scene --set slots.3=bg", "facetool scene --use night", "facetool scene --presets"),
+            answer = "{\"scene\": {...}, \"slotDefaults\": {slot number: source}, \"names\": [text]?, \"presets\": {name: {...}}?, \"text\": text}"
         )
     )
 

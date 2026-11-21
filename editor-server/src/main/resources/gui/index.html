@@ -48,6 +48,8 @@
   textarea { width: 100%; height: 190px; font: 12px/1.35 ui-monospace, Menlo, monospace; }
   #switches label { display: flex; gap: 6px; align-items: center; margin: 1px 0; }
   #switches .where { color: var(--dim); font-size: 12px; }
+  #switches .slot { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin: 1px 0; }
+  #switches .slot select { max-width: 55%; }
   #scene label { display: grid; grid-template-columns: 110px 1fr; gap: 6px; margin: 2px 0; align-items: center; color: var(--dim); }
   footer { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); min-height: 0; }
   footer > div { overflow: auto; padding: 6px 8px; border-right: 1px solid var(--line); }
@@ -145,7 +147,7 @@
     <textarea id="json" spellcheck="false"></textarea>
     <div style="margin: 6px 0"><button id="apply" title="Write the JSON above into the design (facetool set)">Apply</button> <button id="expanded" title="Show the plain layers the engine makes of this layer, after templates and own functions. Read only.">Show expanded</button></div>
     <div id="colours"></div>
-    <h2 title="The switches of the design: what the face shows when a wearer first gets it. They are part of the design (metadata.key_show_...).">Show on the face</h2>
+    <h2 title="The switches of the design: what the face shows when a wearer first gets it. They are part of the design (metadata.key_show_...). The drop-down next to a complication slot is not part of the design: it says what the preview shows in that slot.">Show on the face</h2>
     <div id="switches"></div>
     <h2 title="The values the preview shows: the time, the glucose, the weather, the choices of the options. They are not part of the design.">Scene</h2>
     <div id="scene"></div>
@@ -609,7 +611,30 @@ const SCENE_HELP = {
   'colours.colour1': 'The watch setting "Main colour", like #B6FF1A. Empty: the colour of the design.',
   'colours.colour2': 'The watch setting "Second colour". Empty: the colour of the design.'
 };
+// What a complication slot can show in the AAPS CWF preview (the scene key slots). On the watch the wearer picks a source.
+const SLOT_SOURCES = [['none', 'Nothing'], ['cob', 'COB'], ['iob', 'IOB'], ['bg', 'Glucose'], ['basal', 'Basal rate'], ['phoneBattery', 'Phone battery'], ['heartRate', 'Heart rate (stand-in)'], ['steps', 'Steps (stand-in)']];
+// The drop-down of slot `number`: the first entry is no choice, named after what the watch shows then.
+function slotSourceSelect(number, chosen, defaults) {
+  const select = document.createElement('select');
+  const names = Object.fromEntries(SLOT_SOURCES);
+  const byDefault = names[defaults[number]] || 'Nothing';
+  const list = [['', byDefault + ', as on the watch'], ...SLOT_SOURCES];
+  const now = chosen === null || chosen === undefined ? '' : String(chosen);
+  if (!list.some(([value]) => value === now)) list.unshift([now, now + ' (other)']);
+  for (const [value, text] of list) { const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option); }
+  select.value = now;
+  select.title = 'What the preview shows in complication slot ' + number + ' (AAPS CWF tab). On the watch the wearer picks the source; a design cannot set it. '
+    + 'The first entry is what the watch shows before the wearer picks. "Stand-in": the watch\'s own source, shown as a plain number. (facetool scene --set slots.' + number + '=...)';
+  select.onchange = async () => {
+    forgetFrames();
+    const answer = await edit('scene', { set: ['slots.' + number + '=' + (select.value === '' ? 'null' : select.value)] });
+    if (answer.error) select.value = now;
+    render();
+  };
+  return select;
+}
 // The switches of the design (metadata.key_show_...): the complication slots first, then the others.
+// A complication slot also gets a drop-down: what the preview shows in it (the scene, not the design).
 // A switch keeps the form it has in the JSON: the text "true"/"false" of most designs, or true/false.
 // A switch the design does not have yet is written as a JSON boolean (the engine reads both).
 const SWITCH_NAMES = {
@@ -621,6 +646,9 @@ const SWITCH_NAMES = {
 async function loadSwitches() {
   const box = $('switches');
   const metadata = (await run('show', { path: 'metadata' })).value || {};
+  const sceneAnswer = await run('scene');
+  const slotChoices = (sceneAnswer.scene || {}).slots || {};
+  const slotDefaults = sceneAnswer.slotDefaults || {};
   const slots = new Set(Object.keys(state.summaries).filter(path => /^complication[1-5]$/.test(path)));
   const keys = Object.keys(metadata).filter(key => key.startsWith('key_show_'));
   // A slot of the design without its switch still gets one: off is what the engine assumes
@@ -652,7 +680,12 @@ async function loadSwitches() {
       if (answer.error) { box1.checked = !on; return; }
       forgetFrames(); await loadLayers(true); render();
     };
-    box.append(row);
+    if (slot) {
+      // The switch is of the design, the drop-down of the scene: side by side in one row
+      const line = document.createElement('div'); line.className = 'slot';
+      line.append(row, slotSourceSelect(slot[1], slotChoices[slot[1]], slotDefaults));
+      box.append(line);
+    } else box.append(row);
   }
 }
 

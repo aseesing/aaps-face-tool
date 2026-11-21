@@ -252,6 +252,8 @@ class PictureCommands(
         return buildJsonObject {
             put("scene", scene)
             put("changed", changed)
+            // For the page: what a slot shows when the scene key slots leaves it out
+            put("slotDefaults", JsonObject(preview.slotDefaults().mapValues { JsonPrimitive(it.value) }))
             put("text", (if (differs.isEmpty()) "The scene is the default scene." else "The scene differs from the defaults in:\n" + differs.entries.joinToString("\n") { "  ${it.key} = ${it.value}" }) +
                 (args.text("save")?.let { "\nKept as '$it'." } ?: ""))
         }

@@ -54,6 +54,12 @@ object Scenes {
         SceneKey("options", JsonObject(emptyMap()), "The choice per option name, for example {\"moon\": 1}. Empty: the design's defaults."),
         SceneKey("colours", JsonObject(emptyMap()), "colour1 and colour2 of the watch settings. Empty: the design's own."),
         SceneKey("watch", JsonObject(emptyMap()), "Other watch settings by name. Empty: the defaults of a new watch."),
+        SceneKey(
+            "slots", JsonObject(emptyMap()),
+            "What each complication slot shows in the AAPS CWF preview, by its number 1 to 5: ${SLOT_SOURCES.joinToString(", ")}, for example {\"3\": \"bg\"}. " +
+                "heartRate and steps stand in for the watch's own sources. Empty, or a slot left out: what the watch shows before the wearer picks a source " +
+                "(COB in slot 1, IOB in slot 2, nothing in the others). Only a slot the design shows is drawn."
+        ),
         SceneKey("wake", JsonNull, "Seconds since the wake began. null is the rest picture."),
         SceneKey("ambient", JsonPrimitive(false), "Always-on: the dim face of a watch that is not in use. It has no wake animation."),
         SceneKey("tilt", buildJsonArray { add(0); add(0) }, "The tilt of the watch in degrees, x and y (WFF player only)."),
@@ -62,6 +68,9 @@ object Scenes {
         SceneKey("sgvBefore", JsonNull, "WFF player: the glucose before the last reading."),
         SceneKey("transition", JsonNull, "WFF player, WFF 4: 0 to 1, how far the change out of always-on is.")
     )
+
+    /** The sources the scene key `slots` can give a complication slot of the preview. */
+    val SLOT_SOURCES: List<String> get() = listOf("none", "cob", "iob", "bg", "basal", "phoneBattery", "heartRate", "steps")
 
     /** The ready scenes of `facetool scene --presets`: the keys each one changes. */
     val PRESETS: Map<String, JsonObject> = linkedMapOf(
@@ -76,7 +85,7 @@ object Scenes {
     )
 
     /** The keys that hold an object of single choices. A layer changes single choices of them, not the whole object. */
-    private val merged = setOf("options", "colours", "watch")
+    private val merged = setOf("options", "colours", "watch", "slots")
 
     /** The scene with every default. */
     fun defaults(): JsonObject = JsonObject(KEYS.associate { it.name to it.default })

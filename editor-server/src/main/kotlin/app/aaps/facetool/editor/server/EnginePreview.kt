@@ -121,6 +121,12 @@ class EnginePreview(private val app: Application, private val engine: SnapshotEn
     /** The names of the watch settings the scene key `watch` can set, and the colour values. */
     fun settingNames(): List<String> = settingNames.settings.keys.toList()
 
+    /**
+     * What each complication slot (1 to 5) shows when the scene key `slots` leaves it out, by the names
+     * of that key: what the watch shows before the wearer picks a source.
+     */
+    fun slotDefaults(): Map<String, String> = engine.slotDefaults.mapIndexed { index, source -> (index + 1).toString() to SlotNames.name(source) }.toMap()
+
     fun colourValues(): List<String> = app.resources.getStringArray(R.array.cwf_colour_values).toList()
 
     private companion object {

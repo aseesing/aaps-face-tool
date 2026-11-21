@@ -86,6 +86,17 @@ Good to know:
   face in its text layers.
 - `--set ambient=true` (and the Always-on button of the page) gives the always-on face, also drawn
   by the engine. Always-on has no wake animation: a wake moment asked with it is the always-on face.
+- The complication slots of the wearer: on the watch the wearer picks a source for each slot, and a
+  design cannot set it. In the engine pictures the scene key `slots` says what a slot shows, by its
+  number: `--set slots.3=bg`. The sources are `none`, `cob`, `iob`, `bg`, `basal`, `phoneBattery`,
+  `heartRate` and `steps`, filled from the values of the scene. The texts of the AAPS sources are
+  made as the watch makes them. `heartRate` and `steps` stand in for the watch's own sources: a number
+  with an icon, not the real look of the watch. A slot that is left out shows what the watch shows
+  before the wearer picks: COB in slot 1, IOB in slot 2, nothing in slots 3 to 5 (the answer of
+  `facetool scene` names them in `slotDefaults`). Only a slot the design shows is drawn.
+- A WFF face starts its slots in another way: the watch's own heart rate and steps in slots 1 and 2,
+  COB and IOB in slots 3 and 4. The pictures our engine draws of a WFF face (its preview picture,
+  the reference of the parity suite) show these, unless the scene sets a slot.
 - The WFF pictures are drawn by the **player**: our reading of the WFF runtime. The parity suite
   compares it with the emulator. Text can lie a little differently on a watch, and the wearer's
   slots show sample values.
@@ -157,6 +168,13 @@ place is a plain number; when it is a formula the page tells you which one. To c
 the layer or view and use the **colour box** under its JSON. Both are plain `set` commands: Undo
 takes them back (a drag that changed two numbers needs Undo twice) and the command log shows them.
 Hold the mouse over a button to read what it does.
+
+**Show on the face** has the switches of the design (`metadata.key_show_...`): what the face shows
+when a wearer first gets it. A switch is a `set` command. Each complication slot also has a drop-down:
+what the preview shows in that slot on the AAPS CWF tab. That is not part of the design, because on
+the watch the wearer picks the source. It is the scene key `slots`, so the command log shows it
+(`facetool scene --set slots.1=heartRate`). The first entry, "..., as on the watch", is no choice: the
+slot shows what the watch shows before the wearer picks.
 
 The page shows the layers and views (the eye hides one in the preview only), the AAPS CWF picture
 with the wake slider, "Show boxes", "Grid" and "Pick a layer", the JSON of the selection with Apply,
@@ -871,7 +889,7 @@ facetool snapshot --name before
 
 `facetool scene [--scene <file>] [--set <string>] [--out <file>] [--save <string>] [--use <string>] [--reset] [--presets] [--list]`
 
-Shows the scene of the project. --set and --scene change it, --use loads a named scene or a preset, --save keeps it under a name, --reset goes back to the defaults.
+Shows the scene of the project. --set and --scene change it, --use loads a named scene or a preset, --save keeps it under a name, --reset goes back to the defaults. The key slots says what a complication slot shows in the AAPS CWF preview, by its number 1 to 5: --set slots.3=bg (none, cob, iob, bg, basal, phoneBattery, heartRate, steps; heartRate and steps stand in for the watch's own sources). A slot left out, or set to null, shows what the watch shows before the wearer picks a source: the answer names it in slotDefaults.
 
 Runs: in the server (started when needed)
 
@@ -886,11 +904,12 @@ Runs: in the server (started when needed)
 | `--presets` | flag | List the ready scenes: default, high, low, no-data, old-reading, night, christmas, low-battery. |
 | `--list` | flag | List the named scenes of the project. |
 
-Answer with `--json`: `{"scene": {...}, "names": [text]?, "presets": {name: {...}}?, "text": text}`
+Answer with `--json`: `{"scene": {...}, "slotDefaults": {slot number: source}, "names": [text]?, "presets": {name: {...}}?, "text": text}`
 
 ```
 facetool scene
 facetool scene --set sgv=250 --set direction=↑ --save high-now
+facetool scene --set slots.3=bg
 facetool scene --use night
 facetool scene --presets
 ```
