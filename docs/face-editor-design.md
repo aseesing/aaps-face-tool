@@ -172,9 +172,26 @@ told to stop. It is not run by Gradle each time:
    This is one more reason to prefer the launch without Gradle: only `editorClasspath` runs through
    the lock.
 
+Step 1 chose way 2 (`JUnitCore`): it works, and it starts faster than the Gradle task (section 16).
+The server must run on the Java of the tests (JDK 21): Robolectric 4.17 cannot read the classes of a
+much newer Java (the Mac's default `java` is 28). `editorClasspath` therefore also writes the path of
+that Java into `build/editor/java.txt`, and the launcher uses it.
+
 Rendering runs on one thread, the Robolectric main thread, which takes jobs from a queue. HTTP
 threads only put jobs into the queue and wait for the answer. The clock of the engine is the
 `SnapshotClock`: frozen, moved by each job to the time the job asks for.
+
+Two things the spike of step 1 showed:
+
+- **The clock of Robolectric only goes forward.** A job that asks for an earlier time than the last
+  one starts the clock again (`ShadowPausedSystemClock.reset()`) and then sets it. The pictures are
+  the same as in a new JVM (measured: the same pixels before and after the clock went back).
+- **A new face per picture is slow** (2.3 s, section 16), because feeding the values waits for the
+  data store of the watch. The server keeps one face (`CwfPreviewRenderer`) per project. For each
+  picture it frees the part that draws (`release()`), writes the watch settings at their defaults
+  again, and shows the design: the wake starts again and the picture is the same as from a new face
+  (measured on 6 designs, rest and wake, one design after another in the same face). It feeds the
+  values again only when the scene's values or time changed.
 
 ---
 
@@ -724,6 +741,8 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - `aapsDir` points to an AAPS checkout on the commit of `aaps-commit.txt` (`local/wear-wff-slim`).
 - Run `testDebugUnitTest` and `wffParityTest` (without the emulator). Write down the times.
 - Done when: both are green.
+- Done on 2026-11-21: `testDebugUnitTest` green in 23 s (most of it from the build cache),
+  `wffParityTest --rerun` green in 3 min 44 s.
 
 ### Step 1: spike, Robolectric as a server
 
@@ -846,6 +865,7 @@ None is needed to start. Each needs the owner's yes, in its own session:
 | AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | A way to draw the always-on frame (`compose(..., ambient = true)` exists inside, the renderer always passes `false`) | Engine preview of always-on | The engine preview has no always-on; the scene key `ambient` works only in the player, and the GUI says so |
 | AAPS engine | Skip a layer with `"wff": {"only": true}` (motion doc 8.1, already decided) | `only` layers must not show in the engine preview | The editor's `render` hides `only` layers itself (as `--hide`), and says so |
 | `aaps-watchfaces` | `editing/` in `.gitignore` | The default place of project folders (6.1) | `--dir` elsewhere |
+| AAPS `wear`, `ComplicationDataRepository` | A way for `CwfPreviewRenderer` to turn off the 500 ms wait before a write (`batchWindowMs` is `internal`) | A picture with new scene values in 0.3 s instead of 2.3 s (section 16) | The server keeps a face and feeds it only when the scene changed |
 
 The editor never needs AAPS to depend on it. It needs no change of the converter: the harness move
 (step 2) is a move of test helpers, and the split of `WffApkBuilder.build` changes no output.
@@ -859,12 +879,25 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   which is slow (a minute) and would need a new decision.
 - **Speed** of a render and of `wff build`. To measure in step 1 (numbers go here):
 
+  Measured in step 1 on the Mac (2026-11-21, Aurora Town, 450 px, AAPS `380ea15181`, JDK 21):
+
   | Measure | Value |
   |---|---|
-  | cold start of the server | to measure |
-  | rest picture, 450 px | to measure |
-  | one wake frame | to measure |
-  | `wff build` of Aurora Town | to measure |
+  | cold start of the server, `JUnitCore` from the class path file | 4.0 s until it listens, 7.7 s until the first picture is answered |
+  | cold start as a Gradle `Test` task (`editorServe`, warm daemon) | 9 s until the first picture is answered |
+  | rest picture, 450 px, kept face (the normal case: the design changed, the scene did not) | 0.10 to 0.30 s (Aurora Town 0.25 s, Cyberpunk Tech 0.12 s, Grand Complication Night 0.11 s) |
+  | rest picture, 450 px, new face or new scene values or time | 2.3 to 2.4 s, of which 2.0 s is waiting (see below) |
+  | one wake frame, kept face | 0.10 to 0.28 s for the first frame asked for; 9 ms for each next frame of the same wake |
+  | 100 wake frames of one wake | 0.9 s (Aurora Town), 0.17 s (Cyberpunk Tech) |
+  | memory | 130 MB of Java heap in use after 60 pictures, 1.0 GB resident for the process |
+  | `wff build` of Aurora Town | to measure in step 9 |
+
+  Why a new scene costs 2 s: the engine keeps its values in the data store of the watch
+  (`ComplicationDataRepository`), and that store waits 500 ms after each change to write changes
+  together (`batchWindowMs`). `SnapshotEngine.feed` sends four such changes, one after the other. This
+  is real waiting, not work. The server therefore keeps one face per project and feeds it only when
+  the values or the time of the scene change (4.3). The gate of step 1 (a rest picture under 1 s) is
+  met by the kept face, not by a new face. A change in AAPS could remove the wait (section 15).
 
 - **The pinned AAPS commit.** The preview is true only for the commit in `aaps-commit.txt`. The
   owner's watch may run another branch (`local/personal-wff` today). Every answer names the commit
