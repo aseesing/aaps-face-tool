@@ -1,3 +1,3 @@
 # The AAPS commit this repo was last tested with (branch local/editor-engine, from local/wear-wff-slim). The build warns
 # when aapsDir is on another commit. After a green parity run on a new AAPS commit, write it here.
-17386457815dcd31055a446ad19df19b9be14cb7
+3fe702b33ae490aaf21b90029ee201c542130477
