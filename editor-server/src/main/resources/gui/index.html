@@ -71,6 +71,10 @@
   details.menu .items button:hover { background: #2a2e36; }
   details.menu .items .sep { border-top: 1px solid var(--line); margin: 3px 0; }
   details.menu .items .hint { color: var(--dim); font-size: 12px; padding: 2px 10px 4px; }
+  a.button { display: inline-block; color: var(--text); background: #2d4460; border: 1px solid var(--accent); border-radius: 4px; padding: 5px 14px; text-decoration: none; }
+  a.button[hidden] { display: none; }
+  #exportPath { font: 12px ui-monospace, Menlo, monospace; white-space: normal; word-break: break-all; }
+  #exportText { color: var(--dim); }
   #busy { display: none; align-items: center; gap: 6px; color: var(--accent); }
   #busy.on { display: flex; }
   .spinner { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -150,6 +154,13 @@
   <div id="openDesigns"></div>
   <div class="info" id="openRoot"></div>
   <div class="message" id="openMessage"></div>
+</dialog>
+<dialog id="exportDialog">
+  <div class="bar"><b id="exportTitle">Export</b> <button id="exportClose" title="Close this window. The file stays where it is.">Close</button></div>
+  <p id="exportState"></p>
+  <p><a id="exportLink" class="button" href="#" hidden title="Download the file again into the downloads folder of your browser">Download</a></p>
+  <div class="place" id="exportPlace" hidden><span class="what" id="exportPath"></span> <button id="exportCopy" title="Copy the place of the file on this computer">Copy path</button></div>
+  <div class="message" id="exportText"></div>
 </dialog>
 <dialog id="saveAsDialog">
   <div class="bar"><b>Save as</b> <button id="saveAsClose" title="Close without saving">Close</button></div>
@@ -561,6 +572,13 @@ const SCENE_HELP = {
   'colours.colour1': 'The watch setting "Main colour", like #B6FF1A. Empty: the colour of the design.',
   'colours.colour2': 'The watch setting "Second colour". Empty: the colour of the design.'
 };
+// Scene keys with fixed values get a drop-down: the arrows cannot be typed on most keyboards.
+// The arrows are the symbols the phone sends (TrendArrow of AAPS); "??" is the phone's "no direction".
+const SCENE_CHOICES = {
+  direction: [['⇈', '⇈  double up'], ['↑', '↑  up'], ['↗', '↗  up a little'], ['→', '→  flat'], ['↘', '↘  down a little'], ['↓', '↓  down'], ['⇊', '⇊  double down'], ['??', '??  no direction'], ['', '(empty)']],
+  units: [['mmol', 'mmol/L'], ['mgdl', 'mg/dL']],
+  weather: [['clear', 'clear'], ['partly', 'partly cloudy'], ['cloudy', 'cloudy'], ['rain', 'rain']]
+};
 async function loadScene() {
   const scene = (await run('scene')).scene || {};
   const options = (await run('list', { kind: 'options' })).items || [];
@@ -568,7 +586,13 @@ async function loadScene() {
   box.textContent = '';
   const field = (label, key, value) => {
     const row = document.createElement('label');
-    const input = document.createElement('input');
+    const choices = SCENE_CHOICES[key];
+    const input = document.createElement(choices ? 'select' : 'input');
+    if (choices) {
+      const now = value === null || value === undefined ? '' : String(value);
+      const list = choices.some(([v]) => v === now) ? choices : [[now, now + ' (other)'], ...choices];
+      for (const [v, text] of list) { const option = document.createElement('option'); option.value = v; option.textContent = text; input.append(option); }
+    }
     row.title = input.title = SCENE_HELP[key] || (key.startsWith('options.') ? 'The choice of this option of the design: 0 is the first choice. Empty: the choice the design starts with.' : key);
     input.value = value === null || value === undefined ? '' : (typeof value === 'object' ? JSON.stringify(value) : value);
     input.onchange = async () => { forgetFrames(); await edit('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
@@ -706,26 +730,51 @@ function download(path, name) {
   link.href = fileUrl(path); link.download = name || path.split('/').pop();
   document.body.append(link); link.click(); link.remove();
 }
+// The export window stays open until you close it: it shows the progress, then a Download button and
+// the place of the file. The file is also downloaded at once; browsers may block that after a long
+// wait, so the button is always there.
+function exportStart(title, waiting) {
+  $('exportTitle').textContent = title;
+  $('exportState').textContent = waiting;
+  $('exportLink').hidden = true; $('exportPlace').hidden = true; $('exportText').textContent = '';
+  if (!$('exportDialog').open) $('exportDialog').showModal();
+}
+function exportDone(path, name, text) {
+  $('exportLink').href = fileUrl(path); $('exportLink').download = name;
+  $('exportLink').textContent = 'Download ' + name;
+  $('exportLink').hidden = false;
+  $('exportPath').textContent = path; $('exportPlace').hidden = false;
+  $('exportState').textContent = 'Ready. The browser downloads it as ' + name + ' into its downloads folder. Not there? Click the button.';
+  $('exportText').textContent = text || '';
+  download(path, name);
+}
+function exportFailed(text) {
+  $('exportState').textContent = 'No file was made.';
+  $('exportText').textContent = text || '';
+}
 async function exportCwf() {
+  exportStart('Export: AAPS CWF zip', 'Checking and packing the design ...');
   const info = await run('info');
-  if (info.error) return;
-  const out = info.dir + '/.facetool/out/export/' + (fileNameOf(info.filename || info.name || '') || 'Design') + '.zip';
-  toast('AAPS CWF zip: checking and packing ...', 30);
-  const answer = await edit('save', { out });
-  if (answer.error || !answer.written) return toast(answer.text);
-  download(answer.zip);
-  toast('Downloaded ' + answer.zip.split('/').pop() + '\n' + answer.text);
+  if (info.error) return exportFailed(info.text);
+  const name = (fileNameOf(info.filename || info.name || '') || 'Design') + '.zip';
+  const answer = await edit('save', { out: info.dir + '/.facetool/out/export/' + name });
+  if (answer.error || !answer.written) return exportFailed(answer.text);
+  exportDone(answer.zip, name, answer.text);
 }
 // [suffix] names the file after the design: the server names an APK face.apk and a face zip after the folder.
 async function exportWff(args, key, what, suffix) {
-  toast(what + ': building ... The first WFF build of a design takes about a minute.', 120);
+  exportStart('Export: ' + what, 'Building the WFF face ... The first WFF build of a design takes about a minute. You can leave this window open.');
   const info = await run('info');
   const answer = await run('wff apk', args);
-  if (answer.error || !answer[key]) return toast(answer.text || what + ': no file was made.');
-  const name = suffix ? (fileNameOf(info.filename || info.name || '') || 'Design') + suffix : answer[key].split('/').pop();
-  download(answer[key], name);
-  toast('Downloaded ' + name + '\n' + answer.text, 20);
+  if (answer.error || !answer[key]) return exportFailed(answer.text);
+  exportDone(answer[key], (fileNameOf(info.filename || info.name || '') || 'Design') + suffix, answer.text);
 }
+$('exportClose').onclick = () => $('exportDialog').close();
+$('exportCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('exportPath').textContent); $('exportCopy').textContent = 'Copied'; }
+  catch (error) { getSelection().selectAllChildren($('exportPath')); $('exportCopy').textContent = 'Selected: press Cmd+C'; }
+  setTimeout(() => { $('exportCopy').textContent = 'Copy path'; }, 2500);
+};
 $('exportCwf').onclick = exportCwf;
 $('exportFaceZip').onclick = () => exportWff({ zip: true }, 'zip', 'WFF face zip', '-wff.zip');
 $('exportApk4').onclick = () => exportWff({ version: '4' }, 'apk', 'WFF 4 APK', '_wff4.apk');
