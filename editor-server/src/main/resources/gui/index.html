@@ -701,23 +701,31 @@ async function loadScene() {
   const options = (await run('list', { kind: 'options' })).items || [];
   const box = $('scene');
   box.textContent = '';
-  const field = (label, key, value) => {
+  const field = (label, key, value, ownChoices) => {
     const row = document.createElement('label');
-    const choices = SCENE_CHOICES[key];
+    const choices = ownChoices || SCENE_CHOICES[key];
     const input = document.createElement(choices ? 'select' : 'input');
     if (choices) {
       const now = value === null || value === undefined ? '' : String(value);
       const list = choices.some(([v]) => v === now) ? choices : [[now, now + ' (other)'], ...choices];
       for (const [v, text] of list) { const option = document.createElement('option'); option.value = v; option.textContent = text; input.append(option); }
     }
-    row.title = input.title = SCENE_HELP[key] || (key.startsWith('options.') ? 'The choice of this option of the design: 0 is the first choice. Empty: the choice the design starts with.' : key);
+    row.title = input.title = SCENE_HELP[key] || (key.startsWith('options.') ? 'The choice of the design option "' + key.substring(8) + '" in the preview, as the wearer picks it on the watch. "Design default": the choice the design starts with.' : key);
     input.value = value === null || value === undefined ? '' : (typeof value === 'object' ? JSON.stringify(value) : value);
     input.onchange = async () => { forgetFrames(); await edit('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
     row.append(label, input);
     box.append(row);
   };
   for (const key of ['time', 'sgv', 'delta', 'direction', 'readingAgeMin', 'units', 'iob', 'cob', 'weather', 'temperature', 'phoneBattery', 'watchBattery', 'heartRate', 'steps', 'graph', 'size']) field(key, key, scene[key]);
-  for (const option of options) field('option ' + option.name, 'options.' + option.name, (scene.options || {})[option.name]);
+  // A design option: a drop-down of its choices, by their titles, as the watch and the AAPS app show them
+  const specs = options.length ? ((await run('show', { path: 'options' })).value || []) : [];
+  for (const option of options) {
+    const spec = (Array.isArray(specs) ? specs : []).find(o => o && o.name === option.name) || {};
+    const titles = (spec.choices || []).map((choice, i) => [String(i), typeof choice === 'string' ? choice : (choice && (choice.title || choice.name)) || String(i)]);
+    const start = titles[spec.default || 0];
+    const list = titles.length ? [['', '(design default: ' + (start ? start[1] : spec.default || 0) + ')'], ...titles] : null;
+    field(spec.title || 'option ' + option.name, 'options.' + option.name, (scene.options || {})[option.name], list);
+  }
   field('colour 1', 'colours.colour1', (scene.colours || {}).colour1);
   field('colour 2', 'colours.colour2', (scene.colours || {}).colour2);
   const hint = document.createElement('div'); hint.className = 'info';
