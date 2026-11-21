@@ -690,11 +690,10 @@ class WffFaceWriter(
         private const val CLEAR = "#00000000"
 
         /**
-         * What a slot of the wearer shows until they pick something. Not as on the code-based face:
-         * there `customSlotDefaultSource` of AAPS starts slot 1 with COB and slot 2 with IOB, and
-         * nothing else. The heart rate and the steps come from the watch itself: the
-         * providers of AAPS for them were removed. WFF 2 and 4 both have `HEART_RATE` and `STEP_COUNT`;
-         * they give a short text.
+         * What a slot of the wearer shows until they pick something, as on the code-based face
+         * (`customSlotDefault` of AAPS; `SlotDefaultsTest` checks that the two are the same). The
+         * heart rate and the steps come from the watch itself: the providers of AAPS for them were
+         * removed. WFF 2 and 4 both have `HEART_RATE` and `STEP_COUNT`; they give a short text.
          */
         private val USER_SLOT_DEFAULTS = mapOf(
             1 to SlotDefault(system = "HEART_RATE", systemType = "SHORT_TEXT"),
@@ -704,11 +703,10 @@ class WffFaceWriter(
         )
 
         /**
-         * What the slots of the wearer show in a picture that our engine draws of a WFF face (its
-         * preview picture, the reference of the parity suite): the sources of [USER_SLOT_DEFAULTS], by
-         * slot number. The heart rate and the steps of the watch itself are stand-ins there. The
-         * code-based face starts its slots with other sources (`customSlotDefaultSource` of AAPS has
-         * COB in slot 1 and IOB in slot 2), so without this the picture would not show this face.
+         * The sources of [USER_SLOT_DEFAULTS] by slot number (1 to 5), in the names of the engine's
+         * preview. The heart rate and the steps of the watch itself are stand-ins there. The
+         * code-based face starts its slots with the same sources, so a picture our engine draws of a
+         * design (the preview picture, the reference of the parity suite) shows the WFF face too.
          */
         val USER_SLOT_PREVIEW: Map<Int, PreviewSlotSource> = USER_SLOT_DEFAULTS.mapValues { (_, start) ->
             when {

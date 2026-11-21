@@ -10,7 +10,7 @@ import java.io.File
 
 /**
  * The scene key `slots`: what each complication slot shows in the engine preview. A slot that is left
- * out shows what the watch shows before the wearer picks a source (`customSlotDefaultSource` of AAPS).
+ * out shows what the watch shows before the wearer picks a source (`customSlotDefault` of AAPS).
  */
 class SlotSourcesTest : ServerTestBase() {
 
@@ -27,20 +27,20 @@ class SlotSourcesTest : ServerTestBase() {
         // The defaults of the watch, as the engine names them: the page reads them from here
         val named = run("scene", emptyMap(), project).getValue("slotDefaults") as JsonObject
         assertThat(named.keys).containsExactly("1", "2", "3", "4", "5").inOrder()
-        assertThat(named.values.map { (it as JsonPrimitive).content }).containsExactly("cob", "iob", "none", "none", "none").inOrder()
+        assertThat(named.values.map { (it as JsonPrimitive).content }).containsExactly("heartRate", "steps", "cob", "iob", "none").inOrder()
 
         // Choosing the default by name, or null, is the same picture as no choice
-        assertThat(picture(project, "slots.1=cob", "slots.2=iob")).isEqualTo(defaults)
+        assertThat(picture(project, "slots.1=heartRate", "slots.2=steps")).isEqualTo(defaults)
         assertThat(picture(project, "slots.1=null")).isEqualTo(defaults)
 
         // Another source is another picture, and each source its own
-        val pictures = listOf("none", "iob", "bg", "basal", "phoneBattery", "heartRate", "steps").associateWith { picture(project, "slots.1=$it") }
+        val pictures = listOf("none", "cob", "iob", "bg", "basal", "phoneBattery", "steps").associateWith { picture(project, "slots.1=$it") }
         assertThat(pictures.values.toSet()).hasSize(pictures.size)
         assertThat(pictures.values).doesNotContain(defaults)
 
         // A slot shows the values of the scene
         assertThat(picture(project, "slots.1=steps", "steps=12")).isNotEqualTo(pictures["steps"])
-        assertThat(picture(project, "slots.1=heartRate", "heartRate=150")).isNotEqualTo(pictures["heartRate"])
+        assertThat(picture(project, "slots.1=heartRate", "heartRate=150")).isNotEqualTo(defaults)
         assertThat(picture(project, "slots.1=phoneBattery", "phoneBattery=20")).isNotEqualTo(pictures["phoneBattery"])
         assertThat(picture(project, "slots.1=bg", "sgv=250")).isNotEqualTo(pictures["bg"])
 
@@ -56,6 +56,7 @@ class SlotSourcesTest : ServerTestBase() {
         val project = open("D2")
         val defaults = picture(project)
         val heart = picture(project, "slots.2=heartRate")
+        assertThat(heart).isNotEqualTo(defaults)
 
         // `scene --set` keeps it in the project, as the drop-down of the page does
         val kept = run("scene", sets("slots.2=heartRate"), project)

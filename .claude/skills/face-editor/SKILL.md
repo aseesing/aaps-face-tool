@@ -54,7 +54,8 @@ base line.
    A complication slot shows what the scene key `slots` says, by slot number: `--set slots.1=heartRate`
    (`none`, `cob`, `iob`, `bg`, `basal`, `phoneBattery`, `heartRate`, `steps`; in a batch entry
    `{"slots.1": "heartRate"}`). The design cannot set this: on the watch the wearer picks the source.
-   A slot left out shows the default of the watch (COB in slot 1, IOB in slot 2, nothing in 3 to 5).
+   A slot left out shows the default of the watch (heart rate and steps stand-ins in slots 1 and 2,
+   COB in 3, IOB in 4, nothing in 5), the same on the code-based face and on a WFF face.
 5. Check: `facetool lint` ("No findings." is the good case; fix every error, read every warning), then `facetool wff plan` (live, baked,
    data picture, left out) and `facetool wff compare` (the engine next to WFF 4 and WFF 2).
    `facetool manual wff-faces` explains the plan, the key `wff` and the limits per WFF version.

@@ -1,14 +1,14 @@
-wake sheet d8375aa6cd3d0e048a8024883d489cedd3a6e22ef85d41e04a32b372f8f73d24
-wake frame 0 9ef3d3247d845f9f8e41ef64f741f410e14cd1231225b797c4e53a30fa636073
-wake frame 1 b657cab7134e8ac83ed59bcfef2a2febc0a465be4838283ab3eee3ef1a711056
-wake frame 2 b5045c61116c161e8acd07d3fef220ffb770116b7f73af4d5b4b9d990be8eab7
-wake frame 3 2bda5a9cae470a40bf731da15ae06117f41a87f2b5d77e8a09a2c303728c82d9
-wake frame 4 e5ac0e7986810b0e96bb16f2390c57881dec465d680c98bd2fe1b21574d4e9ff
-wake frame 5 b6c54af225073fc6439a8671f6203e3b7291b23955ba3c4edc03590c48cc1821
-wake frame 6 fa62956290a07ae8b23a5d32c5d007c3d7fb1b4c9ced70357f87e0243467fe95
-options 333f5c2627166bbc955c1a74466714d54ddc150b6c869d6a86c02154916b2d8b
+wake sheet 706b80d24b40ae1497427c448135f53511cd06186daeec4c79ff84b02e2b6163
+wake frame 0 e2e8790a05a9e9266d5f306da7a284d3b0c800c66276ed4c4746800d432fa28d
+wake frame 1 f813ce068430629dfda878177852446d171a2c7e7e98cbeda29365db727ebc21
+wake frame 2 a9e80d266ca7f7f58bb10ce8ff877f12f7e2b1bc6b1dc2e5f30c54fba749cb1e
+wake frame 3 e50fa2faaf034107e7a199dec28f826ecb6f8dc7b4e42bdcc293cb26fc1d496e
+wake frame 4 c0d19eefc751684e474e63cba8b59738a53c63be6396f4759055836cc36542d7
+wake frame 5 1215cdce4613a6de053c34038f3d4d23c8472e7b717a188e06a96fa869e52c22
+wake frame 6 bee847ef9cbde576c32f91519d52a338dfe47a4035d91dec6ab421fbc468217c
+options 691dfc0232a205cd7cb96a51f6eaf53040abfc7a6926e0a191575c9c538c50cb
 Wrote the sheet <temp>/projects/D2/.facetool/out/options/options.png: 22 pictures (colour1 design; colour1 #00E5FF; colour1 #3D8BFF; colour1 #2EE66B; colour1 #B6FF1A; colour1 #FFE11A; colour1 #FF9A1A; colour1 #FF3B3B; colour1 #FF5FB4; colour1 #B57BFF; colour1 #F2F2F2; colour2 design; colour2 #00E5FF; colour2 #3D8BFF; colour2 #2EE66B; colour2 #B6FF1A; colour2 #FFE11A; colour2 #FF9A1A; colour2 #FF3B3B; colour2 #FF5FB4; colour2 #B57BFF; colour2 #F2F2F2)
-looks 925bc6cbc15ecf4dc093e127e55964955e64f109c9943486044838309cba8068
+looks 0b262399fa87c053d2dc0b540373a92e75b8a042115a584f6abb6b522cab3fa2
 look 0 when v_weather_kind == 0: on in the scene
 look 1 when v_weather_kind == 1: off in the scene; on with weather partly
 look 2 when v_weather_kind == 2: off in the scene; on with weather cloudy
@@ -23,12 +23,12 @@ pick 200 200
 Nothing but the background draws at 200.0, 200.0.
 pick 5 5
 Nothing but the background draws at 5.0, 5.0.
-snapshot rest b82a37ae1aeaf07a907149c7cca372059406bbc9a56889c7adb03fa98f92af60
-snapshot wake-1 c8f71cf7bdf1c5894d22117d9f043b90e24693b6bcf12c856951fb9546a2b4b7
-snapshot wake-2 194a72b113d60af9a23c0adcad0d645062c938d85f8b38ba1e27306ee1debd61
-snapshot wake-3 f595d87250d8b9c5055ed8590d6d2dedca023f9258b75f821f0d10453216ad01
-snapshot night 97cb5e57e2d5a7e8248e5d50a0e2fa8ae512a391d332a2cc84b554577bf78b29
-snapshot always-on 314c757935f2f19ea5c570d5748a0a57454074ee63cad4adf9e225b072b45258
-diff 9cf6c706df8e8bc4cbab01ac73a0b65ca3773d9d66dc7fa51b7b31951e6d1ac6
+snapshot rest 1d5f5df08bed5ae9d7d2f259c139a34c853879cc6dcf977f1244b64bedabd891
+snapshot wake-1 13e1ee2cccddca72c594a14e2f09515b6560695629df569da9f585ce1f982633
+snapshot wake-2 ff69ee0dbe814f5b281b01f6cdb75f626dee9f93b1e365e98fef25920b5ca963
+snapshot wake-3 d1a91e2dd35ff1b0e9506e62dc6921c65f77b76f197aa9975b0fd5cdbf708718
+snapshot night bdcece36a3229b75accdc93d00086e46d43bc2498194ba7e39618016a9fb04ab
+snapshot always-on 19f1e379139d71412038bdd80640b27fd43ca7082c3903401bbdcfb8fbbd3967
+diff fdc0d921ca54b064435da265d2b8ff051e1bf0437e79bc1f5ca83542ca6dfad4
 ~ midColor: "#A3C4A8" -> "#FF00FF"
 Pictures: 0.42 % of the pixels differ. Side by side in <temp>/projects/D2/.facetool/out/diff/diff.png

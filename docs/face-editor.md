@@ -92,11 +92,11 @@ Good to know:
   `heartRate` and `steps`, filled from the values of the scene. The texts of the AAPS sources are
   made as the watch makes them. `heartRate` and `steps` stand in for the watch's own sources: a number
   with an icon, not the real look of the watch. A slot that is left out shows what the watch shows
-  before the wearer picks: COB in slot 1, IOB in slot 2, nothing in slots 3 to 5 (the answer of
-  `facetool scene` names them in `slotDefaults`). Only a slot the design shows is drawn.
-- A WFF face starts its slots in another way: the watch's own heart rate and steps in slots 1 and 2,
-  COB and IOB in slots 3 and 4. The pictures our engine draws of a WFF face (its preview picture,
-  the reference of the parity suite) show these, unless the scene sets a slot.
+  before the wearer picks: the watch's own heart rate and steps in slots 1 and 2 (as stand-ins), COB
+  in slot 3, IOB in slot 4, nothing in slot 5 (the answer of `facetool scene` names them in
+  `slotDefaults`). Only a slot the design shows is drawn.
+- A WFF face starts its slots with the same sources, so the pictures our engine draws of a WFF face
+  (its preview picture, the reference of the parity suite) need no feed of their own.
 - The WFF pictures are drawn by the **player**: our reading of the WFF runtime. The parity suite
   compares it with the emulator. Text can lie a little differently on a watch, and the wearer's
   slots show sample values.
