@@ -3,8 +3,8 @@ package app.aaps.facetool.editor.server
 import app.aaps.facetool.editor.model.wrongUse
 import java.io.File
 
-/** One chapter of the manual: its id, its title and its text. */
-class ManualTopic(val id: String, val title: String, val html: String)
+/** One chapter of the manual, or one section of a chapter: its id, its title and its text. [sections] are the sections of a chapter that have an id. */
+class ManualTopic(val id: String, val title: String, val html: String, val sections: List<ManualTopic> = emptyList())
 
 /**
  * The manual of the layer engine, `docs/watchface-animation.html` of the AAPS checkout the server
@@ -19,14 +19,28 @@ class EngineManual(private val file: File?) {
         val heads = Regex("<h2 id=\"([^\"]+)\">(.*?)</h2>", RegexOption.DOT_MATCHES_ALL).findAll(html).toList()
         heads.mapIndexed { i, head ->
             val end = heads.getOrNull(i + 1)?.range?.first ?: html.length
-            ManualTopic(head.groupValues[1], plain(head.groupValues[2]).trim(), html.substring(head.range.first, end))
+            val chapter = html.substring(head.range.first, end).substringBefore("</main>")
+            ManualTopic(head.groupValues[1], plain(head.groupValues[2]).trim(), chapter, sections(chapter))
         }
     }
 
-    /** The chapter [topic] (an id, or a word of a title) as plain text. */
+    /** The sections of [chapter]: every `h3` and `h4` with an id, up to the next heading of its own level or higher. */
+    private fun sections(chapter: String): List<ManualTopic> {
+        val heads = Regex("<h([34]) id=\"([^\"]+)\">(.*?)</h[34]>", RegexOption.DOT_MATCHES_ALL).findAll(chapter).toList()
+        val all = Regex("<h([34])[ >]").findAll(chapter).toList()
+        return heads.map { head ->
+            val level = head.groupValues[1].toInt()
+            val end = all.firstOrNull { it.range.first > head.range.first && it.groupValues[1].toInt() <= level }?.range?.first ?: chapter.length
+            ManualTopic(head.groupValues[2], plain(head.groupValues[3]).trim(), chapter.substring(head.range.first, end))
+        }
+    }
+
+    /** The chapter or the section [topic] (an id, or a word of a title) as plain text. A chapter comes before a section. */
     fun text(topic: String): String {
-        val found = topics.firstOrNull { it.id == topic } ?: topics.firstOrNull { it.title.contains(topic, ignoreCase = true) }
-            ?: wrongUse("The manual has no topic '$topic'. Topics: ${topics.joinToString(", ") { it.id }}")
+        val sections = topics.flatMap { it.sections }
+        val found = topics.firstOrNull { it.id == topic } ?: sections.firstOrNull { it.id == topic }
+            ?: topics.firstOrNull { it.title.contains(topic, ignoreCase = true) } ?: sections.firstOrNull { it.title.contains(topic, ignoreCase = true) }
+            ?: wrongUse("The manual has no topic '$topic'. Topics: ${topics.joinToString(", ") { it.id }}. facetool manual --list shows the sections too")
         return plain(found.html).trim()
     }
 

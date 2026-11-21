@@ -28,7 +28,7 @@ import java.time.Clock
  * @param renderThread in a test a direct one: a command draws on the calling thread, there is no render loop
  */
 class EditorServer(
-    app: Application, logger: AAPSLogger, clock: EngineClock, private val checkout: String?, aapsDir: File?, editingRoot: File, cacheRoot: File, designsDir: File?, private val guiDir: File? = null,
+    app: Application, logger: AAPSLogger, clock: EngineClock, private val checkout: String?, private val aapsDir: File?, editingRoot: File, cacheRoot: File, designsDir: File?, private val guiDir: File? = null,
     private val renderThread: RenderThread = RenderThread()
 ) {
 
@@ -117,9 +117,19 @@ class EditorServer(
 
     private val api = HttpApi(commands, table, token, facts, events, places, frameStops, ::guiFile, life::requestSeen)
 
-    /** A file of the page: from [guiDir] when it is given and has the file, else from the build. */
+    /**
+     * The two help pages of the page's Help menu, and no other file: the page of this checkout about
+     * making a design, and the manual of the engine from the AAPS checkout that draws.
+     */
+    private val helpPages: Map<String, File?> = mapOf(
+        "docs/making-a-design.html" to checkout?.let { File(it, "docs/making-a-design.html") },
+        "docs/manual.html" to aapsDir?.let { File(it, "docs/watchface-animation.html") }
+    )
+
+    /** A file of the page: a help page, else from [guiDir] when it is given and has the file, else from the build. */
     private fun guiFile(path: String): ByteArray? =
-        guiDir?.let { File(it, path) }?.takeIf { it.isFile }?.readBytes() ?: javaClass.classLoader?.getResourceAsStream("gui/$path")?.use { it.readBytes() }
+        if (path in helpPages) helpPages[path]?.takeIf { it.isFile }?.readBytes()
+        else guiDir?.let { File(it, path) }?.takeIf { it.isFile }?.readBytes() ?: javaClass.classLoader?.getResourceAsStream("gui/$path")?.use { it.readBytes() }
 
     /** The token every API request must carry. */
     val apiToken: String get() = token

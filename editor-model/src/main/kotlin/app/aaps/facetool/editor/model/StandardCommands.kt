@@ -136,11 +136,11 @@ object StandardCommands {
             answer = "{\"keys\": {kind: [{\"name\", \"help\"?}]}, \"text\": text}"
         ),
         CommandSpec(
-            "manual", READ, "A chapter of the engine manual of the AAPS checkout (docs/watchface-animation.html), as plain text. So an agent reads the manual of the commit that draws.",
-            listOf(pos("topic", STRING, "The topic.", required = false), opt("list", FLAG, "Show the topics.")),
+            "manual", READ, "A chapter of the engine manual of the AAPS checkout (docs/watchface-animation.html), or one section of a chapter, as plain text. So an agent reads the manual of the commit that draws. The chapter wff-faces is about the Watch Face Format face of a design.",
+            listOf(pos("topic", STRING, "The id of a chapter or of a section (see --list), or a word of its title.", required = false), opt("list", FLAG, "Show the chapters and their sections.")),
             server = true, project = false,
-            examples = listOf("facetool manual --list", "facetool manual templates"),
-            answer = "{\"topics\": [text]?, \"topic\": text?, \"text\": the chapter}"
+            examples = listOf("facetool manual --list", "facetool manual templates", "facetool manual source-text", "facetool manual wff-faces"),
+            answer = "{\"topics\": [{\"id\", \"title\", \"sections\": [{\"id\", \"title\"}]}]?, \"topic\": text?, \"text\": the chapter or the section}"
         )
     )
 

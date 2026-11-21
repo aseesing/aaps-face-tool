@@ -1,0 +1,33 @@
+[
+  {"op": "set", "path": "options", "value": [
+    {"name": "stars", "title": "Stars", "choices": ["None", "Few", "Many"], "default": 1}
+  ]},
+  {"op": "set", "path": "animation.durationMs", "value": 4000},
+  {"op": "set", "path": "animation.templates", "value": {
+    "twinkle": {
+      "params": {
+        "left": 0, "top": 0,
+        "size": {"default": 60, "min": 1, "max": 400},
+        "speed": {"default": 90, "min": 0, "max": 720}
+      },
+      "layers": [{
+        "image": "Star", "slot": "front",
+        "rect": {"left": "$left", "top": "$top", "width": "$size", "height": "$size"},
+        "rotation": "t * $speed",
+        "scale": "0.6 + 0.4 * env",
+        "alpha": "env"
+      }]
+    }
+  }},
+  {"op": "set", "path": "animation.layers", "value": [
+    {"shape": "circle", "color": "#FFFFFF", "rest": 0, "count": 60, "seed": 7,
+     "x": "r1 * 400", "y": "r2 * 400", "radius": "1 + r3 * 2",
+     "visible": "i < v_opt_stars * 30"},
+    {"text": "clock()", "font": "default_bold", "fontSize": 96, "rest": 0,
+     "align": "center", "x": 200, "y": 190, "color": "#FFFFFF"},
+    {"text": "glucose(v_sgv)", "font": "default_bold", "fontSize": 64, "rest": 0,
+     "align": "center", "x": 200, "y": 280,
+     "colors": ["#FF5A5A", "#7CFC9A", "#FFD166"], "colorIndex": "v_sgvLevel + 1"},
+    {"use": "twinkle", "left": 170, "top": 30, "size": 60}
+  ]}
+]

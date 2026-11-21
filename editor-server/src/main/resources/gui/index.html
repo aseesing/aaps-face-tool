@@ -103,6 +103,11 @@
     <button id="exportApk2" title="A WFF 2 face APK for Wear OS 5, checked by the validator (facetool wff apk --version 2). Only to check the converter on an emulator.">WFF 2 APK (Wear OS 5)</button>
     <div class="hint">APKs are only to check the converter on an emulator, not for a watch.<br>The first WFF build of a design takes about a minute.</div>
   </div></details>
+  <details class="menu" id="helpMenu"><summary title="How to make a design, and the manual of the design format">Help ▾</summary><div class="items">
+    <button id="helpMaking" title="The steps of making a design with facetool, with a worked example. Opens in a new tab.">Making a design</button>
+    <button id="helpManual" title="The manual of the design format: layers, formulas, templates, options, looks, text layers and WFF. From the AAPS checkout that draws. Opens in a new tab.">The design format (manual)</button>
+    <div class="hint">Both open in a new tab.<br>In a terminal: facetool manual --list</div>
+  </div></details>
   <button id="undo" title="Take the last change back, also a change made outside this page (facetool undo)">Undo</button>
   <button id="redo" title="Do the change again that Undo took back (facetool redo)">Redo</button>
   <span id="busy" title="The server is working. You can go on: a change waits for its turn, and the picture shows the newest state."><span class="spinner"></span><span id="busyText"></span></span>
@@ -645,6 +650,10 @@ for (const menu of menus) {
   menu.addEventListener('click', event => { if (event.target.closest('.items button')) menu.open = false; });
 }
 document.addEventListener('click', event => menus.forEach(menu => { if (menu.open && !menu.contains(event.target)) menu.open = false; }));
+
+// Help: the two pages the server serves under /docs/, each in a new tab.
+$('helpMaking').onclick = () => window.open('/docs/making-a-design.html', '_blank', 'noopener');
+$('helpManual').onclick = () => window.open('/docs/manual.html', '_blank', 'noopener');
 
 // Save as: a new name for the design and a new zip. The zip follows the name until you change it yourself.
 function fileNameOf(name) { return name.trim().replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, ''); }

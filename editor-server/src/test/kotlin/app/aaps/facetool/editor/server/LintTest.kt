@@ -103,5 +103,16 @@ class LintChecksTest : ServerTestBase() {
         val topics = run("manual", mapOf("list" to JsonPrimitive(true)), project)
         assertThat(text(topics, "text")).contains("templates")
         assertThat(text(run("manual", mapOf("topic" to JsonPrimitive("templates")), project), "text")).contains("params")
+        // The WFF chapter, by its id and by a word of its title, and one section of a chapter alone
+        assertThat(text(topics, "text")).contains("wff-faces: ")
+        assertThat(text(topics, "text")).contains("    wff-keys: ")
+        val wff = text(run("manual", mapOf("topic" to JsonPrimitive("wff-faces")), project), "text")
+        assertThat(wff).contains("Not built yet")
+        assertThat(wff).contains("WFF 2 (Wear OS 5)")
+        assertThat(wff).doesNotContain("The small player of this manual")
+        val wffKeys = text(run("manual", mapOf("topic" to JsonPrimitive("wff-keys")), project), "text")
+        assertThat(wffKeys).contains("replaces")
+        assertThat(wffKeys).doesNotContain("What works on WFF, per version")
+        assertThat(text(run("manual", mapOf("topic" to JsonPrimitive("source-text")), project), "text")).contains("letterSpacing")
     }
 }

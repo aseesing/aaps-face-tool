@@ -1105,7 +1105,15 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - Done when: an agent session that has only the skill makes a small new design (a background, a
   clock text layer, a glucose text, snow) and checks it on WFF 4 without help. The owner judges.
 - Partly done on 2026-11-21: `docs/face-editor.md` (with the reference from `facetool help
-  --markdown`), the skill and the README section are written. No agent session has tried the skill.
+  --markdown`), the skill and the README section are written.
+- Later on 2026-11-21: `docs/making-a-design.html` (the loop, a worked example whose commands were
+  all run, the rules; its files are in `docs/making-a-design-example/`), the WFF chapter of the
+  manual in AAPS, `facetool manual` for a section of a chapter, and the Help menu of the page. The
+  server serves the two help pages at `/docs/making-a-design.html` and `/docs/manual.html`, and no
+  other file of the checkouts. A cold read was done: an agent session that had only the skill file
+  made a small new design (background, dots, a clock text, a glucose text coloured by level) with
+  7 `facetool` commands in 16 minutes, with a clean lint and WFF plan. It named 9 gaps in the docs;
+  all were fixed in the page and the skill. The owner has not judged it.
 
 ---
 

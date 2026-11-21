@@ -1,0 +1,9 @@
+[
+  {"out": "rest.png"},
+  {"sgv": 250, "direction": "↑", "out": "high.png"},
+  {"sgv": 58, "direction": "↓", "out": "low.png"},
+  {"wake": 2, "out": "wake.png"},
+  {"options.stars": 2, "out": "many-stars.png"},
+  {"time": "2026-11-17T23:30:00", "units": "mgdl", "out": "night-mgdl.png"},
+  {"ambient": true, "out": "always-on.png"}
+]

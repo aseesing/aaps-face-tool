@@ -129,7 +129,8 @@ class LintCommands(
                 if (layer.has("use")) {
                     // The keys of a use are the parameters of its template
                     val params = templates?.optJSONObject(use)?.optJSONObject("params")?.keys()?.asSequence()?.toSet() ?: continue
-                    for (key in layer.keys()) if (key != "use" && key !in params) result += unknown("$at.$key", key, params, "the template '$use'")
+                    // wff on a use entry is no parameter: the engine hands it to the layers the template makes
+                    for (key in layer.keys()) if (key != "use" && key != "wff" && key !in params) result += unknown("$at.$key", key, params, "the template '$use'")
                 } else {
                     for (key in layer.keys()) if (key !in layerKeys) result += unknown("$at.$key", key, layerKeys, "a layer")
                     layer.optJSONObject("clip")?.let { clip -> for (key in clip.keys()) if (key !in clipKeys) result += unknown("$at.clip.$key", key, clipKeys, "a clip") }
@@ -312,12 +313,19 @@ class LintCommands(
         }
     }
 
-    /** `manual`: a chapter of the engine manual of the AAPS checkout as plain text. */
+    /** `manual`: a chapter, or a section of a chapter, of the engine manual of the AAPS checkout as plain text. */
     fun manual(args: Args): JsonObject {
         val topic = args.text("topic")
         if (args.flag("list") || topic == null) return buildJsonObject {
-            put("topics", buildJsonArray { for (t in manual.topics) add(buildJsonObject { put("id", t.id); put("title", t.title) }) })
-            put("text", manual.topics.joinToString("\n") { "${it.id}: ${it.title}" })
+            put("topics", buildJsonArray {
+                for (t in manual.topics) add(buildJsonObject {
+                    put("id", t.id)
+                    put("title", t.title)
+                    put("sections", buildJsonArray { for (s in t.sections) add(buildJsonObject { put("id", s.id); put("title", s.title) }) })
+                })
+            })
+            put("text", manual.topics.joinToString("\n") { t -> "${t.id}: ${t.title}" + t.sections.joinToString("") { "\n    ${it.id}: ${it.title}" } } +
+                "\nRead one with facetool manual <id>: a chapter, or one section of it.")
         }
         return buildJsonObject {
             put("topic", topic)

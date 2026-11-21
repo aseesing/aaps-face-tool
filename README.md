@@ -45,7 +45,7 @@ designsDir=/Users/you/Projects/aaps-watchfaces
 | `editor-cli/` | `facetool`, the command line of the face editor |
 | `editor-server/` | the render server of the face editor: the AAPS engine under Robolectric behind HTTP on 127.0.0.1, and the browser page |
 | `tools/` | Pack build, emulator scripts, `facetool` |
-| `docs/` | `wff-converter-design.md` (the design), `wff-apk.md` (make a face), `wff-parity.md` (the suite), `wff-motion-model.md` (motion on WFF), `face-editor.md` (how to use the editor `facetool`), `face-editor-design.md` (its design) |
+| `docs/` | `making-a-design.html` (how to make a design with `facetool`, for people and AI agents), `wff-converter-design.md` (the design), `wff-apk.md` (make a face), `wff-parity.md` (the suite), `wff-motion-model.md` (motion on WFF), `face-editor.md` (how to use the editor `facetool`), `face-editor-design.md` (its design) |
 
 ## Commands
 

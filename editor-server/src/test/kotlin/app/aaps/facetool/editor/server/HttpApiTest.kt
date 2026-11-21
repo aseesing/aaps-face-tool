@@ -70,6 +70,10 @@ class HttpApiTest : ServerTestBase() {
 
             // The page itself needs no token; it holds no data
             assertThat(get(port, "/", null).body()).contains("facetool")
+            // The two help pages, and no other file of the checkouts
+            System.getProperty("aaps.dir")?.let { assertThat(get(port, "/docs/manual.html", null).body()).contains("id=\"wff-faces\"") }
+            System.getProperty("editor.checkout")?.let { assertThat(get(port, "/docs/making-a-design.html", null).body()).contains("Making a watch face design with facetool") }
+            for (other in listOf("/docs/face-editor.md", "/docs/../README.md", "/docs/manual.html/../../CLAUDE.md", "/docs/", "/aaps-commit.txt")) assertWithMessage(other).that(get(port, other, null).statusCode()).isEqualTo(404)
         } finally {
             server.stop()
         }

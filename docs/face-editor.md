@@ -6,7 +6,8 @@ engine draws it, and as the converter of this repository turns it into a Watch F
 face. Every action is a command with text or JSON out, and every picture is a PNG file, so an AI
 agent can use it without a screen. A small browser page gives a person the same commands.
 
-The design of the tool is `docs/face-editor-design.md`. This page tells how to use it.
+The design of the tool is `docs/face-editor-design.md`. This page tells how to use it. The steps of
+making a design, with a worked example and the rules, are in `docs/making-a-design.html`.
 
 Status (2026-11-21): the commands below are built and have tests. `wff emulator` was tried by hand
 on a Wear OS 6 emulator. The owner tried the browser page once. Open and New, the busy signs, the
@@ -67,7 +68,8 @@ Good to know:
   `[{"sgv": 250, "direction": "↑", "out": "high.png"}, {"wake": 2.5}, {"options.moon": 1}]`. That
   saves the start of the CLI for each picture, and the pictures are the same as from single calls.
 - `facetool keys layer` and `facetool manual <topic>` give the keys and the manual of the engine of
-  the AAPS commit that draws. `facetool expand` shows the plain layers a `use` of a template makes.
+  the AAPS commit that draws. A topic is a chapter or one section of it (`facetool manual --list`);
+  `facetool manual wff-faces` is the chapter about the WFF face of a design. `facetool expand` shows the plain layers a `use` of a template makes.
 - A path counts the entries of `animation.layers` in the JSON. The engine and the WFF lint count the
   plain layers after the templates are expanded (`L24`). `facetool expand` shows both.
 - `--json` gives one JSON object. Exit codes: 0 done; 1 done, but a check has errors; 2 wrong use;
@@ -112,6 +114,11 @@ copy" unpacks the zip again as `<name>_2`.
 zip. Save writes there from then on (`facetool save --as`). It does not write over another zip unless
 you tick the box. For a design of a generator it suggests a zip in `~/Projects/aaps-face-editing`,
 not in the designs repository. The project folder keeps its name.
+
+The **Help** menu opens two pages, each in a new tab: "Making a design"
+(`docs/making-a-design.html` of this repository, at `/docs/making-a-design.html` of the server) and the
+manual of the design format (`docs/watchface-animation.html` of the AAPS checkout, at
+`/docs/manual.html`). The server serves these two files and no other file of the checkouts.
 
 The **Export** menu makes a file and lets the browser download it. The zip of the project does not
 change.
@@ -159,7 +166,8 @@ next to the page, and the page shows what the agent does.
 
    Give your own path of `aaps-face-tool`: `--add-dir` lets the agent read that folder. Then say in
    your first message: "Read `~/Projects/aaps-face-tool/.claude/skills/face-editor/SKILL.md` and use
-   `~/Projects/aaps-face-tool/tools/facetool` in this folder." Any other agent that can run commands
+   `~/Projects/aaps-face-tool/tools/facetool` in this folder." A session that starts inside the
+   `aaps-face-tool` checkout loads that skill by itself. Any other agent that can run commands
    works the same way.
 3. Ask in plain words. Examples:
    - "Make the clock text 10 units larger and move it up a little. Show me the result."
@@ -413,20 +421,22 @@ facetool keys values --json
 
 `facetool manual [<topic>] [--list]`
 
-A chapter of the engine manual of the AAPS checkout (docs/watchface-animation.html), as plain text. So an agent reads the manual of the commit that draws.
+A chapter of the engine manual of the AAPS checkout (docs/watchface-animation.html), or one section of a chapter, as plain text. So an agent reads the manual of the commit that draws. The chapter wff-faces is about the Watch Face Format face of a design.
 
 Runs: in the server (started when needed)
 
 | Argument | Type | Meaning |
 |---|---|---|
-| `<topic>` | string | The topic. |
-| `--list` | flag | Show the topics. |
+| `<topic>` | string | The id of a chapter or of a section (see --list), or a word of its title. |
+| `--list` | flag | Show the chapters and their sections. |
 
-Answer with `--json`: `{"topics": [text]?, "topic": text?, "text": the chapter}`
+Answer with `--json`: `{"topics": [{"id", "title", "sections": [{"id", "title"}]}]?, "topic": text?, "text": the chapter or the section}`
 
 ```
 facetool manual --list
 facetool manual templates
+facetool manual source-text
+facetool manual wff-faces
 ```
 
 ### Edit
