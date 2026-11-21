@@ -566,6 +566,13 @@ As built (step 7):
   `log` (a command ran, with its CLI line and its text). As built there are no `rendered` and `lint`
   events: the page asks for a picture and the lint itself and gets them as the answer.
 - `GET /api/ping`: `{"ok": true}` and the AAPS commit, for the CLI to see that the server is up.
+- `GET /api/projects`: what the Open button of the page lists: `root` (where the page makes project
+  folders), `designs` (the zips of `designsDir`, each with its project folder `dir`, `project` true
+  when that folder is a project already, and `freeDir`, a folder with a new name for a second copy)
+  and `recent` (the project folders the page showed before).
+- `POST /api/upload?name=<file name>`: the body is the bytes of a zip that was dropped on the page.
+  A browser gives a page no path, so the server keeps the zip first, as `<root>/<name>.zip`, and
+  answers like one entry of `designs`. The page then opens it with the command `open`.
 - `GET /`: the GUI page. It needs no token: it holds no data. A request a browser makes by itself
   (a picture, the events) gives the token as `token=` in the query.
 - Only `127.0.0.1`. A random token in `server.json` must be in each request (header
@@ -621,6 +628,25 @@ Screens and what they call:
 
 When the folder changes on disk (an agent edited it), the page renders again and marks the changed
 layers in the list. The page never holds a design of its own: it always shows the folder.
+
+Open and New (built on 2026-11-21, after the owner tried the page):
+
+- **Open** lists the design zips of `designsDir` (`local.properties`, read at each start of the
+  server) and the project folders the page showed before. That recent list is
+  `~/.cache/aaps-face-editor/recent.json`, at most 12 folders; it is in no repository. **New** asks
+  for a name. Both run the commands `open` and `new` with `--dir`, so the command log shows the
+  line for the CLI. Then the page loads again with the new project.
+- The page makes project folders in `~/Projects/aaps-face-editing/<name>` (the server's
+  `-Deditor.editing` gives another place). The CLI keeps its own default (6.1) and `--dir`.
+- A zip dropped on the page goes to `POST /api/upload`. The server keeps it as
+  `~/Projects/aaps-face-editing/<name>.zip`, and `save` writes back to that zip.
+- **A name that exists is never written over.** Decision of the build session: when
+  `<root>/<name>` is a project already, Open shows two buttons: "Continue" shows that folder as it
+  is (nothing is unpacked), "New copy" unpacks the zip into `<name>_2` (the first free number). A
+  dropped zip with a name that exists opens the existing project when its bytes are the same zip,
+  else it is kept and opened as `<name>_2`. New with a name that exists is refused with "choose
+  another name".
+- Without a project in its address the page shows the Open list at once.
 
 As built (step 8): the page is `editor-server/src/main/resources/gui/index.html`, with the engine
 tab, the layer list with the eye, the wake slider with play, annotate, grid, pick, the wake sheet,

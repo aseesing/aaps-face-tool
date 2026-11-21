@@ -95,7 +95,13 @@ Good to know:
 
 ## The browser page
 
-`facetool gui` in a project folder opens the page. It shows the layers and views (the eye hides one
+`facetool gui` opens the page; in a project folder it shows that project. **Open** at the top lists
+the design zips of `designsDir` and the projects you opened before. You can also drop a design zip
+on the page. **New** makes an empty design. The page unpacks into `~/Projects/aaps-face-editing/<name>`.
+It never unpacks over a folder that is there: "Continue" shows the folder with your edits, "New
+copy" unpacks the zip again as `<name>_2`.
+
+The page shows the layers and views (the eye hides one
 in the preview only), the engine picture with the wake slider, annotate, grid and pick, the JSON of
 the selection with Apply, the scene, the lint and a log of every command as its command line. When
 an agent changes the folder, the page shows the change and marks the changed layers.

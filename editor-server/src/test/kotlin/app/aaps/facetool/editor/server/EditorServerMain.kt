@@ -22,13 +22,22 @@ import java.lang.management.ManagementFactory
  *
  * System properties: `editor.checkout` (the `aaps-face-tool` checkout, as the CLI names it),
  * `aaps.dir` (the AAPS checkout), `editor.cache` (default `~/.cache/aaps-face-editor`),
- * `editor.editing` (the default place of project folders).
+ * `editor.editing` (where the page makes project folders, default `~/Projects/aaps-face-editing`),
+ * `editor.gui` (a folder with the files of the page, to try a change of the page without a new build),
+ * `wff.zips` (the folder with the design zips, when `local.properties` of the checkout names none).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 // As the parity tests: the engine is instrumented so that its clock is the frozen one; xhdpi is the density of a round watch
 @Config(sdk = [35], application = Application::class, instrumentedPackages = ["app.aaps.wear"], qualifiers = "xhdpi")
 class EditorServerMain {
+
+    /** `<designsDir of local.properties>/cwf-designs`, read at each start; else the folder the build knew. */
+    private fun designsDir(): File? {
+        val properties = System.getProperty("editor.checkout")?.let { File(it, "local.properties") }?.takeIf { it.isFile }
+        val named = properties?.readLines()?.firstOrNull { it.trim().startsWith("designsDir=") }?.substringAfter("=")?.trim()
+        return (named?.let { File(it, "cwf-designs") } ?: System.getProperty("wff.zips")?.let { File(it) })?.takeIf { it.isDirectory }
+    }
 
     @Test
     fun serve() {
@@ -40,8 +49,10 @@ class EditorServerMain {
             EditorServer(
                 app = RuntimeEnvironment.getApplication(), logger = mock<AAPSLogger>(), clock = EngineClock(clock) { ShadowPausedSystemClock.reset() },
                 checkout = System.getProperty("editor.checkout"), aapsDir = System.getProperty("aaps.dir")?.let { File(it) },
-                editingRoot = File(System.getProperty("editor.editing") ?: "$home/Projects/aaps-watchfaces/editing"),
-                cacheRoot = File(System.getProperty("editor.cache") ?: "$home/.cache/aaps-face-editor")
+                editingRoot = File(System.getProperty("editor.editing") ?: "$home/Projects/aaps-face-editing"),
+                cacheRoot = File(System.getProperty("editor.cache") ?: "$home/.cache/aaps-face-editor"),
+                designsDir = designsDir(),
+                guiDir = System.getProperty("editor.gui")?.let { File(it) }
             ).serve(ManagementFactory.getRuntimeMXBean().startTime)
         } finally {
             clock.stop()

@@ -40,11 +40,23 @@
   .error { color: var(--error); } .warning { color: var(--warn); } .info { color: var(--dim); }
   #log .cmd { color: var(--accent); }
   #projectAsk { padding: 30px; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 460px; max-width: 720px; max-height: 80vh; overflow: auto; }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+  dialog h3 { margin: 12px 0 4px; font-size: 13px; color: var(--dim); }
+  dialog .place { display: flex; gap: 8px; align-items: center; padding: 3px 0; }
+  dialog .place .what { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  dialog .place .where { color: var(--dim); font-size: 12px; }
+  dialog .message { color: var(--warn); min-height: 1.4em; white-space: pre-wrap; margin-top: 8px; }
+  dialog .bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  #toast { position: fixed; right: 14px; bottom: 14px; max-width: 520px; background: #2d4460; border: 1px solid var(--accent); border-radius: 6px; padding: 8px 12px; white-space: pre-wrap; z-index: 25; display: none; }
+  body.dropping::after { content: "Drop the design zip to open it"; position: fixed; inset: 12px; border: 3px dashed var(--accent); border-radius: 12px; background: rgba(22, 24, 28, 0.85); display: flex; align-items: center; justify-content: center; font-size: 22px; z-index: 30; pointer-events: none; }
 </style>
 </head>
 <body>
 <header>
   <h1 id="name">facetool</h1>
+  <button id="open">Open</button>
+  <button id="new">New</button>
   <button id="save" title="facetool save">Save</button>
   <button id="undo" title="facetool undo">Undo</button>
   <button id="redo" title="facetool redo">Redo</button>
@@ -75,6 +87,23 @@
   <div><h2>Lint <button id="lintRun">Run</button> <select id="lintSource"><option value="">all</option><option>engine</option><option>editor</option><option>wff4</option><option>wff2</option><option>player</option></select></h2><div id="lint"></div></div>
   <div><h2>Command log</h2><div id="log"></div></div>
 </footer>
+<div id="toast" title="Click to hide this message"></div>
+<dialog id="openDialog">
+  <div class="bar"><b>Open a design</b> <button id="openClose">Close</button></div>
+  <div class="info">You can also drop a design zip anywhere on this page.</div>
+  <h3>Projects you opened before</h3>
+  <div id="openRecent"></div>
+  <h3>Design zips</h3>
+  <div id="openDesigns"></div>
+  <div class="info" id="openRoot"></div>
+  <div class="message" id="openMessage"></div>
+</dialog>
+<dialog id="newDialog">
+  <div class="bar"><b>New design</b> <button id="newClose">Close</button></div>
+  <p><label>Name <input id="newName" size="32" placeholder="My Face"></label> <button id="newMake">Make it</button></p>
+  <div class="info" id="newWhere"></div>
+  <div class="message" id="newMessage"></div>
+</dialog>
 <script>
 // The page of the face editor (design section 10). Every action is one command of the command table,
 // sent to POST /api/run. The page holds no design of its own: it always shows the project folder.
@@ -84,13 +113,22 @@ let project = query.get('project');
 const state = { selected: null, hidden: new Set(), annotate: false, grid: false, pick: false, ambient: false, wake: null, summaries: {}, findings: [], tab: 'engine', playing: null };
 const $ = id => document.getElementById(id);
 
-async function run(command, args = {}) {
-  const response = await fetch('/api/run', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify({ command, args, project }) });
+// Runs one command of the command table in the server. A command without a project (open, new) gives inProject false.
+async function run(command, args = {}, inProject = true) {
+  const response = await fetch('/api/run', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify(inProject ? { command, args, project } : { command, args }) });
   const answer = await response.json();
   if (answer.error) note(answer.text || answer.error);
   return answer;
 }
 function note(text) { $('note').textContent = text || ''; }
+// A message that stays for some seconds, also when the next picture changes the note under the face.
+let toastTimer = null;
+function toast(text, seconds = 12) {
+  $('toast').textContent = text;
+  $('toast').style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('toast').style.display = 'none'; }, seconds * 1000);
+}
 function fileUrl(path) { return '/api/file?path=' + encodeURIComponent(path) + '&token=' + token + '&t=' + Date.now(); }
 function logLine(line, text, exitCode) {
   const row = document.createElement('div');
@@ -98,6 +136,79 @@ function logLine(line, text, exitCode) {
   row.firstChild.textContent = line;
   if (exitCode) row.append(' (exit ' + exitCode + ')');
   $('log').prepend(row);
+}
+
+// Open and New (design section 10). The page never unpacks a zip over a project folder that is there
+// already: it shows that project with its edits, or unpacks a second copy under a new name.
+let places = { root: '', designs: [], recent: [] };
+function switchTo(dir, message) {
+  try { if (message) sessionStorage.setItem('facetoolNote', message); } catch (error) { /* no storage: no message */ }
+  location.search = '?token=' + encodeURIComponent(token) + '&project=' + encodeURIComponent(dir);
+}
+function placeRow(what, where, buttons) {
+  const row = document.createElement('div'); row.className = 'place';
+  const text = document.createElement('span'); text.className = 'what'; text.textContent = what;
+  if (where) { const small = document.createElement('span'); small.className = 'where'; small.textContent = '  ' + where; text.append(small); text.title = where; }
+  row.append(text);
+  for (const [label, title, action] of buttons) {
+    const button = document.createElement('button'); button.textContent = label; button.title = title; button.onclick = action;
+    row.append(button);
+  }
+  return row;
+}
+async function unpack(zip, dir, message) {
+  message.textContent = 'Unpacking ' + zip + ' ...';
+  const answer = await run('open', { zip, dir }, false);
+  if (answer.error) message.textContent = answer.text; else switchTo(answer.dir, answer.text);
+}
+async function showOpen() {
+  const message = $('openMessage');
+  message.textContent = '';
+  $('openDialog').showModal();
+  try {
+    places = await (await fetch('/api/projects', { headers: { 'X-Facetool-Token': token } })).json();
+  } catch (error) { message.textContent = 'The server does not answer.'; return; }
+  const recent = $('openRecent'), designs = $('openDesigns');
+  recent.textContent = ''; designs.textContent = '';
+  for (const entry of places.recent) recent.append(placeRow(entry.name, entry.dir, [['Open', 'Show this project folder', () => switchTo(entry.dir)]]));
+  if (!places.recent.length) recent.textContent = 'None yet.';
+  for (const place of places.designs) {
+    designs.append(placeRow(place.name, place.project ? 'has a project folder with your edits' : '', place.project
+      ? [['Continue', 'Show the project folder ' + place.dir + ' as it is. Nothing is unpacked.', () => switchTo(place.dir)],
+         ['New copy', 'Unpack the zip again into the new folder ' + place.freeDir + '. Your edits in ' + place.dir + ' stay.', () => unpack(place.zip, place.freeDir, message)]]
+      : [['Open', 'Unpack ' + place.zip + ' into ' + place.dir, () => unpack(place.zip, place.dir, message)]]));
+  }
+  if (!places.designs.length) designs.textContent = 'No design zips found. Set designsDir in local.properties, or drop a zip on this page.';
+  $('openRoot').textContent = 'A design is unpacked into ' + places.root + '/<name>.';
+}
+// A zip dropped on the page: the browser gives no path, so the bytes go to the server, which keeps the zip first.
+async function openDropped(file) {
+  note('Sending ' + file.name + ' ...');
+  let place;
+  try {
+    place = await (await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', headers: { 'X-Facetool-Token': token }, body: file })).json();
+  } catch (error) { return dropMessage('The server does not answer.'); }
+  if (place.error) return dropMessage(place.text);
+  if (place.project) return switchTo(place.dir, file.name + ' is open already: this is its project folder with your edits. Nothing was unpacked.');
+  const answer = await run('open', { zip: place.zip, dir: place.dir }, false);
+  if (answer.error) dropMessage(answer.text); else switchTo(answer.dir, 'Kept the dropped zip as ' + place.zip + '.\n' + answer.text);
+}
+function dropMessage(text) { note(''); if ($('openDialog').open) $('openMessage').textContent = text; else toast(text, 20); }
+function fileName(name) { return name.trim().replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, ''); }
+async function showNew() {
+  $('newMessage').textContent = '';
+  $('newDialog').showModal();
+  try { places = await (await fetch('/api/projects', { headers: { 'X-Facetool-Token': token } })).json(); } catch (error) { $('newMessage').textContent = 'The server does not answer.'; }
+  showNewWhere();
+  $('newName').focus();
+}
+function showNewWhere() { const name = fileName($('newName').value); $('newWhere').textContent = name ? 'It is made in ' + places.root + '/' + name : 'Give the design a name.'; }
+async function makeNew() {
+  const name = $('newName').value.trim(), folder = fileName(name);
+  if (!folder) { $('newMessage').textContent = 'The name needs a letter or a digit.'; return; }
+  const answer = await run('new', { name, dir: places.root + '/' + folder }, false);
+  if (answer.error) $('newMessage').textContent = /is not empty/.test(answer.text) ? 'There is a folder ' + places.root + '/' + folder + ' already. Choose another name, or open that project with Open.' : answer.text;
+  else switchTo(answer.dir, answer.text);
 }
 
 async function loadInfo() {
@@ -214,6 +325,26 @@ function showLint() {
 
 async function refresh(mark) { await loadInfo(); await loadLayers(mark); await loadScene(); await render(); }
 
+$('toast').onclick = () => { $('toast').style.display = 'none'; };
+$('open').onclick = showOpen;
+$('openClose').onclick = () => $('openDialog').close();
+$('new').onclick = showNew;
+$('newClose').onclick = () => $('newDialog').close();
+$('newName').oninput = showNewWhere;
+$('newName').onkeydown = event => { if (event.key === 'Enter') makeNew(); };
+$('newMake').onclick = makeNew;
+let dragDepth = 0;
+const hasFiles = event => [...(event.dataTransfer ? event.dataTransfer.types : [])].includes('Files');
+document.addEventListener('dragenter', event => { if (hasFiles(event)) { event.preventDefault(); dragDepth++; document.body.classList.add('dropping'); } });
+document.addEventListener('dragover', event => { if (hasFiles(event)) event.preventDefault(); });
+document.addEventListener('dragleave', event => { if (hasFiles(event) && --dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dropping'); } });
+document.addEventListener('drop', event => {
+  if (!hasFiles(event)) return;
+  event.preventDefault();
+  dragDepth = 0; document.body.classList.remove('dropping');
+  const file = event.dataTransfer.files[0];
+  if (file) openDropped(file);
+});
 $('save').onclick = async () => { const answer = await run('save'); note(answer.text); };
 $('undo').onclick = async () => { await run('undo'); refresh(true); };
 $('redo').onclick = async () => { await run('redo'); refresh(true); };
@@ -273,10 +404,13 @@ $('lintSource').onchange = showLint;
 function start() {
   if (!token) { document.body.innerHTML = '<div id="projectAsk">Open this page with <code>facetool gui</code>: it needs the token of the server.</div>'; return; }
   if (!project) {
-    document.body.innerHTML = '<div id="projectAsk">Which project folder? <input id="dir" size="80" placeholder="/path/to/project"> <button id="go">Open</button><p>Or run <code>facetool gui</code> inside a project folder.</p></div>';
-    document.getElementById('go').onclick = () => { location.search = '?token=' + encodeURIComponent(token) + '&project=' + encodeURIComponent(document.getElementById('dir').value); };
+    // No project yet: only Open and New work
+    document.querySelectorAll('main button, main input, main textarea, footer button, footer select, #save, #undo, #redo').forEach(control => { control.disabled = true; });
+    note('No design is open. Choose Open or New at the top, or drop a design zip on this page.');
+    showOpen();
     return;
   }
+  try { const message = sessionStorage.getItem('facetoolNote'); sessionStorage.removeItem('facetoolNote'); if (message) toast(message); } catch (error) { /* no storage */ }
   const events = new EventSource('/api/events?token=' + encodeURIComponent(token) + '&project=' + encodeURIComponent(project));
   events.addEventListener('log', event => { const data = JSON.parse(event.data); logLine(data.line, data.text, data.exitCode); });
   // The folder changed on disk (an agent edited it): show it again and mark the changed layers

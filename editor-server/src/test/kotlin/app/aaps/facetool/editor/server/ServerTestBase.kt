@@ -45,7 +45,7 @@ abstract class ServerTestBase {
         clock.start()
         server = EditorServer(
             app, logger, engineClock, checkout = System.getProperty("editor.checkout"), aapsDir = System.getProperty("aaps.dir")?.let { File(it) },
-            editingRoot = File(temp, "editing"), cacheRoot = File(temp, "cache"), renderThread = RenderThread(direct = true)
+            editingRoot = File(temp, "editing"), cacheRoot = File(temp, "cache"), designsDir = File(System.getProperty("wff.zips")), renderThread = RenderThread(direct = true)
         )
     }
 

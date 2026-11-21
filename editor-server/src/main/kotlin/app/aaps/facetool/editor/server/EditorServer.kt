@@ -21,10 +21,13 @@ import java.time.Clock
  *
  * @param clock the frozen clock of the engine
  * @param checkout the `aaps-face-tool` checkout, as the CLI names it, or null in a test
+ * @param editingRoot where `open` and `new` make project folders when the page gives no folder
+ * @param designsDir the folder with the design zips the page offers to open, or null
+ * @param guiDir a folder with the files of the page, to try a change of the page without a new build
  * @param renderThread in a test a direct one: a command draws on the calling thread, there is no render loop
  */
 class EditorServer(
-    app: Application, logger: AAPSLogger, clock: EngineClock, private val checkout: String?, aapsDir: File?, editingRoot: File, cacheRoot: File,
+    app: Application, logger: AAPSLogger, clock: EngineClock, private val checkout: String?, aapsDir: File?, editingRoot: File, cacheRoot: File, designsDir: File?, private val guiDir: File? = null,
     private val renderThread: RenderThread = RenderThread()
 ) {
 
@@ -34,6 +37,7 @@ class EditorServer(
     private val token = ByteArray(24).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
     private val life = ServerLife(cacheRoot, checkout ?: "test", token, facts, { System.currentTimeMillis() })
     private val events = Events()
+    private val places = ProjectPlaces(editingRoot, designsDir, RecentProjects(File(cacheRoot, "recent.json")))
     private val watcher = FolderWatcher { dir -> events.send("changed", buildJsonObject { put("project", dir.path) }, dir) }
     private val pictures = Pictures()
     private val loader = DesignLoader()
@@ -90,11 +94,18 @@ class EditorServer(
     }
 
     init {
-        // The page of a project listens: watch its folder from then on
-        events.onListen = watcher::watch
+        // The page of a project listens: watch its folder from then on, and keep it as a recent project
+        events.onListen = { dir ->
+            watcher.watch(dir)
+            places.opened(dir)
+        }
     }
 
-    private val api = HttpApi(commands, table, token, facts, events, { path -> javaClass.classLoader?.getResourceAsStream("gui/$path")?.use { it.readBytes() } }, life::requestSeen)
+    private val api = HttpApi(commands, table, token, facts, events, places, ::guiFile, life::requestSeen)
+
+    /** A file of the page: from [guiDir] when it is given and has the file, else from the build. */
+    private fun guiFile(path: String): ByteArray? =
+        guiDir?.let { File(it, path) }?.takeIf { it.isFile }?.readBytes() ?: javaClass.classLoader?.getResourceAsStream("gui/$path")?.use { it.readBytes() }
 
     /** The token every API request must carry. */
     val apiToken: String get() = token

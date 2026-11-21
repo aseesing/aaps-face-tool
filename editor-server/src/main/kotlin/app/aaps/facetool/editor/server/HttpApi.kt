@@ -2,6 +2,8 @@ package app.aaps.facetool.editor.server
 
 import app.aaps.facetool.editor.model.AndroidJson
 import app.aaps.facetool.editor.model.CommandTable
+import app.aaps.facetool.editor.model.FacetoolException
+import app.aaps.facetool.editor.model.wrongUse
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import kotlinx.serialization.json.JsonObject
@@ -19,12 +21,13 @@ import java.util.concurrent.Executors
  * carry the token: in the header `X-Facetool-Token`, or as `token=` in the query for requests a
  * browser makes by itself (a picture, the events).
  *
+ * @param places the zips and project folders for the Open button of the page
  * @param gui gives a file of the GUI page by its path (`index.html`), or null
  * @param onRequest called at the start of each API request, to count the idle time
  */
 class HttpApi(
     private val commands: ServerCommands, private val table: CommandTable, private val token: String, private val facts: ServerFacts,
-    private val events: Events, private val gui: (String) -> ByteArray?, private val onRequest: () -> Unit
+    private val events: Events, private val places: ProjectPlaces, private val gui: (String) -> ByteArray?, private val onRequest: () -> Unit
 ) {
 
     private var server: HttpServer? = null
@@ -48,6 +51,8 @@ class HttpApi(
         }
         http.createContext("/api/file") { exchange -> api(exchange) { file(exchange) } }
         http.createContext("/api/events") { exchange -> api(exchange) { events.serve(exchange, query(exchange)["project"]) } }
+        http.createContext("/api/projects") { exchange -> api(exchange) { json(exchange, 200, places.list()) } }
+        http.createContext("/api/upload") { exchange -> api(exchange) { upload(exchange) } }
         http.createContext("/") { exchange -> page(exchange) }
         http.start()
         server = http
@@ -78,10 +83,23 @@ class HttpApi(
         val body = AndroidJson.parseObject(exchange.requestBody.readBytes().toString(Charsets.UTF_8), "the request")
         val command = (body["command"] as? JsonPrimitive)?.content ?: return json(exchange, 400, buildJsonObject { put("error", "no command"); put("exitCode", 2); put("text", "The request has no command") })
         val args = body["args"] as? JsonObject ?: JsonObject(emptyMap())
-        val project = (body["project"] as? JsonPrimitive)?.content?.let { File(it) }
+        val project = (body["project"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.let { File(it) }
         val answer = commands.run(command, args, project)
         val result = if (answer.exitCode != 0 && "exitCode" !in answer.json) JsonObject(answer.json + ("exitCode" to JsonPrimitive(answer.exitCode))) else answer.json
         json(exchange, 200, result)
+    }
+
+    /** A zip that was dropped on the page: the body is its bytes, `name=` in the query its file name. */
+    private fun upload(exchange: HttpExchange) {
+        if (exchange.requestMethod != "POST") return json(exchange, 405, buildJsonObject { put("error", "POST only"); put("text", "POST only") })
+        val bytes = exchange.requestBody.readNBytes(MAX_UPLOAD + 1)
+        val answer = try {
+            if (bytes.size > MAX_UPLOAD) wrongUse("The zip is over ${MAX_UPLOAD / 1024 / 1024} MB: that is no design zip")
+            places.storeUpload(query(exchange)["name"] ?: "design.zip", bytes)
+        } catch (e: FacetoolException) {
+            buildJsonObject { put("error", e.message); put("exitCode", e.exitCode); put("text", e.message) }
+        }
+        json(exchange, 200, answer)
     }
 
     /** A file under the `.facetool/out/` folder of a project, and nothing else. */
@@ -132,5 +150,8 @@ class HttpApi(
         /** The server listens only here, never on another address. */
         const val HOST = "127.0.0.1"
         const val TOKEN_HEADER = "X-Facetool-Token"
+
+        /** A design zip must be under 320 KB for the watch; this only stops a wrong file. */
+        const val MAX_UPLOAD = 20 * 1024 * 1024
     }
 }
