@@ -52,7 +52,9 @@ base line.
 5. Check: `facetool lint` ("No findings." is the good case; fix every error, read every warning), then `facetool wff plan` (live, baked,
    data picture, left out) and `facetool wff compare` (the engine next to WFF 4 and WFF 2).
    `facetool manual wff-faces` explains the plan, the key `wff` and the limits per WFF version.
-6. Save: `facetool save --out <zip>` (a new project has no zip yet), later `facetool save`.
+6. Save: `facetool save --out <zip>` (a new project has no zip yet), later `facetool save`. Save also
+   draws the preview picture (`CustomWatchface.png`/`.jpg`, the picture in the phone's list) from the face
+   at rest; `--keep-preview` keeps a picture made by hand.
 7. Export, only when asked: `facetool wff apk --zip` makes the WFF face zip (needs Pack, `docs/wff-apk.md`).
 
 The owner may have the browser page open on the same folder (`facetool gui`). It follows the folder:

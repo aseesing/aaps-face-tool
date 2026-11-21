@@ -298,7 +298,10 @@ from some seconds to about a minute.</p>
 facetool save                          # later: the zip the project came from
 facetool save --as Other_Name.zip      # this zip becomes the zip of the project</pre>
 <p><code>save</code> checks first: the JSON reads in the engine, every picture and font the JSON names is in the folder,
-and the zip is under the size limit of the watch. An error stops the save with exit code 1.</p>
+and the zip is under the size limit of the watch. An error stops the save with exit code 1.
+It also draws the preview picture new (<code>CustomWatchface.png</code> or <code>.jpg</code>, 400 x 400), the picture
+the phone shows in its list of designs: the face at rest in the default scene. <code>--keep-preview</code> keeps a
+picture you made yourself.</p>
 
 <h3 id="step-export">Step 7: export</h3>
 <div class="scroll"><table>

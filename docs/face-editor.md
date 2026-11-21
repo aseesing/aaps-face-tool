@@ -110,6 +110,12 @@ you opened before. You can also drop a design zip on the page. **New** makes an 
 It never unpacks over a folder that is there: "Continue" shows the folder with your edits, "New
 copy" unpacks the zip again as `<name>_2`.
 
+**Save** also draws the preview picture new: `CustomWatchface.png` or `.jpg`, the picture the phone
+shows in its list of designs. It is the face at rest in the default scene, 400 x 400, in the format
+the design had. It is a change of its own in the history, so Undo takes it back.
+`facetool save --keep-preview` keeps the picture as it is. Without the server (a CLI save with
+`--no-start`) the picture stays as it is.
+
 **Save as** gives the design a new name (`metadata.name` and `metadata.filename`) and writes a new
 zip. Save writes there from then on (`facetool save --as`). It does not write over another zip unless
 you tick the box. For a design of a generator it suggests a zip in `~/Projects/aaps-face-editing`,
@@ -243,7 +249,7 @@ facetool new Test --dir /tmp/test
 
 #### `save`
 
-`facetool save [--out <file>] [--as <file>]`
+`facetool save [--out <file>] [--as <file>] [--keep-preview]`
 
 Packs the folder into a zip. Checks first: the JSON reads (in the engine when the server runs), the zip is under the size limit of the watch, every resource the JSON names is there. An error stops the save (exit code 1); --force writes anyway. The old zip is kept in .facetool/history/<n>.zip.
 
@@ -253,6 +259,7 @@ Runs: local; in the server when one runs
 |---|---|---|
 | `--out <file>` | file | The zip to write. Default: the zip the project came from. |
 | `--as <file>` | file | Save as: write this zip and make it the zip of the project, so a later save writes there. It does not write over another zip without --force. |
+| `--keep-preview` | flag | Keep the preview picture (CustomWatchface.png or .jpg, the picture the phone shows in its list) as it is. Without it, a save in the server draws it new from the face at rest. |
 
 Answer with `--json`: `{"zip": path, "written": bool, "bytes": zip size, "limit": bytes, "engineCheck": "done"|"skipped", "generated": bool, "findings": [{"severity", "text", "path"?}], "text": text}`
 

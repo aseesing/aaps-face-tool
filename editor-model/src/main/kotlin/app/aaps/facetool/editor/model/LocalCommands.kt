@@ -26,6 +26,8 @@ class LocalCommands(
     private val clock: Clock,
     private val table: CommandTable = CommandTable.standard(),
     private val engineCheck: ((ProjectFolder) -> List<String>)? = null,
+    /** Draws the preview picture of the design from the face and gives its file name; null when no engine runs. */
+    private val previewPicture: ((ProjectFolder) -> String?)? = null,
     private val stdin: () -> String = { "" },
     private val git: GitReader = ProcessGitReader()
 ) {
@@ -109,11 +111,16 @@ class LocalCommands(
     private fun save(project: ProjectFolder, args: JsonObject, line: String): CommandAnswer = projects.lock(project).with(line, flag(args, "force")) {
         val saveAs = textOrNull(args, "as")
         if (saveAs != null && textOrNull(args, "out") != null) wrongUse("Give --out or --as, not both")
-        val result = projects.save(project, (saveAs ?: textOrNull(args, "out"))?.let { File(it) }, flag(args, "force"), line, engineCheck, asSource = saveAs != null)
+        val keepPreview = flag(args, "keep-preview")
+        val result = projects.save(project, (saveAs ?: textOrNull(args, "out"))?.let { File(it) }, flag(args, "force"), line, engineCheck, asSource = saveAs != null, preview = previewPicture.takeIf { !keepPreview })
         val lines = mutableListOf<String>()
         lines += if (result.written) "Saved ${result.zip.path} (${result.size} bytes, ${result.size * 100L / config.zipLimitBytes} % of the limit of the watch)" else "Not saved: a check has errors. Give --force to write the zip anyway."
         result.findings.forEach { lines += "${it.severity}: ${it.path?.let { path -> "$path: " } ?: ""}${it.text}" }
         if (!result.engineChecked) lines += "info: the engine check was skipped (the server does not run)"
+        when {
+            result.preview != null -> lines += "Drew the preview picture ${result.preview} from the face at rest (the default scene)"
+            !keepPreview           -> lines += "info: the preview picture was kept as it is (the server does not run)"
+        }
         result.keptOld?.let { lines += "The old zip is kept as ${it.path}" }
         if (saveAs != null && result.written) lines += "From now on Save writes to ${result.zip.path}"
         if (result.generated) lines += GeneratedDesigns.WARNING
@@ -123,6 +130,7 @@ class LocalCommands(
             put("bytes", result.size)
             put("limit", config.zipLimitBytes)
             put("engineCheck", if (result.engineChecked) "done" else "skipped")
+            result.preview?.let { put("preview", it) }
             put("generated", result.generated)
             put("findings", JsonArray(result.findings.map { finding ->
                 buildJsonObject {

@@ -51,7 +51,10 @@ class EditorServer(
     private val player = PlayerCommands(app, wff, preview, loader, SceneReader(), pictures, pictureCommands)
     private val config = EditorConfig(editingRoot)
     private val lint = LintCommands(preview, loader, SceneReader(), pictureCommands, EngineManual(aapsDir?.let { File(it, "docs/watchface-animation.html") }), config, wallClock, wffLint = { project, cwf -> wff.lint(project, cwf) + player.lint(project, cwf) })
-    private val local = LocalCommands(config, wallClock, table, engineCheck = lint::engineCheck)
+    private val local = LocalCommands(
+        config, wallClock, table, engineCheck = lint::engineCheck,
+        previewPicture = { project -> renderThread.run { pictureCommands.previewPicture(project) } }
+    )
     private val sheets = SheetCommands(preview, loader, SceneReader(), pictures, pictureCommands, local, wallClock, ProcessGitReader())
 
     val commands = ServerCommands(

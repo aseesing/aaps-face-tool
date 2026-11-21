@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.BitSet
 import java.util.Locale
@@ -77,6 +78,26 @@ class PictureCommands(
         val file = args.file("out") ?: File(project.outDir("render"), "render.png")
         val drawn = draw(project, loader.load(project), scene, args, file)
         return picture(file, scene, drawn.text(file), extraWarnings = listOfNotNull(drawn.warning))
+    }
+
+    /**
+     * Draws the preview picture of the design: the picture the phone shows in its list of designs. It is
+     * the face at rest in the default scene, [PREVIEW_SIZE] pixels, written over the preview picture the
+     * folder has (`CustomWatchface.png` or `.jpg`, in its own format), or as a new PNG. Gives its file name.
+     */
+    fun previewPicture(project: ProjectFolder): String? {
+        val existing = project.dir.listFiles()?.firstOrNull { it.isFile && it.nameWithoutExtension == PREVIEW_NAME && it.extension.lowercase() in setOf("png", "jpg", "jpeg") }
+        val file = existing ?: File(project.dir, "$PREVIEW_NAME.png")
+        val scene = Scenes.over(Scenes.defaults(), JsonObject(mapOf("size" to JsonPrimitive(PREVIEW_SIZE))))
+        val parts = DesignParts(loader.load(project))
+        val bitmap = preview.picture(faceKey(project), parts.with(null, null, transparent = false), scenes.read(scene))
+        val bytes = ByteArrayOutputStream().also { out ->
+            val jpeg = file.extension.lowercase() != "png"
+            bitmap.compress(if (jpeg) Bitmap.CompressFormat.JPEG else Bitmap.CompressFormat.PNG, if (jpeg) 90 else 100, out)
+        }.toByteArray()
+        bitmap.recycle()
+        if (!file.isFile || !file.readBytes().contentEquals(bytes)) file.writeBytes(bytes)
+        return file.name
     }
 
     /** What [draw] made: the size of the picture, the moment of the wake, always-on or not, and the warning for a wake moment of always-on. */
@@ -240,5 +261,9 @@ class PictureCommands(
 
         /** For a moment of the wake asked of a scene with `ambient`. */
         const val AMBIENT_WAKE_WARNING = "the scene has ambient=true: always-on has no wake animation, so this is the always-on face"
+
+        /** The preview picture of a design, as the designs of AAPS have it: `CustomWatchface.jpg`, 400 x 400. */
+        const val PREVIEW_NAME = "CustomWatchface"
+        const val PREVIEW_SIZE = 400
     }
 }

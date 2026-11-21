@@ -32,7 +32,7 @@ class Finding(val severity: String, val text: String, val path: String? = null)
 class OpenResult(val project: ProjectFolder, val alreadyOpen: Boolean, val generated: Boolean, val files: Int)
 
 /** What `save` did. [written] is false when an error stopped it. */
-class SaveResult(val zip: File, val written: Boolean, val size: Int, val findings: List<Finding>, val engineChecked: Boolean, val generated: Boolean, val keptOld: File?)
+class SaveResult(val zip: File, val written: Boolean, val size: Int, val findings: List<Finding>, val engineChecked: Boolean, val generated: Boolean, val keptOld: File?, val preview: String? = null)
 
 /** Makes, opens and saves project folders (design sections 6.1, 6.5 and 6.6). */
 class Projects(private val config: EditorConfig, private val clock: Clock) {
@@ -167,20 +167,29 @@ class Projects(private val config: EditorConfig, private val clock: Clock) {
      * An error stops the save, but not with [force].
      * [asSource] (Save as): [out] becomes the zip of the project, so a later save writes there. It does
      * not write over another zip that is there already, unless [force].
+     * [preview] draws the preview picture of the design (`CustomWatchface.png` or `.jpg`, the picture the
+     * phone shows in its list) new from the face, and gives its file name; null keeps the picture as it is.
+     * The new picture is a change of the folder with its own history entry, so Undo can take it back.
      */
-    fun save(project: ProjectFolder, out: File?, force: Boolean, command: String, engineCheck: ((ProjectFolder) -> List<String>)?, asSource: Boolean = false): SaveResult {
+    fun save(project: ProjectFolder, out: File?, force: Boolean, command: String, engineCheck: ((ProjectFolder) -> List<String>)?, asSource: Boolean = false, preview: ((ProjectFolder) -> String?)? = null): SaveResult {
         val meta = project.meta()
         val source = text(meta, "sourceZip")?.let { File(it) }
         val target = (out ?: source ?: wrongUse("This project came from no zip: give the zip to write with --out")).absoluteFile
         if (target.isDirectory) wrongUse("${target.path} is a folder: --out names the zip file")
         if (asSource && target.isFile && target.canonicalFile != source?.canonicalFile && !force) wrongUse("${target.path} is there already. Choose another name, or give --force to write over it.")
+        val drawnPreview = preview?.let { draw ->
+            val history = History(project, clock)
+            history.noticeOutsideChange()
+            val before = history.current()
+            draw(project)?.also { history.record("$command: the preview picture", before) }
+        }
         val design = project.design()
         val zip = project.zipBytes(now())
         val findings = check(project, design, zip.size).toMutableList()
         engineCheck?.invoke(project)?.forEach { findings += Finding("error", it) }
         val generated = config.generated.isGenerated(design)
         val errors = findings.any { it.severity == "error" }
-        if (errors && !force) return SaveResult(target, false, zip.size, findings, engineCheck != null, generated, null)
+        if (errors && !force) return SaveResult(target, false, zip.size, findings, engineCheck != null, generated, null, drawnPreview)
 
         val history = History(project, clock)
         history.noticeOutsideChange()
@@ -189,7 +198,7 @@ class Projects(private val config: EditorConfig, private val clock: Clock) {
         target.parentFile?.mkdirs()
         target.writeBytes(zip)
         if (source == null || target == source.absoluteFile || asSource) project.updateMeta(mapOf("sourceZip" to JsonPrimitive(target.canonicalPath), "sourceHash" to JsonPrimitive(Hashes.sha256(zip))))
-        return SaveResult(target, true, zip.size, findings, engineCheck != null, generated, kept)
+        return SaveResult(target, true, zip.size, findings, engineCheck != null, generated, kept, drawnPreview)
     }
 
     private fun now(): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), clock.zone).withNano(0)

@@ -67,7 +67,8 @@ object StandardCommands {
                 "An error stops the save (exit code 1); --force writes anyway. The old zip is kept in .facetool/history/<n>.zip.",
             listOf(
                 opt("out", FILE, "The zip to write. Default: the zip the project came from."),
-                opt("as", FILE, "Save as: write this zip and make it the zip of the project, so a later save writes there. It does not write over another zip without --force.")
+                opt("as", FILE, "Save as: write this zip and make it the zip of the project, so a later save writes there. It does not write over another zip without --force."),
+                opt("keep-preview", FLAG, "Keep the preview picture (CustomWatchface.png or .jpg, the picture the phone shows in its list) as it is. Without it, a save in the server draws it new from the face at rest.")
             ),
             server = false, serverWhenRunning = true,
             examples = listOf("facetool save", "facetool save --out /tmp/Aurora_Town_test.zip", "facetool save --as ~/Projects/aaps-face-editing/My_Town.zip"),
