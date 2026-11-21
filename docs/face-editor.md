@@ -112,6 +112,12 @@ the newest state. When the server has stopped, the page says so; run `facetool g
 starts with the first frame. A second Play of the same design and scene starts at once. The check of
 the design runs when you press "Check" (or "Check with WFF"), not by itself.
 
+To move a layer or a view, select it and **drag** it on the engine picture. This works when its
+place is a plain number; when it is a formula the page tells you which one. To change a colour, select
+the layer or view and use the **colour box** under its JSON. Both are plain `set` commands: Undo
+takes them back (a drag that changed two numbers needs Undo twice) and the command log shows them.
+Hold the mouse over a button to read what it does.
+
 The page shows the layers and views (the eye hides one
 in the preview only), the engine picture with the wake slider, annotate, grid and pick, the JSON of
 the selection with Apply, the scene, the lint and a log of every command as its command line. When

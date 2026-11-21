@@ -20,7 +20,9 @@
   #layers div.row { display: flex; gap: 6px; padding: 2px 4px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
   #layers div.row:hover { background: #2a2e36; }
   #layers div.row.selected { background: #2d4460; }
-  #layers div.row.changed { box-shadow: inset 3px 0 0 var(--warn); }
+  #layers div.row.changed { box-shadow: inset 3px 0 0 var(--warn); background: rgba(255, 179, 71, 0.16); }
+  #layers div.row { overflow: hidden; }
+  #layers div.row span:last-child { overflow: hidden; text-overflow: ellipsis; }
   #layers .eye { width: 16px; color: var(--dim); }
   #layers .hidden { opacity: 0.45; }
   #layers .id { width: 34px; color: var(--accent); }
@@ -30,6 +32,15 @@
   #face { max-width: 100%; max-height: calc(100vh - 420px); min-height: 200px; image-rendering: auto; background: #000; border-radius: 6px; }
   #film { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 6px; display: none; pointer-events: none; }
   #film.on { display: block; }
+  #dragLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+  #dragLayer.on { display: block; }
+  #face.movable { cursor: move; }
+  #dragLabel { position: absolute; display: none; background: rgba(22, 24, 28, 0.9); border: 1px solid var(--accent); border-radius: 4px; padding: 2px 6px; line-height: 1.4; white-space: nowrap; pointer-events: none; font-size: 12px; }
+  #dragLabel.on { display: block; }
+  #colours .colour { display: grid; grid-template-columns: 1fr 44px 96px; gap: 6px; align-items: center; margin: 2px 0; color: var(--dim); }
+  #colours input[type=color] { padding: 0; width: 44px; height: 24px; cursor: pointer; }
+  #colours .value { font: 12px ui-monospace, Menlo, monospace; color: var(--text); }
+  #wakeRow span.label { color: var(--dim); }
   #face.pick { cursor: crosshair; }
   #wakeRow { display: flex; gap: 8px; align-items: center; width: 100%; max-width: 560px; }
   #wakeRow input[type=range] { flex: 1; }
@@ -68,43 +79,44 @@
 <body>
 <header>
   <h1 id="name">facetool</h1>
-  <button id="open">Open</button>
-  <button id="new">New</button>
-  <button id="save" title="facetool save">Save</button>
-  <button id="undo" title="facetool undo">Undo</button>
-  <button id="redo" title="facetool redo">Redo</button>
+  <button id="open" title="Open a design zip or a project you opened before">Open</button>
+  <button id="new" title="Make a new, empty design">New</button>
+  <button id="save" title="Pack the project into its design zip, after a check (facetool save)">Save</button>
+  <button id="undo" title="Take the last change back, also a change made outside this page (facetool undo)">Undo</button>
+  <button id="redo" title="Do the change again that Undo took back (facetool redo)">Redo</button>
   <span id="busy" title="The server is working. You can go on: a change waits for its turn, and the picture shows the newest state."><span class="spinner"></span><span id="busyText"></span></span>
   <span id="generated"></span>
   <span id="server"></span>
 </header>
 <main>
   <section>
-    <h2>Layers and views</h2>
+    <h2 title="Everything the design draws. Layers (L0, L1, ...) are drawn in this order, the last one on top. Views are the classic parts of the watch face, like the glucose or the chart. Click one to select it.">Layers and views</h2>
     <div id="layers"></div>
   </section>
   <section id="preview">
-    <div id="tabs"><button class="on" data-tab="engine">Engine</button> <button data-tab="wff4">WFF 4</button> <button data-tab="wff2">WFF 2</button> <button data-tab="compare">Side by side</button> <button data-tab="diff">Diff</button> <button data-tab="parts">Parts</button></div>
-    <div id="stage"><img id="face" alt="the face" draggable="false"><canvas id="film"></canvas></div>
-    <div id="wakeRow">wake <input id="wake" type="range" min="0" max="6" step="0.1" value="0"> <span id="wakeValue">rest</span> <button id="play">Play</button> <button id="rest">Rest</button></div>
-    <div id="tools"><button id="annotate">annotate</button> <button id="grid">grid</button> <button id="pick">pick</button> <button id="sheet" title="facetool wake --sheet">wake sheet</button> <button id="ambient" title="WFF tabs only">always-on</button></div>
+    <div id="tabs"><button class="on" data-tab="engine" title="The face as the AAPS watch app draws it">Engine</button> <button data-tab="wff4" title="The face as a Watch Face Format 4 face (Wear OS 6), drawn by the player of this tool">WFF 4</button> <button data-tab="wff2" title="The face as a Watch Face Format 2 face (Wear OS 5), drawn by the player of this tool">WFF 2</button> <button data-tab="compare" title="The engine face next to the WFF 4 and WFF 2 faces, with the pixels that differ in red">Side by side</button> <button data-tab="diff" title="The design as it was when you opened it, next to the design now">Diff</button> <button data-tab="parts" title="The pictures the WFF face is made of">Parts</button></div>
+    <div id="stage"><img id="face" alt="the face" draggable="false" title="Drag here to move the selected layer or view. With &quot;Pick a layer&quot; on, click to find what draws a point."><canvas id="film"></canvas><svg id="dragLayer"><line id="dragLine" stroke="#4fb3ff" stroke-width="2" stroke-dasharray="5 4"/><circle id="dragFrom" r="4" fill="none" stroke="#4fb3ff" stroke-width="2"/><circle id="dragTo" r="5" fill="#4fb3ff"/></svg><div id="dragLabel"></div></div>
+    <div id="wakeRow"><span class="label" title="The wake is the animation that plays when the watch wakes up">Wake</span> <input id="wake" type="range" min="0" max="6" step="0.1" value="0" title="Move to see one moment of the wake: the seconds since the watch woke up. On the WFF tabs: the seconds since the screen came on."> <span id="wakeValue" title="The moment shown: seconds into the wake, or at rest">at rest</span> <button id="play" title="Play the whole wake as a film">Play</button> <button id="rest" title="Show the face at rest, after the wake has ended">At rest</button></div>
+    <div id="tools"><button id="annotate" title="Draw a box with its number around each layer and view (Engine tab)">Show boxes</button> <button id="grid" title="Draw the grid of the design, 400 units wide, and the round edge of the watch (Engine tab)">Grid</button> <button id="pick" title="Then click a point of the face: the page says which layers and views draw there, and selects the top one">Pick a layer</button> <button id="sheet" title="One picture with small frames of the whole wake, each with its time (facetool wake --sheet)">Wake overview</button> <button id="ambient" title="Show the always-on face, the dim face of a watch that is not in use. WFF tabs only: the engine preview has no always-on picture.">Always-on</button></div>
     <div id="note"></div>
   </section>
   <section>
-    <h2>Inspector <span id="path"></span></h2>
+    <h2 title="The JSON of the layer or view you selected. Change it and press Apply.">Inspector <span id="path"></span></h2>
     <textarea id="json" spellcheck="false"></textarea>
-    <div style="margin: 6px 0"><button id="apply">Apply</button> <button id="expanded">Expanded</button></div>
-    <h2>Scene</h2>
+    <div style="margin: 6px 0"><button id="apply" title="Write the JSON above into the design (facetool set)">Apply</button> <button id="expanded" title="Show the plain layers the engine makes of this layer, after templates and own functions. Read only.">Show expanded</button></div>
+    <div id="colours"></div>
+    <h2 title="The values the preview shows: the time, the glucose, the weather, the choices of the options. They are not part of the design.">Scene</h2>
     <div id="scene"></div>
   </section>
 </main>
 <footer>
-  <div><h2>Lint <button id="lintRun">Check</button> <button id="lintWff">Check with WFF</button> <select id="lintSource"><option value="">all</option><option>engine</option><option>editor</option><option>wff4</option><option>wff2</option><option>player</option></select></h2><div id="lint"></div></div>
-  <div><h2>Command log</h2><div id="log"></div></div>
+  <div><h2 title="What the check found in the design">Check <button id="lintRun" title="Check the design: errors of the engine and the checks of the editor. Takes some seconds.">Check</button> <button id="lintWff" title="The same, and what the WFF converter says. The first time the WFF face is built: that can take a minute.">Check with WFF</button> <select id="lintSource" title="Show only the findings of one source"><option value="">all</option><option>engine</option><option>editor</option><option>wff4</option><option>wff2</option><option>player</option></select></h2><div id="lint"></div></div>
+  <div><h2 title="Every action of this page as the command line that does the same in a terminal. You can copy a line into a script.">Command log</h2><div id="log"></div></div>
 </footer>
 <div id="cover"><div class="spinner"></div><div id="coverText"></div><div id="coverMore"></div></div>
 <div id="toast" title="Click to hide this message"></div>
 <dialog id="openDialog">
-  <div class="bar"><b>Open a design</b> <button id="openClose">Close</button></div>
+  <div class="bar"><b>Open a design</b> <button id="openClose" title="Close this list">Close</button></div>
   <div class="info">You can also drop a design zip anywhere on this page.</div>
   <h3>Projects you opened before</h3>
   <div id="openRecent"></div>
@@ -114,8 +126,8 @@
   <div class="message" id="openMessage"></div>
 </dialog>
 <dialog id="newDialog">
-  <div class="bar"><b>New design</b> <button id="newClose">Close</button></div>
-  <p><label>Name <input id="newName" size="32" placeholder="My Face"></label> <button id="newMake">Make it</button></p>
+  <div class="bar"><b>New design</b> <button id="newClose" title="Close without making a design">Close</button></div>
+  <p><label>Name <input id="newName" size="32" placeholder="My Face" title="The name of the design. Its folder gets this name, with _ for spaces."></label> <button id="newMake" title="Make the design and show it (facetool new)">Make it</button></p>
   <div class="info" id="newWhere"></div>
   <div class="message" id="newMessage"></div>
 </dialog>
@@ -125,7 +137,7 @@
 const query = new URLSearchParams(location.search);
 const token = query.get('token');
 let project = query.get('project');
-const state = { selected: null, hidden: new Set(), annotate: false, grid: false, pick: false, ambient: false, wake: null, summaries: {}, findings: [], tab: 'engine', fps: 24 };
+const state = { selected: null, hidden: new Set(), annotate: false, grid: false, pick: false, ambient: false, wake: null, summaries: {}, jsons: null, changed: new Set(), findings: [], tab: 'engine', fps: 24 };
 const $ = id => document.getElementById(id);
 
 // The busy sign: every request that waits for the server is listed in the top bar.
@@ -287,15 +299,30 @@ async function loadInfo() {
 async function loadLayers(mark) {
   const layers = (await run('list', { kind: 'layers' })).items || [];
   const views = (await run('list', { kind: 'views' })).items || [];
+  // The whole design, to see which layers and views changed: the summary of a layer does not show a moved x
+  const design = (await run('show')).value || {};
+  const designLayers = ((design.animation || {}).layers) || [];
   const box = $('layers');
   box.textContent = '';
-  const before = state.summaries;
   state.summaries = {};
+  const jsonOf = path => { const layer = /^animation\.layers\[(\d+)\]$/.exec(path); return JSON.stringify(layer ? designLayers[Number(layer[1])] : design[path]); };
+  const now = {};
+  for (const item of [...layers, ...views]) { const path = item.path || item.name; now[path] = jsonOf(path); }
+  // The marks show the last change: what differs from the design the list showed before that change.
+  // They stay until the next change. A load that only draws the list again (a selection, the eye) compares nothing.
+  if (state.jsons === null) state.jsons = now;
+  else if (mark) {
+    const changed = Object.keys(now).filter(path => state.jsons[path] !== now[path]);
+    if (changed.length) state.changed = new Set(changed);
+    state.jsons = now;
+  }
   const add = (id, path, summary, hideName) => {
     state.summaries[path] = summary;
     const row = document.createElement('div');
-    row.className = 'row' + (state.selected === path ? ' selected' : '') + (state.hidden.has(hideName) ? ' hidden' : '') + (mark && before[path] !== undefined && before[path] !== summary ? ' changed' : '');
-    const eye = document.createElement('span'); eye.className = 'eye'; eye.textContent = state.hidden.has(hideName) ? '-' : 'o'; eye.title = 'hide in the preview only';
+    const isChanged = state.changed.has(path);
+    row.className = 'row' + (state.selected === path ? ' selected' : '') + (state.hidden.has(hideName) ? ' hidden' : '') + (isChanged ? ' changed' : '');
+    const eye = document.createElement('span'); eye.className = 'eye'; eye.textContent = state.hidden.has(hideName) ? '-' : 'o'; eye.title = 'Hide or show this in the preview. The design is not changed.';
+    row.title = path + (isChanged ? ' (changed by the last change)' : '');
     eye.onclick = event => { event.stopPropagation(); state.hidden.has(hideName) ? state.hidden.delete(hideName) : state.hidden.add(hideName); loadLayers(); render(); };
     const name = document.createElement('span'); name.className = 'id'; name.textContent = id;
     const text = document.createElement('span'); text.textContent = summary;
@@ -313,9 +340,126 @@ async function select(path) {
   const shown = await run('show', { path });
   $('json').value = shown.error ? '' : shown.text;
   $('json').readOnly = false;
+  state.selectedValue = shown.error ? null : shown.value;
+  showColours();
+  $('face').classList.toggle('movable', !state.pick);
   document.querySelectorAll('#layers .row').forEach(row => row.classList.remove('selected'));
   loadLayers();
 }
+
+// The colours of the selection (#RRGGBB, or #AARRGGBB with the alpha in front), each with a colour picker.
+// A new colour is one `set` of that one value, as in the CLI: undo works and the command log shows it.
+function colourPlaces(value, sub, found) {
+  if (typeof value === 'string') { if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value)) found.push([sub, value]); }
+  else if (Array.isArray(value)) value.forEach((item, index) => colourPlaces(item, sub + '[' + index + ']', found));
+  else if (value && typeof value === 'object') for (const key of Object.keys(value)) if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) colourPlaces(value[key], sub ? sub + '.' + key : key, found);
+  return found;
+}
+function joinPath(path, sub) { return sub === '' ? path : sub.startsWith('[') ? path + sub : path + '.' + sub; }
+function showColours() {
+  const box = $('colours');
+  box.textContent = '';
+  if (!state.selected || state.selectedValue === null || state.selectedValue === undefined) return;
+  for (const [sub, value] of colourPlaces(state.selectedValue, '', [])) {
+    const row = document.createElement('div'); row.className = 'colour';
+    const name = document.createElement('span'); name.textContent = sub || 'colour'; name.title = joinPath(state.selected, sub);
+    const picker = document.createElement('input'); picker.type = 'color'; picker.value = '#' + value.slice(-6).toLowerCase();
+    picker.title = 'Choose another colour for ' + (sub || 'this value') + '. The see-through part of the colour, when it has one, stays.';
+    const text = document.createElement('span'); text.className = 'value'; text.textContent = value;
+    // The picker tells of the final colour when it closes: one change, one history entry
+    picker.onchange = async () => {
+      const path = joinPath(state.selected, sub);
+      const upper = value.slice(1) === value.slice(1).toUpperCase();
+      const chosen = value.slice(0, value.length - 6) + (upper ? picker.value.slice(1).toUpperCase() : picker.value.slice(1));
+      if (chosen === value) return;
+      const selected = state.selected;
+      const answer = await edit('set', { path, value: chosen });
+      if (answer.error) return;
+      forgetFrames();
+      if (state.selected === selected) await select(selected);
+      await loadLayers(true);
+      render();
+    };
+    row.append(name, picker, text);
+    box.append(row);
+  }
+}
+
+// Moving the selection by dragging it on the engine picture. Only a place that is a plain number can be
+// dragged: a formula places the layer by a rule, and a drag cannot say how to change the rule.
+// A layer with a `rect` of plain numbers moves by rect.left and rect.top; else by x and y. A view moves by
+// leftmargin and topmargin. Each changed number is one `set`, as in the CLI.
+function plain(value) { return typeof value === 'number' && isFinite(value); }
+function tell(name, value) { return typeof value === 'string' ? name + ' is the formula "' + value + '"' : name + ' is not a number'; }
+function dragPlan() {
+  if (state.tab !== 'engine') return { error: 'Dragging works on the Engine tab.' };
+  const value = state.selectedValue, path = state.selected;
+  if (!path || !value || typeof value !== 'object') return { error: 'Select a layer or a view first: click it in the list, or use "Pick a layer". Then drag it.' };
+  if (!path.startsWith('animation.layers[')) {
+    if (!('leftmargin' in value) && !('topmargin' in value)) return { error: path + ' has no leftmargin and topmargin: it has no place to move.' };
+    if (plain(value.leftmargin) && plain(value.topmargin)) return { keys: [['leftmargin', value.leftmargin], ['topmargin', value.topmargin]] };
+    return { error: path + ' cannot be dragged: ' + (plain(value.leftmargin) ? tell('topmargin', value.topmargin) : tell('leftmargin', value.leftmargin)) + '. Change it in the inspector.' };
+  }
+  const rect = value.rect && typeof value.rect === 'object' ? value.rect : null;
+  if (rect && plain(rect.left) && plain(rect.top)) return { keys: [['rect.left', rect.left], ['rect.top', rect.top]] };
+  if (plain(value.x) && plain(value.y)) return { keys: [['x', value.x], ['y', value.y]] };
+  if ('use' in value) return { error: 'This layer comes from the template "' + value.use + '". It has no place of its own to drag; change the values it gives the template in the inspector.' };
+  const reasons = [];
+  if (rect) { if (!plain(rect.left)) reasons.push(tell('rect.left', rect.left)); if (!plain(rect.top)) reasons.push(tell('rect.top', rect.top)); }
+  if ('x' in value && !plain(value.x)) reasons.push(tell('x', value.x));
+  if ('y' in value && !plain(value.y)) reasons.push(tell('y', value.y));
+  if (!reasons.length) return { error: 'This layer cannot be dragged: it has no x and y, and no rect, to change.' };
+  return { error: 'This layer cannot be dragged: ' + reasons.join(', and ') + '. A formula places the layer by a rule. Change the formula in the inspector.' };
+}
+function moved(old, by) { const value = old + by; return Number.isInteger(old) ? Math.round(value) : Math.round(value * 10) / 10; }
+let drag = null;
+function dragShow(event) {
+  const box = $('face').getBoundingClientRect();
+  const at = (x, y) => [x - box.left, y - box.top];
+  const [x1, y1] = at(drag.x, drag.y), [x2, y2] = at(event.clientX, event.clientY);
+  $('dragLine').setAttribute('x1', x1); $('dragLine').setAttribute('y1', y1); $('dragLine').setAttribute('x2', x2); $('dragLine').setAttribute('y2', y2);
+  $('dragFrom').setAttribute('cx', x1); $('dragFrom').setAttribute('cy', y1); $('dragTo').setAttribute('cx', x2); $('dragTo').setAttribute('cy', y2);
+  $('dragLayer').classList.add('on');
+  // The face is 400 design units wide, whatever its size on the screen
+  drag.by = [(event.clientX - drag.x) / box.width * 400, (event.clientY - drag.y) / box.height * 400];
+  const text = drag.plan.keys.map(([key, old], axis) => key + ' ' + old + ' → ' + moved(old, drag.by[axis])).join(', ');
+  const label = $('dragLabel');
+  label.textContent = text;
+  label.style.left = Math.max(0, Math.min(x2 + 12, box.width - 150)) + 'px'; label.style.top = Math.max(0, y2 - 28) + 'px';
+  label.classList.add('on');
+  note('Moving ' + state.selected + ': ' + text + '. Let go to set it; Esc to leave it.');
+}
+function dragEnd() { drag = null; $('dragLayer').classList.remove('on'); $('dragLabel').classList.remove('on'); }
+$('face').addEventListener('pointerdown', event => {
+  if (state.pick || event.button !== 0 || film.playing) return;
+  drag = { x: event.clientX, y: event.clientY, moving: false, plan: null, by: [0, 0] };
+  $('face').setPointerCapture(event.pointerId);
+});
+$('face').addEventListener('pointermove', event => {
+  if (!drag) return;
+  if (!drag.moving) {
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 4) return;
+    drag.moving = true;
+    drag.plan = dragPlan();
+    if (drag.plan.error) { note(drag.plan.error); return dragEnd(); }
+  }
+  dragShow(event);
+});
+$('face').addEventListener('pointerup', async () => {
+  if (!drag || !drag.moving) return dragEnd();
+  const { plan, by } = drag, selected = state.selected;
+  dragEnd();
+  const changes = plan.keys.map(([key, old], axis) => [key, old, moved(old, by[axis])]).filter(([, old, now]) => now !== old);
+  if (!changes.length) return note('');
+  for (const [key, , now] of changes) { const answer = await edit('set', { path: selected + '.' + key, value: now }); if (answer.error) break; }
+  forgetFrames();
+  if (state.selected === selected) await select(selected);
+  await loadLayers(true);
+  await render();
+  toast('Moved ' + selected + ': ' + changes.map(([key, old, now]) => key + ' ' + old + ' → ' + now).join(', ') + '.' + (changes.length > 1 ? ' That was ' + changes.length + ' changes: press Undo ' + changes.length + ' times to take the move back.' : ''));
+});
+$('face').addEventListener('pointercancel', dragEnd);
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && drag) { dragEnd(); note(''); } });
 
 // The WFF tabs: the player's face. The slider is then the seconds since the screen came on.
 async function renderWff() {
@@ -361,6 +505,26 @@ async function renderNow() {
   if (answer.file) { await showPicture(answer.file); if (!film.playing) $('film').classList.remove('on'); note((answer.warnings || []).join('\n')); }
 }
 
+const SCENE_HELP = {
+  time: 'The moment the face shows, like 2026-11-17T10:08:00',
+  sgv: 'The glucose in mg/dl (121 shows as 6.7 mmol/l). Empty: no reading.',
+  delta: 'How much the glucose changed since the reading before, in mg/dl',
+  direction: 'The trend arrow, for example → ↑ ↓ ↗ ↘',
+  readingAgeMin: 'How many minutes ago the glucose was read',
+  units: 'The units the face shows: mmol or mgdl',
+  iob: 'Insulin on board, in units',
+  cob: 'Carbs on board, in grams',
+  weather: 'The weather: clear, cloudy, partly, rain, ...',
+  temperature: 'The temperature outside, in degrees Celsius',
+  phoneBattery: 'The battery of the phone, in percent',
+  watchBattery: 'The battery of the watch, in percent',
+  heartRate: 'The heart rate, in beats a minute',
+  steps: 'The steps of today',
+  graph: 'The shape of the glucose graph: wave, flat, high or low',
+  size: 'How many pixels wide the picture is. The design itself is always 400 units wide.',
+  'colours.colour1': 'The watch setting "Main colour", like #B6FF1A. Empty: the colour of the design.',
+  'colours.colour2': 'The watch setting "Second colour". Empty: the colour of the design.'
+};
 async function loadScene() {
   const scene = (await run('scene')).scene || {};
   const options = (await run('list', { kind: 'options' })).items || [];
@@ -369,6 +533,7 @@ async function loadScene() {
   const field = (label, key, value) => {
     const row = document.createElement('label');
     const input = document.createElement('input');
+    row.title = input.title = SCENE_HELP[key] || (key.startsWith('options.') ? 'The choice of this option of the design: 0 is the first choice. Empty: the choice the design starts with.' : key);
     input.value = value === null || value === undefined ? '' : (typeof value === 'object' ? JSON.stringify(value) : value);
     input.onchange = async () => { forgetFrames(); await edit('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
     row.append(label, input);
@@ -379,7 +544,7 @@ async function loadScene() {
   field('colour 1', 'colours.colour1', (scene.colours || {}).colour1);
   field('colour 2', 'colours.colour2', (scene.colours || {}).colour2);
   const hint = document.createElement('div'); hint.className = 'info';
-  hint.textContent = 'always-on is for the WFF tabs: the engine preview has no always-on picture. Tilt, tap and the glide wait for the motion model of the converter.';
+  hint.textContent = 'Always-on is for the WFF tabs: the engine preview has no always-on picture. Tilt, tap and the glide are not built yet.';
   box.append(hint);
 }
 
@@ -462,7 +627,7 @@ document.querySelectorAll('#tabs button').forEach(button => button.onclick = () 
   render();
 });
 $('ambient').onclick = () => { state.ambient = !state.ambient; $('ambient').classList.toggle('on', state.ambient); render(); };
-for (const key of ['annotate', 'grid', 'pick']) $(key).onclick = () => { state[key] = !state[key]; $(key).classList.toggle('on', state[key]); if (key === 'pick') $('face').classList.toggle('pick', state.pick); else render(); };
+for (const key of ['annotate', 'grid', 'pick']) $(key).onclick = () => { state[key] = !state[key]; $(key).classList.toggle('on', state[key]); if (key === 'pick') { $('face').classList.toggle('pick', state.pick); $('face').classList.toggle('movable', !state.pick && !!state.selected); } else render(); };
 $('face').onclick = async event => {
   if (!state.pick) return;
   const box = $('face').getBoundingClientRect();
@@ -482,7 +647,7 @@ $('wake').oninput = () => {
   clearTimeout(wakeTimer);
   wakeTimer = setTimeout(render, 80);
 };
-$('rest').onclick = () => { if (film.playing) stopPlay(); state.wake = null; $('wakeValue').textContent = 'rest'; render(); };
+$('rest').onclick = () => { if (film.playing) stopPlay(); state.wake = null; $('wakeValue').textContent = 'at rest'; render(); };
 // Play (design section 10). All frames of the wake come from one server call, at the design's own frames a
 // second: `wake --frames <dir> --no-sheet` on the Engine tab, `wff wake` on the WFF tabs. The server tells
 // of each frame when its file is written (the event `frame`), so the film starts with the first frames and

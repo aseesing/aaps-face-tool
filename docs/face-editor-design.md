@@ -87,7 +87,8 @@ are decided.
 - Editing the Kotlin generators of `aaps-watchfaces`. The editor works on zips in watch form.
 - The shorthand of the generators (`DesignShorthand`: `rain`, `moon: true`, `orbit`, ...). The
   editor reads and writes the watch form only, as it is stored in zips.
-- A full visual editor with dragging and drawing. The GUI is small (section 10).
+- A full visual editor with drawing. The GUI is small (section 10). Since 2026-11-21 it can move a
+  layer by dragging and choose a colour, both as plain `set` commands.
 
 ---
 
@@ -704,6 +705,34 @@ Play (built on 2026-11-21, after the owner tried the page; before, Play asked fo
   Aurora Town, and the first clicks waited for it. "Check" runs it without the WFF part, "Check
   with WFF" with it.
 - The numbers are in section 16.
+
+Editing by hand (built on 2026-11-21, after the owner tried the page):
+
+- **Drag** on the engine picture moves the selected layer or view. Select it in the list first (or
+  with "Pick a layer"). The face is 400 design units wide, so a drag of a quarter of the picture is
+  100 units. A line and a label show the old and the new numbers while the mouse is down; Esc
+  leaves the design as it is.
+- Only a place that is a **plain number** can be dragged. A layer with a `rect` whose `left` and
+  `top` are numbers moves by `rect.left` and `rect.top` (its `x` and `y` are then an offset, often
+  a formula, and stay). Else a layer moves by `x` and `y` when both are numbers. A view moves by
+  `leftmargin` and `topmargin`: these are the names in the design JSON (the plan said "left/top").
+  When the place is a formula the page says which value is a formula and shows it, for example
+  `x is the formula "16 + r1 * 368"`, and that the formula is changed in the inspector. A layer
+  with `use` has no place of its own.
+- Each changed number is one `set` (`facetool set 'animation.layers[19].x' 180`). A drag that
+  changes both numbers is two commands and two history entries: Undo twice takes it back, and the
+  page says so. (One step would need `apply`, which takes a file; the page has none.)
+- **Colours**: under the JSON the inspector lists every colour value of the selection (`#RRGGBB`,
+  or `#AARRGGBB`), also inside lists like `colors`, each with the colour picker of the browser. A
+  new colour is one `set` of that value when the picker closes. The alpha part of an 8 digit colour
+  is kept.
+- Every control has a **tooltip** in plain words, and some labels changed: "Show boxes" (was
+  annotate), "Pick a layer" (pick), "Wake overview" (wake sheet), "At rest" (Rest), "Show
+  expanded" (Expanded), "Check" (Lint).
+- **Changed layers are marked** by comparing the JSON of each layer and view before and after a
+  change (the page reads the whole design with `show`). Before, the page compared the summaries
+  of the list, and a moved layer has the same summary, so it was not marked. The marks stay until
+  the next change.
 
 As built (step 8): the page is `editor-server/src/main/resources/gui/index.html`, with the engine
 tab, the layer list with the eye, the wake slider with play, annotate, grid, pick, the wake sheet,
