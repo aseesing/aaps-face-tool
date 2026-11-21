@@ -34,11 +34,21 @@ class EnginePreview(private val app: Application, private val engine: SnapshotEn
         return draw(key, design, scene, scene.timeMs - wake, listOf(wake), rest = false).single()
     }
 
-    /** Frames of one wake that begins at the time of [scene], at each of [atMs] (rising) after its start. */
-    fun wakeFrames(key: String, design: CwfData, scene: SceneValues, atMs: List<Long>): List<Bitmap> =
-        draw(key, design, scene, scene.timeMs, atMs, rest = false)
+    /**
+     * Frames of one wake that begins at the time of [scene], at each of [atMs] (rising) after its start.
+     * [each] gets every frame with its index as soon as it is drawn.
+     */
+    fun wakeFrames(key: String, design: CwfData, scene: SceneValues, atMs: List<Long>, each: ((Int, Bitmap) -> Unit)? = null): List<Bitmap> =
+        draw(key, design, scene, scene.timeMs, atMs, rest = false, each = each)
 
-    private fun draw(key: String, design: CwfData, scene: SceneValues, startMs: Long, atMs: List<Long>, rest: Boolean): List<Bitmap> {
+    /** As [wakeFrames], but no frame is kept: [each] gets it, then it is freed. For a wake of many frames. */
+    fun eachWakeFrame(key: String, design: CwfData, scene: SceneValues, atMs: List<Long>, each: (Int, Bitmap) -> Unit) {
+        draw(key, design, scene, scene.timeMs, atMs, rest = false, each = each, keep = false)
+    }
+
+    private fun draw(
+        key: String, design: CwfData, scene: SceneValues, startMs: Long, atMs: List<Long>, rest: Boolean, each: ((Int, Bitmap) -> Unit)? = null, keep: Boolean = true
+    ): List<Bitmap> {
         clock.moveTo(startMs)
         val entry = kept.getOrPut(key) { Kept(engine.Face("editor${kept.size}")) }
         val face = entry.face
@@ -55,10 +65,18 @@ class EnginePreview(private val app: Application, private val engine: SnapshotEn
         try {
             // The wake starts with the first frame drawn
             if (atMs.firstOrNull() != 0L) face.frame(scene.size, clock.now).recycle()
-            return atMs.map { ms ->
+            val frames = ArrayList<Bitmap>()
+            atMs.forEachIndexed { index, ms ->
                 clock.moveTo(startMs + ms)
-                face.frame(scene.size, clock.now)
-            }.also { check(!rest || !face.isAnimating) { "The wake-up animation still plays after ${REST_LEAD_MS / 1000} s" } }
+                val frame = face.frame(scene.size, clock.now)
+                try {
+                    each?.invoke(index, frame)
+                } finally {
+                    if (keep) frames += frame else frame.recycle()
+                }
+            }
+            check(!rest || !face.isAnimating) { "The wake-up animation still plays after ${REST_LEAD_MS / 1000} s" }
+            return frames
         } finally {
             face.release()
         }

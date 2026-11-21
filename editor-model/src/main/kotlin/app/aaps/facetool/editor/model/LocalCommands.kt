@@ -161,6 +161,8 @@ class LocalCommands(
             put("resources", JsonArray(resources.map { buildJsonObject { put("name", it.key); put("bytes", it.value.size) } }))
             putJsonObject("counts") { counts.forEach { put(it.key, it.value) } }
             wakeMs?.toLongOrNull()?.let { put("wakeMs", it) }
+            // The frames a second of the wake; the engine takes 24 when the design names none
+            if (design["animation"] is JsonObject) put("wakeFps", (JsonPaths.get(design, JsonPaths.parse("animation.fps")) as? JsonPrimitive)?.content?.toIntOrNull() ?: DEFAULT_WAKE_FPS)
             put("generated", generated)
             put("changedSinceOpen", changed)
             put("text", buildString {
@@ -390,4 +392,10 @@ class LocalCommands(
     private fun int(args: JsonObject, key: String): Int? = (args[key] as? JsonPrimitive)?.content?.let { it.toIntOrNull() ?: wrongUse("The argument '$key' needs a whole number") }
 
     private fun flag(args: JsonObject, key: String): Boolean = (args[key] as? JsonPrimitive)?.content == "true"
+
+    private companion object {
+
+        /** The frames a second of a wake when the design names none (`WakeAnimationSpec` of the engine). */
+        const val DEFAULT_WAKE_FPS = 24
+    }
 }

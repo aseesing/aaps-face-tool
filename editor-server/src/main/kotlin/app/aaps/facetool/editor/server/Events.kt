@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * The server-sent events of the API (design section 9): `changed` (a project folder changed on
- * disk), `rendered`, `lint` and `log` (a command ran, with its CLI line). A listener gets the events
+ * disk), `log` (a command ran, with its CLI line) and `frame` (a frame of a wake was written). A listener gets the events
  * of its project and the events of no project.
  */
 class Events {

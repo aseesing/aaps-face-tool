@@ -22,12 +22,13 @@ import java.util.concurrent.Executors
  * browser makes by itself (a picture, the events).
  *
  * @param places the zips and project folders for the Open button of the page
+ * @param frameStops takes the wish of the page to stop a frames call
  * @param gui gives a file of the GUI page by its path (`index.html`), or null
  * @param onRequest called at the start of each API request, to count the idle time
  */
 class HttpApi(
     private val commands: ServerCommands, private val table: CommandTable, private val token: String, private val facts: ServerFacts,
-    private val events: Events, private val places: ProjectPlaces, private val gui: (String) -> ByteArray?, private val onRequest: () -> Unit
+    private val events: Events, private val places: ProjectPlaces, private val frameStops: FrameStops, private val gui: (String) -> ByteArray?, private val onRequest: () -> Unit
 ) {
 
     private var server: HttpServer? = null
@@ -52,6 +53,12 @@ class HttpApi(
         http.createContext("/api/file") { exchange -> api(exchange) { file(exchange) } }
         http.createContext("/api/events") { exchange -> api(exchange) { events.serve(exchange, query(exchange)["project"]) } }
         http.createContext("/api/projects") { exchange -> api(exchange) { json(exchange, 200, places.list()) } }
+        http.createContext("/api/cancel") { exchange ->
+            api(exchange) {
+                query(exchange)["dir"]?.let { frameStops.ask(File(it)) }
+                json(exchange, 200, buildJsonObject { put("ok", true) })
+            }
+        }
         http.createContext("/api/upload") { exchange -> api(exchange) { upload(exchange) } }
         http.createContext("/") { exchange -> page(exchange) }
         http.start()

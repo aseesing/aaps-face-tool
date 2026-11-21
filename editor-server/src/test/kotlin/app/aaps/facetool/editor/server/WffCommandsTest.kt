@@ -1,5 +1,6 @@
 package app.aaps.facetool.editor.server
 
+import android.graphics.BitmapFactory
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import kotlinx.serialization.json.JsonArray
@@ -51,6 +52,14 @@ abstract class WffCommandsBase(private val design: String) : ServerTestBase() {
         val wake = run("wff wake", mapOf("seconds" to JsonPrimitive(1), "fps" to JsonPrimitive(4)), project)
         assertThat((wake.getValue("frames") as JsonArray)).hasSize(5)
         lines.append("wake sheet ${hash(text(wake, "file"))}\n")
+        // Without the sheet: the same frames, and no sheet (the page plays these)
+        val play = run("wff wake", mapOf("seconds" to JsonPrimitive(1), "fps" to JsonPrimitive(4), "no-sheet" to JsonPrimitive(true), "frames" to JsonPrimitive(File(temp, "play").path)), project)
+        assertThat(play).doesNotContainKey("file")
+        fun pixels(answer: JsonObject): List<List<Int>> = (answer.getValue("frames") as JsonArray).map { frame ->
+            val bitmap = BitmapFactory.decodeFile((frame as JsonPrimitive).content)
+            IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }.toList()
+        }
+        assertThat(pixels(play)).isEqualTo(pixels(wake))
 
         val parts = run("wff parts", emptyMap(), project)
         assertThat((parts.getValue("statics") as JsonArray).size).isGreaterThan(0)

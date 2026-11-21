@@ -41,6 +41,14 @@ class SheetCommands(
     private val render: PictureCommands, private val local: LocalCommands, private val clock: Clock, private val git: GitReader
 ) {
 
+    /** Called for each frame of `wake` when its file is written: the project, the file, how many are done, how many come. */
+    var onFrame: (ProjectFolder, File, Int, Int) -> Unit = { _, _, _, _ -> }
+
+    /** Asked before each frame of `wake --no-sheet` with the folder of the frames: true stops the command there. */
+    var stopAsked: (File) -> Boolean = { false }
+
+    private class FramesStopped : RuntimeException()
+
     /** `wake`: the wake as frames, a contact sheet, and the facts for a GIF (the CLI writes the GIF). */
     fun wake(project: ProjectFolder, args: Args): JsonObject {
         val scene = Scenes.forCommand(project, args.json)
@@ -52,25 +60,51 @@ class SheetCommands(
         val to = args.number("to") ?: (wakeMsOf(cwf) / 1000.0)
         if (from < 0 || to <= from || to > 60) wrongUse("--from and --to must be 0 to 60 seconds, with --to after --from")
         val count = ((to - from) * fps).toInt() + 1
-        if (count > MAX_FRAMES) wrongUse("That is $count frames; the most is $MAX_FRAMES. Use a lower --fps or a shorter time")
+        // Without the sheet no frame is kept in memory, so a whole wake at the design's own rate fits
+        val noSheet = args.flag("no-sheet")
+        val most = if (noSheet) MAX_FRAMES_NO_SHEET else MAX_FRAMES
+        if (count > most) wrongUse("That is $count frames; the most is $most. Use a lower --fps or a shorter time" + if (noSheet) "" else ", or --no-sheet (up to $MAX_FRAMES_NO_SHEET frames)")
         val atMs = (0 until count).map { ((from + it.toDouble() / fps) * 1000).roundToLong() }
-        val frames = preview.wakeFrames(render.faceKey(project), cwf, values, atMs)
+        val shown = render.shownDesign(cwf, args)
+        val began = System.nanoTime()
         val dir = args.file("frames") ?: File(project.outDir("wake"), "frames")
         dir.mkdirs()
         dir.listFiles { f -> f.name.matches(Regex("frame_\\d+\\.png")) }?.forEach { it.delete() }
-        val files = frames.mapIndexed { i, frame -> File(dir, "frame_%03d.png".format(i)).also { pictures.save(frame, it) } }
-        val labels = atMs.map { String.format(Locale.ROOT, "%.2f s", it / 1000.0) }
-        val file = args.file("out") ?: File(project.outDir("wake"), "wake.png")
-        saveSheet(frames, labels, file)
+        val files = atMs.indices.map { File(dir, "frame_%03d.png".format(it)) }
+        // Each frame is written as soon as it is drawn, so the page can show the first ones while the rest is made
+        var written = 0
+        val save = { i: Int, frame: Bitmap ->
+            if (noSheet && stopAsked(dir)) throw FramesStopped()
+            if (noSheet) pictures.saveFast(frame, files[i]) else pictures.save(frame, files[i])
+            written = i + 1
+            onFrame(project, files[i], i + 1, files.size)
+        }
+        val file = if (noSheet) null else args.file("out") ?: File(project.outDir("wake"), "wake.png")
+        try {
+            if (file == null) preview.eachWakeFrame(render.faceKey(project), shown, values, atMs, save)
+            else saveSheet(preview.wakeFrames(render.faceKey(project), shown, values, atMs, save), atMs.map { String.format(Locale.ROOT, "%.2f s", it / 1000.0) }, file)
+        } catch (_: FramesStopped) {
+            // The page asked to stop: the frames written so far are the answer
+        }
+        val seconds = (System.nanoTime() - began) / 1e9
+        if (written < files.size) return buildJsonObject {
+            put("stopped", true)
+            put("frames", JsonArray(files.take(written).map { JsonPrimitive(it.absolutePath) }))
+            put("frameMs", 1000 / fps)
+            put("seconds", seconds)
+            put("text", "Stopped after $written of ${files.size} frames.")
+        }
         return buildJsonObject {
-            put("file", file.absolutePath)
+            file?.let { put("file", it.absolutePath) }
             put("frames", JsonArray(files.map { JsonPrimitive(it.absolutePath) }))
             put("frameMs", 1000 / fps)
             put("times", JsonArray(atMs.map { JsonPrimitive(it / 1000.0) }))
+            put("seconds", seconds)
             put("scene", scene)
             val warning = DesignParts(cwf).wakeTextWarning
             put("warnings", JsonArray(listOfNotNull(warning).map { JsonPrimitive(it) }))
-            put("text", "Wrote the contact sheet ${file.path}: ${files.size} frames from $from s to $to s at $fps a second. Single frames in ${dir.path}" + (warning?.let { "\nwarning: $it" } ?: ""))
+            put("text", (file?.let { "Wrote the contact sheet ${it.path}: ${files.size} frames" } ?: "Wrote ${files.size} frames") +
+                " from $from s to $to s at $fps a second. Single frames in ${dir.path}" + (warning?.let { "\nwarning: $it" } ?: ""))
         }
     }
 
@@ -322,6 +356,9 @@ class SheetCommands(
 
         const val DESIGN = 400
         const val MAX_FRAMES = 240
+
+        /** 60 seconds at the 30 frames a second that the engine allows at most. */
+        const val MAX_FRAMES_NO_SHEET = 1800
         const val SHEET_CELL = 225
         const val DEFAULT_WAKE_MS = 6000L
     }

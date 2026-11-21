@@ -491,7 +491,7 @@ Picture (server):
 | Command | What it does |
 |---|---|
 | `render [scene keys] [--out f.png]` | The engine face for the scene. `--wake 2.5` a moment of the wake. `--only 3,5` or `--hide 7` draws only some layers or views (as `WffDesignParts` does for the converter: the others `gone` or `visible` 0). `--annotate` draws each layer's box and number on top. `--grid` draws the 400 grid and the round edge. `--zoom x,y,w,h` crops. |
-| `wake [--fps 8] [--from s] [--to s]` | The wake as frames: `--sheet` one contact sheet PNG with the time under each frame (the best input for an AI), `--frames dir` the single PNGs, `--gif f.gif` an animation. |
+| `wake [--fps 8] [--from s] [--to s]` | The wake as frames: `--sheet` one contact sheet PNG with the time under each frame (the best input for an AI), `--frames dir` the single PNGs, `--gif f.gif` an animation. `--no-sheet` makes only the single frames: then no frame is kept in memory and up to 1800 frames fit (240 with a sheet), and the frames are packed fast (the same pixels, other bytes, see section 16). `--only` and `--hide` as `render`. |
 | `options` | One picture per choice of each option (a sheet), and per colour slot. |
 | `looks` | Which looks are active in the scene, and a sheet of the looks with a scene for each that turns it on, when the editor can find one (`when` on values, time or day). As built: the harness cannot ask the engine which looks are on, so a look counts as on when the design without it draws another picture. The scenes tried are the scene of the command, the presets, and the weather `rain`, `cloudy` and `partly`. |
 | `pick <x> <y>` | Which layers and views draw the pixel at x, y (in 400 design units), top first. Works by drawing each one alone (cached per design hash). As built: "top first" is the layers from the last to the first, then the views; the editor does not know where the engine paints a view between the layers. |
@@ -562,14 +562,19 @@ As built (step 7):
 - `GET /api/commands`: the command table.
 - `GET /api/file?path=...`: a file under a project's `.facetool/out/` (the GUI shows pictures this
   way). No other paths.
-- `GET /api/events?project=...`: server-sent events: `changed` (the folder changed on disk) and
-  `log` (a command ran, with its CLI line and its text). As built there are no `rendered` and `lint`
+- `GET /api/events?project=...`: server-sent events: `changed` (the folder changed on disk),
+  `log` (a command ran, with its CLI line and its text) and `frame` (a frame of `wake` or
+  `wff wake` is written: its file, how many are done, how many come). As built there are no `rendered` and `lint`
   events: the page asks for a picture and the lint itself and gets them as the answer.
 - `GET /api/ping`: `{"ok": true}` and the AAPS commit, for the CLI to see that the server is up.
 - `GET /api/projects`: what the Open button of the page lists: `root` (where the page makes project
   folders), `designs` (the zips of `designsDir`, each with its project folder `dir`, `project` true
   when that folder is a project already, and `freeDir`, a folder with a new name for a second copy)
   and `recent` (the project folders the page showed before).
+- `POST /api/cancel?dir=<folder of the frames>`: the frames call (`wake --no-sheet`,
+  `wff wake --no-sheet`) that writes into that folder stops before its next frame, and answers
+  with `"stopped": true`. Only for the page: the one render thread makes nothing else while a
+  whole wake is drawn.
 - `POST /api/upload?name=<file name>`: the body is the bytes of a zip that was dropped on the page.
   A browser gives a page no path, so the server keeps the zip first, as `<root>/<name>.zip`, and
   answers like one entry of `designs`. The page then opens it with the command `open`.
@@ -620,7 +625,7 @@ Screens and what they call:
 | Preview: WFF 4, WFF 2 | The player's face for the scene | `wff render` |
 | Side by side, Diff | Engine and WFF, or a design and its saved zip or a history entry | `wff compare`, `diff --render` |
 | Parts | The WFF parts one by one | `wff parts` |
-| Wake timeline | Scrub the wake (engine) or the seconds since visible (WFF); play shows frames from the server as they come (cached per scene) | `render --wake`, `wff render --visibleSec` |
+| Wake timeline | Scrub the wake (engine) or the seconds since visible (WFF); Play shows the frames of one frames call | `render --wake`, `wff render --visibleSec`, `wake --no-sheet`, `wff wake --no-sheet` |
 | Inspector | The JSON of the selection; edit and apply; "Expanded" shows the engine's expanded form, read only | `show`, `set`, `expand` |
 | Scene | The scene keys of section 7 | the scene keys of every render command |
 | Lint | The lint, filtered by source; click a line to select its layer | `lint` |
@@ -664,6 +669,30 @@ Feedback while the page waits (built on 2026-11-21):
 - **When the server is gone** (a request gets no answer, or the event stream breaks and the ping
   fails) the cover says "The editor server has stopped." and how to start it again. The page cannot
   connect again by itself: a new server has a new port and a new token.
+
+Play (built on 2026-11-21, after the owner tried the page; before, Play asked for one picture per
+0.25 s):
+
+- Play asks **once** for all frames of the wake, at the design's own frames a second
+  (`animation.fps`, 24 when the design names none; `info` gives it as `wakeFps`):
+  `wake --fps <fps> --from 0 --to <wake length> --frames .facetool/out/play/engine --no-sheet`,
+  with `--hide` for the layers the eye hides. On the tabs WFF 4 and WFF 2 it is
+  `wff wake --seconds <wake length> --fps <fps> --frames .facetool/out/play/wff4 --no-sheet`.
+- The server sends the event `frame` for each frame as soon as its file is written. The page loads
+  that frame at once, so the film starts with the first frame and the rest loads behind it. The film
+  runs with `requestAnimationFrame` by its own clock: frame `floor(time / frame length)`. When a
+  frame is not there yet the film waits for it; it never skips ahead of the server.
+- The frames stay in the page until the design or the scene changes (an edit, undo, a scene field,
+  a change of the folder from outside), or the eye of a layer, the tab or always-on changes. A
+  second Play starts at once.
+- Stop leaves the last frame on the screen. Annotate and the grid are not in the film.
+- **A click comes before the film.** When the page needs another picture while the frames are
+  still made (the slider, a tab, an edit), it stops the frames call with `POST /api/cancel`, so
+  the picture does not wait for the whole wake. The next Play asks for the frames again.
+- The page no longer runs the check (`lint`) by itself at the start: it draws for 8 s and more on
+  Aurora Town, and the first clicks waited for it. "Check" runs it without the WFF part, "Check
+  with WFF" with it.
+- The numbers are in section 16.
 
 As built (step 8): the page is `editor-server/src/main/resources/gui/index.html`, with the engine
 tab, the layer list with the eye, the wake slider with play, annotate, grid, pick, the wake sheet,
@@ -1109,6 +1138,32 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   pixels as a new face (12.3). The 2.3 s case is a new scene, and 2.0 s of it is a fixed wait in the
   data store, not drawing: it does not grow with the design, and one line in the preview's host
   (`batchWindowMs = 0`, section 15) removes it. So the renderer choice stands.
+
+  Measured for Play on the Mac (2026-11-21, Aurora Town, 450 px, AAPS `3b185386d4`, the whole wake:
+  15 s at 24 frames a second, 361 frames, in the built-in browser of the Claude app):
+
+  | Measure | Value |
+  |---|---|
+  | Play before: one `render` per 0.25 s step | not measured again; 61 pictures of 0.1 to 0.3 s each (the table above), so 4 pictures a second at best |
+  | Engine tab: click on Play to the first frame on the screen | 0.30 s |
+  | Engine tab: all 361 frames in the page | 5.5 s (the server took 5.5 s: 15 ms a frame, 65 frames a second) |
+  | The same with Android's PNG writer (`Bitmap.compress`) | 23.6 s (65 ms a frame, 15 frames a second: slower than the film) |
+  | WFF 4 tab: first frame, all 361 frames (the face was built before) | 0.22 s, 3.0 s |
+  | A second Play of the same design and scene | starts at once: no request |
+  | The check (`lint`) at the start, which Play had to wait for | 8.6 s without the WFF part; about 17 s with it (seen once on the busy sign) |
+
+  Why a PNG writer of the editor's own (`Pictures.saveFast`): of the 65 ms a frame, about 49 ms
+  was Android's PNG writer packing 810 KB as small as it can (measured: zlib level 6 on the bytes
+  of a frame). Drawing took about 16 ms. With the fastest pack level a frame is written in a few
+  ms, and the server makes frames faster than the film shows them. The pixels are the same (a
+  test compares them); a file is about 10 % larger. Only the frames of `--no-sheet` are written
+  this way: every picture with a golden hash still comes from Android's writer.
+
+  Found on the way, not solved: the first `wake` of a kept face differs from every later `wake` of
+  the same design and scene in some hundred pixels, in frames from 1 s on (D2: 576 pixels in the box
+  36,231 to 154,414 of a 450 px frame; the same command twice, both with a sheet). Later wakes are
+  the same as each other. `WakeFramesTest` says so in a comment and leaves the first wake out of
+  its compare.
 
 - **The pinned AAPS commit.** The preview is true only for the commit in `aaps-commit.txt`. The
   owner's watch may run another branch (`local/personal-wff` today). Every answer names the commit

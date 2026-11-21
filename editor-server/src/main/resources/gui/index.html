@@ -26,7 +26,10 @@
   #layers .id { width: 34px; color: var(--accent); }
   #preview { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   #tabs, #tools { display: flex; gap: 6px; flex-wrap: wrap; }
+  #stage { position: relative; display: inline-block; line-height: 0; max-width: 100%; }
   #face { max-width: 100%; max-height: calc(100vh - 420px); min-height: 200px; image-rendering: auto; background: #000; border-radius: 6px; }
+  #film { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 6px; display: none; pointer-events: none; }
+  #film.on { display: block; }
   #face.pick { cursor: crosshair; }
   #wakeRow { display: flex; gap: 8px; align-items: center; width: 100%; max-width: 560px; }
   #wakeRow input[type=range] { flex: 1; }
@@ -81,7 +84,7 @@
   </section>
   <section id="preview">
     <div id="tabs"><button class="on" data-tab="engine">Engine</button> <button data-tab="wff4">WFF 4</button> <button data-tab="wff2">WFF 2</button> <button data-tab="compare">Side by side</button> <button data-tab="diff">Diff</button> <button data-tab="parts">Parts</button></div>
-    <img id="face" alt="the face">
+    <div id="stage"><img id="face" alt="the face" draggable="false"><canvas id="film"></canvas></div>
     <div id="wakeRow">wake <input id="wake" type="range" min="0" max="6" step="0.1" value="0"> <span id="wakeValue">rest</span> <button id="play">Play</button> <button id="rest">Rest</button></div>
     <div id="tools"><button id="annotate">annotate</button> <button id="grid">grid</button> <button id="pick">pick</button> <button id="sheet" title="facetool wake --sheet">wake sheet</button> <button id="ambient" title="WFF tabs only">always-on</button></div>
     <div id="note"></div>
@@ -95,7 +98,7 @@
   </section>
 </main>
 <footer>
-  <div><h2>Lint <button id="lintRun">Run</button> <select id="lintSource"><option value="">all</option><option>engine</option><option>editor</option><option>wff4</option><option>wff2</option><option>player</option></select></h2><div id="lint"></div></div>
+  <div><h2>Lint <button id="lintRun">Check</button> <button id="lintWff">Check with WFF</button> <select id="lintSource"><option value="">all</option><option>engine</option><option>editor</option><option>wff4</option><option>wff2</option><option>player</option></select></h2><div id="lint"></div></div>
   <div><h2>Command log</h2><div id="log"></div></div>
 </footer>
 <div id="cover"><div class="spinner"></div><div id="coverText"></div><div id="coverMore"></div></div>
@@ -122,7 +125,7 @@
 const query = new URLSearchParams(location.search);
 const token = query.get('token');
 let project = query.get('project');
-const state = { selected: null, hidden: new Set(), annotate: false, grid: false, pick: false, ambient: false, wake: null, summaries: {}, findings: [], tab: 'engine', playing: null };
+const state = { selected: null, hidden: new Set(), annotate: false, grid: false, pick: false, ambient: false, wake: null, summaries: {}, findings: [], tab: 'engine', fps: 24 };
 const $ = id => document.getElementById(id);
 
 // The busy sign: every request that waits for the server is listed in the top bar.
@@ -276,6 +279,7 @@ async function loadInfo() {
   $('name').textContent = info.name || info.dir;
   $('generated').textContent = info.generated ? '! generated: a new build of the designs overwrites this zip' : '';
   if (info.wakeMs) $('wake').max = info.wakeMs / 1000;
+  state.fps = info.wakeFps || 24;
   const status = await run('status');
   $('server').textContent = 'server: AAPS ' + String(status.aapsCommit || '').slice(0, 10) + (status.pinned ? ' (pinned)' : ' (NOT the tested commit)') + (status.restartNeeded ? ' restart needed' : '');
 }
@@ -323,7 +327,7 @@ async function renderWff() {
   else answer = await run('wff render', { version: state.tab === 'wff2' ? '2' : '4', set: ['visibleSec=' + (state.wake === null ? 3600 : state.wake), 'ambient=' + state.ambient] });
   if (answer.error) return;
   const file = answer.file || (answer.statics || [])[0];
-  if (file) await showPicture(file);
+  if (file) { await showPicture(file); if (!film.playing) $('film').classList.remove('on'); }
   note(state.tab === 'compare' || state.tab === 'parts' || state.tab === 'diff' ? answer.text : (answer.problems || []).join('\n'));
 }
 
@@ -331,6 +335,7 @@ async function renderWff() {
 // one on top; when the first is done, one more picture is made for the newest state. The latest scene wins.
 let renderBusy = null, renderAgain = false;
 function render() {
+  stopFrames();
   if (renderBusy) { renderAgain = true; return renderBusy; }
   renderBusy = (async () => {
     try { do { renderAgain = false; await renderNow(); } while (renderAgain); } finally { renderBusy = null; }
@@ -353,7 +358,7 @@ async function renderNow() {
   if (state.annotate) args.annotate = true;
   if (state.grid) args.grid = true;
   const answer = await run('render', args);
-  if (answer.file) { await showPicture(answer.file); note((answer.warnings || []).join('\n')); }
+  if (answer.file) { await showPicture(answer.file); if (!film.playing) $('film').classList.remove('on'); note((answer.warnings || []).join('\n')); }
 }
 
 async function loadScene() {
@@ -365,7 +370,7 @@ async function loadScene() {
     const row = document.createElement('label');
     const input = document.createElement('input');
     input.value = value === null || value === undefined ? '' : (typeof value === 'object' ? JSON.stringify(value) : value);
-    input.onchange = async () => { await edit('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
+    input.onchange = async () => { forgetFrames(); await edit('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
     row.append(label, input);
     box.append(row);
   };
@@ -378,9 +383,11 @@ async function loadScene() {
   box.append(hint);
 }
 
-async function lint() {
-  $('lint').textContent = 'running the lint ...';
-  const answer = await run('lint');
+// The check of the design. With the WFF part the server may first build the WFF face, and that can take a
+// minute in which it draws nothing else. So the page starts with the quick check.
+async function lint(withWff) {
+  $('lint').textContent = withWff ? 'Checking, with the WFF face … (this can take a minute)' : 'Checking …';
+  const answer = withWff ? await run('lint') : await run('lint', { 'no-wff': true });
   state.findings = answer.findings || [];
   showLint();
 }
@@ -434,14 +441,14 @@ document.addEventListener('drop', event => {
   if (file) openDropped(file);
 });
 $('save').onclick = async () => { const answer = await edit('save'); note(answer.text); };
-$('undo').onclick = async () => { await edit('undo'); refresh(true); };
-$('redo').onclick = async () => { await edit('redo'); refresh(true); };
+$('undo').onclick = async () => { await edit('undo'); forgetFrames(); refresh(true); };
+$('redo').onclick = async () => { await edit('redo'); forgetFrames(); refresh(true); };
 $('apply').onclick = async () => {
   if (!state.selected) return note('Select a layer or a view first.');
   let value;
   try { value = JSON.parse($('json').value); } catch (error) { return note('The inspector does not hold JSON: ' + error.message); }
   const answer = await edit('set', { path: state.selected, value });
-  if (!answer.error) { note(''); await loadLayers(true); render(); }
+  if (!answer.error) { note(''); forgetFrames(); await loadLayers(true); render(); }
 };
 $('expanded').onclick = async () => {
   if (!state.selected || !state.selected.startsWith('animation.layers[')) return note('Expanded works on a layer of animation.layers.');
@@ -449,6 +456,7 @@ $('expanded').onclick = async () => {
   if (!answer.error) { $('json').value = answer.text; $('json').readOnly = true; note('The expanded form is read only. Select the layer again to edit it.'); }
 };
 document.querySelectorAll('#tabs button').forEach(button => button.onclick = () => {
+  if (film.playing) stopPlay();
   state.tab = button.dataset.tab;
   document.querySelectorAll('#tabs button').forEach(other => other.classList.toggle('on', other === button));
   render();
@@ -468,25 +476,121 @@ $('face').onclick = async event => {
 };
 let wakeTimer = null;
 $('wake').oninput = () => {
+  if (film.playing) stopPlay();
   state.wake = Number($('wake').value);
   $('wakeValue').textContent = state.wake.toFixed(1) + ' s';
   clearTimeout(wakeTimer);
   wakeTimer = setTimeout(render, 80);
 };
-$('rest').onclick = () => { state.wake = null; $('wakeValue').textContent = 'rest'; render(); };
-$('play').onclick = async () => {
-  if (state.playing) { state.playing = null; $('play').textContent = 'Play'; return; }
-  const run_ = state.playing = {};
+$('rest').onclick = () => { if (film.playing) stopPlay(); state.wake = null; $('wakeValue').textContent = 'rest'; render(); };
+// Play (design section 10). All frames of the wake come from one server call, at the design's own frames a
+// second: `wake --frames <dir> --no-sheet` on the Engine tab, `wff wake` on the WFF tabs. The server tells
+// of each frame when its file is written (the event `frame`), so the film starts with the first frames and
+// the rest loads behind it. The frames stay in the page until the design or the scene changes: then a
+// second Play starts at once.
+const film = { key: null, fetching: null, images: [], total: 0, complete: false, frameMs: 42, began: 0, firstAt: null, allAt: null, queue: Promise.resolve(), playing: false, clock: 0, last: null };
+const PLAY_TABS = ['engine', 'wff4', 'wff2'];
+function filmKey() { return JSON.stringify([state.tab, [...state.hidden].sort(), state.tab === 'engine' ? false : state.ambient, state.fps, $('wake').max]); }
+// The design or the scene changed: the kept frames are old.
+function forgetFrames() { stopFrames(); film.key = null; if (film.playing) stopPlay(); }
+// The server makes one picture at a time. When the page needs another picture while the frames of a film
+// are still made, the frames call is stopped: the click of the person comes first. The next Play asks again.
+function stopFrames() {
+  if (!film.fetching) return;
+  film.key = null;
+  if (film.playing) stopPlay();
+  fetch('/api/cancel?dir=' + encodeURIComponent(film.dir), { method: 'POST', headers: { 'X-Facetool-Token': token } }).catch(() => {});
+}
+function checkFilm() {
+  if (film.complete && film.allAt === null && film.images.length === film.total && film.images.every(one => one && one.ready)) { film.allAt = performance.now(); filmReport(); }
+}
+function addFrame(index, file) {
+  if (film.images[index]) return;
+  const image = new Image();
+  film.images[index] = image;
+  image.onload = () => {
+    if (film.images[index] !== image) return;
+    image.ready = true;
+    const now = performance.now();
+    if (film.firstAt === null) film.firstAt = now;
+    checkFilm();
+  };
+  image.src = fileUrl(file);
+}
+function filmReport() {
+  const text = 'Play: the first frame was there after ' + ((film.firstAt - film.began) / 1000).toFixed(2) + ' s, all ' + film.total + ' frames after ' + ((film.allAt - film.began) / 1000).toFixed(2) +
+    ' s (' + Math.round(1000 / film.frameMs) + ' frames a second; the server took ' + Number(film.serverSeconds).toFixed(2) + ' s). They are kept until the design or the scene changes: Play again runs at once.';
+  film.report = text;
+  logLine('(' + text + ')');
+}
+function loadFrames() {
+  const key = filmKey();
+  if (film.key === key) return;
+  Object.assign(film, { key, images: [], total: 0, complete: false, firstAt: null, allAt: null, began: performance.now(), frameMs: 1000 / state.fps, report: null });
+  const dir = film.dir = project + '/.facetool/out/play/' + state.tab;
+  const seconds = Number($('wake').max);
+  let command = 'wake', args = { fps: state.fps, from: 0, to: seconds, frames: dir, 'no-sheet': true };
+  if (state.hidden.size) args.hide = [...state.hidden].join(',');
+  if (state.tab !== 'engine') { command = 'wff wake'; args = { version: state.tab === 'wff2' ? '2' : '4', seconds, fps: state.fps, frames: dir, 'no-sheet': true, set: ['ambient=' + state.ambient] }; }
+  // One frames call at a time: a second one would write into the same folder
+  film.queue = film.queue.then(async () => {
+    if (film.key !== key) return;
+    film.fetching = key;
+    const answer = command === 'wake' ? await run('wake', args) : await run('wff wake', args);
+    film.fetching = null;
+    if (film.key !== key) return;
+    if (answer.error || answer.stopped || !answer.frames) { film.key = null; if (film.playing) stopPlay(); return; }
+    film.total = answer.frames.length;
+    film.complete = true;
+    film.serverSeconds = answer.seconds;
+    answer.frames.forEach((file, index) => addFrame(index, file));
+    checkFilm();
+  });
+}
+function drawFrame(image) {
+  const canvas = $('film');
+  if (canvas.width !== image.naturalWidth) { canvas.width = image.naturalWidth; canvas.height = image.naturalHeight; }
+  canvas.getContext('2d').drawImage(image, 0, 0);
+  canvas.classList.add('on');
+}
+// Stops the film. Its last frame stays on the screen: it is the picture of that moment of the wake.
+function stopPlay(atEnd) {
+  film.playing = false;
+  $('play').textContent = 'Play';
+  if (atEnd && film.report) note(film.report);
+}
+function startPlay() {
+  if (film.playing) return stopPlay();
+  if (!PLAY_TABS.includes(state.tab)) return note('Play works on the tabs Engine, WFF 4 and WFF 2.');
+  loadFrames();
+  Object.assign(film, { playing: true, clock: 0, last: null });
   $('play').textContent = 'Stop';
-  const end = Number($('wake').max);
-  for (let t = 0; t <= end && state.playing === run_; t += 0.25) {
-    state.wake = t; $('wake').value = t; $('wakeValue').textContent = t.toFixed(1) + ' s';
-    await render();
-  }
-  state.playing = null; $('play').textContent = 'Play';
-};
+  if (!film.images[0] || !film.images[0].ready) note(state.tab === 'engine' ? 'Getting the frames of the wake …' : 'Getting the frames of the WFF face … (the first time the face is built: that can take a minute)');
+  const step = now => {
+    if (!film.playing) return;
+    const index = Math.floor(film.clock / film.frameMs);
+    if (film.complete && index >= film.total) { state.wake = Number($('wake').max); $('wake').value = state.wake; $('wakeValue').textContent = state.wake.toFixed(1) + ' s'; return stopPlay(true); }
+    const image = film.images[index];
+    if (image && image.ready) {
+      if (index === 0 || film.waited) { note(''); film.waited = false; }
+      drawFrame(image);
+      const seconds = index * film.frameMs / 1000;
+      state.wake = seconds; $('wake').value = seconds; $('wakeValue').textContent = seconds.toFixed(1) + ' s';
+      if (film.last !== null) film.clock += now - film.last;
+      film.last = now;
+    } else {
+      // The frame is not there yet: the film waits for it, it does not skip
+      if (film.last !== null && index > 0) { film.waited = true; note('The film waits: the server makes the frames slower than the film runs. Play again later runs at true speed.'); }
+      film.last = null;
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+$('play').onclick = startPlay;
 $('sheet').onclick = async () => { const answer = await run('wake', { sheet: true, fps: 4 }); if (answer.file) { $('face').src = fileUrl(answer.file); note(answer.text); } };
-$('lintRun').onclick = lint;
+$('lintRun').onclick = () => lint(false);
+$('lintWff').onclick = () => lint(true);
 $('lintSource').onchange = showLint;
 
 function start() {
@@ -505,8 +609,16 @@ function start() {
   events.onerror = () => { fetch('/api/ping', { headers: { 'X-Facetool-Token': token } }).then(response => { if (!response.ok) serverGone(); }, serverGone); };
   events.addEventListener('log', event => { const data = JSON.parse(event.data); logLine(data.line, data.text, data.exitCode); });
   // The folder changed on disk (an agent edited it): show it again and mark the changed layers
-  events.addEventListener('changed', () => refresh(true));
-  first().then(lint);
+  events.addEventListener('changed', () => { forgetFrames(); refresh(true); });
+  // A frame of the wake is written: load it while the server makes the rest
+  events.addEventListener('frame', event => {
+    const data = JSON.parse(event.data);
+    if (film.fetching !== film.key || !data.file.startsWith(film.dir + '/')) return;
+    film.total = data.total;
+    addFrame(data.done - 1, data.file);
+  });
+  // No check by itself at the start: it draws for some seconds, and the first clicks would wait for it
+  first().then(() => { $('lint').textContent = 'Not checked yet. Press Check.'; });
 }
 // The start: the controls stay off until the first picture is there.
 async function first() {

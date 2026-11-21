@@ -105,6 +105,10 @@ While the page starts, a cover says what it waits for. Later the top bar shows "
 server is busy. You can go on clicking: a change waits for its turn, and the picture always ends at
 the newest state. When the server has stopped, the page says so; run `facetool gui` again.
 
+**Play** asks the server once for all frames of the wake, at the frames a second of the design, and
+starts with the first frame. A second Play of the same design and scene starts at once. The check of
+the design runs when you press "Check" (or "Check with WFF"), not by itself.
+
 The page shows the layers and views (the eye hides one
 in the preview only), the engine picture with the wake slider, annotate, grid and pick, the JSON of
 the selection with Apply, the scene, the lint and a log of every command as its command line. When
@@ -191,7 +195,7 @@ The facts of the project: name, author, sizes, counts of layers, views, template
 
 Runs: local, without the server
 
-Answer with `--json`: `{"name", "author", "filename", "dir", "sourceZip", "zipBytes", "zipLimit", "jsonBytes", "resources": [{"name", "bytes"}], "counts": {"layers", "views", "templates", "options", "looks"}, "wakeMs", "generated": bool, "changedSinceOpen": bool, "text": text}`
+Answer with `--json`: `{"name", "author", "filename", "dir", "sourceZip", "zipBytes", "zipLimit", "jsonBytes", "resources": [{"name", "bytes"}], "counts": {"layers", "views", "templates", "options", "looks"}, "wakeMs", "wakeFps", "generated": bool, "changedSinceOpen": bool, "text": text}`
 
 ```
 facetool info
@@ -646,7 +650,7 @@ facetool render --only 3,5 --annotate --grid
 
 #### `wake`
 
-`facetool wake [--scene <file>] [--set <string>] [--out <file>] [--fps <int>] [--from <number>] [--to <number>] [--sheet] [--frames <file>] [--gif <file>]`
+`facetool wake [--scene <file>] [--set <string>] [--out <file>] [--fps <int>] [--from <number>] [--to <number>] [--sheet] [--frames <file>] [--no-sheet] [--gif <file>] [--only <string>] [--hide <string>]`
 
 The wake as frames. --sheet gives one contact sheet with the time under each frame (the best input for an AI).
 
@@ -662,14 +666,18 @@ Runs: in the server (started when needed)
 | `--to <number>` | number | The last moment in seconds. Default: the wake length of the design. |
 | `--sheet` | flag | One contact sheet PNG (the default when nothing else is asked). |
 | `--frames <file>` | file | A folder for the single PNG frames. |
+| `--no-sheet` | flag | Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240. |
 | `--gif <file>` | file | Write an animation to this GIF file. |
+| `--only <string>` | string | Draw only these layers or views, as render. |
+| `--hide <string>` | string | Do not draw these layers or views, as render. |
 
-Answer with `--json`: `{"file": path of the sheet?, "frames": [paths], "frameMs": number, "gif": path?, "scene": {...}, "text": text}`
+Answer with `--json`: `{"file": path of the sheet?, "frames": [paths], "frameMs": number, "times": [seconds], "seconds": how long it took, "gif": path?, "scene": {...}, "text": text}`
 
 ```
 facetool wake --sheet
 facetool wake --fps 12 --from 0 --to 3 --gif /tmp/wake.gif
 facetool wake --frames /tmp/frames
+facetool wake --fps 24 --frames /tmp/frames --no-sheet
 ```
 
 #### `options`
@@ -898,7 +906,7 @@ facetool wff render --set visibleSec=2.5 --set 'tilt=[10,0]'
 
 #### `wff wake`
 
-`facetool wff wake [--scene <file>] [--set <string>] [--out <file>] [--version 4|2] [--seconds <number>] [--fps <int>] [--watch-fps <int>] [--sheet] [--frames <file>] [--gif <file>]`
+`facetool wff wake [--scene <file>] [--set <string>] [--out <file>] [--version 4|2] [--seconds <number>] [--fps <int>] [--watch-fps <int>] [--sheet] [--frames <file>] [--no-sheet] [--gif <file>]`
 
 The player's frames after the screen comes on, as a sheet, frames or a GIF.
 
@@ -915,13 +923,15 @@ Runs: in the server (started when needed)
 | `--watch-fps <int>` | int | Show only the frames a watch with this frame rate shows. |
 | `--sheet` | flag | One contact sheet PNG (the default when nothing else is asked). |
 | `--frames <file>` | file | A folder for the single PNG frames. |
+| `--no-sheet` | flag | Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240. |
 | `--gif <file>` | file | Write an animation to this GIF file. |
 
-Answer with `--json`: `{"file": path of the sheet?, "frames": [paths], "frameMs": number, "gif": path?, "text": text}`
+Answer with `--json`: `{"file": path of the sheet?, "frames": [paths], "frameMs": number, "seconds": how long it took, "gif": path?, "text": text}`
 
 ```
 facetool wff wake
 facetool wff wake --seconds 5 --fps 10 --gif /tmp/wff.gif
+facetool wff wake --seconds 15 --fps 24 --frames /tmp/frames --no-sheet
 ```
 
 #### `wff parts`

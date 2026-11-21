@@ -86,7 +86,7 @@ class HttpApiTest : ServerTestBase() {
         // Every command goes through the one function run(): no other request to /api/run
         assertThat(Regex("fetch\\('/api/run'").findAll(page).count()).isEqualTo(1)
         val routes = Regex("'/api/([a-z]+)").findAll(page).map { it.groupValues[1] }.toSet()
-        assertThat(routes).containsExactly("run", "file", "events", "projects", "upload", "ping")
+        assertThat(routes).containsExactly("run", "file", "events", "projects", "upload", "ping", "cancel")
     }
 
     @Test

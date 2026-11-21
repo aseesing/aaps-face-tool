@@ -7,6 +7,7 @@ import app.aaps.facetool.editor.model.CommandTable
 import app.aaps.facetool.editor.model.EditorConfig
 import app.aaps.facetool.editor.model.LocalCommands
 import app.aaps.facetool.editor.model.ProcessGitReader
+import app.aaps.facetool.editor.model.ProjectFolder
 import app.aaps.facetool.snapshot.SnapshotEngine
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -37,6 +38,7 @@ class EditorServer(
     private val token = ByteArray(24).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
     private val life = ServerLife(cacheRoot, checkout ?: "test", token, facts, { System.currentTimeMillis() })
     private val events = Events()
+    private val frameStops = FrameStops()
     private val places = ProjectPlaces(editingRoot, designsDir, RecentProjects(File(cacheRoot, "recent.json")))
     private val watcher = FolderWatcher { dir -> events.send("changed", buildJsonObject { put("project", dir.path) }, dir) }
     private val pictures = Pictures()
@@ -94,6 +96,18 @@ class EditorServer(
     }
 
     init {
+        // A frame of a wake is written: the page shows it while the rest is made
+        val frameSeen = { project: ProjectFolder, file: File, done: Int, total: Int ->
+            events.send("frame", buildJsonObject {
+                put("file", file.absolutePath)
+                put("done", done)
+                put("total", total)
+            }, project.dir)
+        }
+        sheets.onFrame = frameSeen
+        player.onFrame = frameSeen
+        sheets.stopAsked = frameStops::take
+        player.stopAsked = frameStops::take
         // The page of a project listens: watch its folder from then on, and keep it as a recent project
         events.onListen = { dir ->
             watcher.watch(dir)
@@ -101,7 +115,7 @@ class EditorServer(
         }
     }
 
-    private val api = HttpApi(commands, table, token, facts, events, places, ::guiFile, life::requestSeen)
+    private val api = HttpApi(commands, table, token, facts, events, places, frameStops, ::guiFile, life::requestSeen)
 
     /** A file of the page: from [guiDir] when it is given and has the file, else from the build. */
     private fun guiFile(path: String): ByteArray? =

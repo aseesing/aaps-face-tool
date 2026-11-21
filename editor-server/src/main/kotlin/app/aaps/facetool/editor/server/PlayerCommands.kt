@@ -39,6 +39,12 @@ class PlayerCommands(
     private val scenes: SceneReader, private val pictures: Pictures, private val render: PictureCommands
 ) {
 
+    /** Called for each frame of `wff wake` when its file is written: the project, the file, how many are done, how many come. */
+    var onFrame: (ProjectFolder, File, Int, Int) -> Unit = { _, _, _, _ -> }
+
+    /** Asked before each frame of `wff wake --no-sheet` with the folder of the frames: true stops the command there. */
+    var stopAsked: (File) -> Boolean = { false }
+
     private fun version(args: Args): Int = when (args.text("version") ?: "4") {
         "4"  -> WffFaceWriter.VERSION_4
         "2"  -> WffFaceWriter.VERSION_2
@@ -110,7 +116,11 @@ class PlayerCommands(
         val fps = args.int("fps") ?: 10
         if (seconds <= 0 || seconds > 60 || fps !in 1..30) wrongUse("--seconds is up to 60 and --fps 1 to 30")
         val count = (seconds * fps).toInt() + 1
-        if (count > MAX_FRAMES) wrongUse("That is $count frames; the most is $MAX_FRAMES")
+        // Without the sheet no frame is kept in memory
+        val noSheet = args.flag("no-sheet")
+        val most = if (noSheet) MAX_FRAMES_NO_SHEET else MAX_FRAMES
+        if (count > most) wrongUse("That is $count frames; the most is $most" + if (noSheet) "" else ". Use a lower --fps or fewer seconds, or --no-sheet (up to $MAX_FRAMES_NO_SHEET frames)")
+        val began = System.nanoTime()
         val cwf = loader.load(project)
         val dir = args.file("frames") ?: File(project.outDir("wff wake"), "frames")
         dir.mkdirs()
@@ -119,26 +129,38 @@ class PlayerCommands(
         val files = ArrayList<File>()
         val labels = ArrayList<String>()
         val prepared = prepare(project, cwf, scene, version)
+        var stopped = false
         for (i in 0 until count) {
+            if (noSheet && stopAsked(dir)) {
+                stopped = true
+                break
+            }
             val at = i.toDouble() / fps
             val bitmap = drawWith(prepared, Scenes.set(scene, "visibleSec=$at"))
-            frames += bitmap
-            files += File(dir, "frame_%03d.png".format(i)).also { pictures.save(bitmap, it) }
+            files += File(dir, "frame_%03d.png".format(i)).also { if (noSheet) pictures.saveFast(bitmap, it) else pictures.save(bitmap, it) }
+            onFrame(project, files.last(), i + 1, count)
+            if (noSheet) bitmap.recycle() else frames += bitmap
             labels += String.format(Locale.ROOT, "%.2f s", at)
         }
         prepared.dataPicture?.recycle()
-        val file = args.file("out") ?: File(project.outDir("wff wake"), "wff$version-wake.png")
-        val columns = if (frames.size <= 4) frames.size else 7
-        val sheet = pictures.sheet(frames, labels, columns, 225)
-        frames.forEach { it.recycle() }
-        pictures.save(sheet, file)
-        sheet.recycle()
+        val file = if (noSheet) null else args.file("out") ?: File(project.outDir("wff wake"), "wff$version-wake.png")
+        if (file != null) {
+            val columns = if (frames.size <= 4) frames.size else 7
+            val sheet = pictures.sheet(frames, labels, columns, 225)
+            frames.forEach { it.recycle() }
+            pictures.save(sheet, file)
+            sheet.recycle()
+        }
+        val took = (System.nanoTime() - began) / 1e9
         return buildJsonObject {
-            put("file", file.absolutePath)
+            if (stopped) put("stopped", true)
+            file?.let { put("file", it.absolutePath) }
             put("frames", JsonArray(files.map { JsonPrimitive(it.absolutePath) }))
             put("frameMs", 1000 / fps)
+            put("seconds", took)
             put("scene", scene)
-            put("text", "Wrote the contact sheet ${file.path}: ${files.size} frames of the WFF $version face, the first $seconds s after the screen comes on. The clock stands still in these frames.")
+            put("text", if (stopped) "Stopped after ${files.size} of $count frames." else (file?.let { "Wrote the contact sheet ${it.path}: ${files.size} frames" } ?: "Wrote ${files.size} frames into ${dir.path}") +
+                " of the WFF $version face, the first $seconds s after the screen comes on. The clock stands still in these frames.")
         }
     }
 
@@ -242,6 +264,7 @@ class PlayerCommands(
         /** The scene keys that only the player reads. */
         val PLAYER_KEYS = setOf("ambient", "tilt", "visibleSec", "tapSec", "sgvBefore", "transition", "wake")
         const val MAX_FRAMES = 240
+        const val MAX_FRAMES_NO_SHEET = 1800
 
         /** As the parity suite: a pixel counts as changed when one channel differs by more than 40 of 255. */
         const val PIXEL_LIMIT = 40

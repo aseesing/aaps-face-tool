@@ -46,11 +46,10 @@ class PictureCommands(
     /** The key of the kept face of [project]. */
     fun faceKey(project: ProjectFolder): String = project.dir.canonicalPath
 
-    fun render(project: ProjectFolder, args: Args): JsonObject {
-        val scene = sceneOf(project, args)
-        val values = scenes.read(scene)
-        val cwf = loader.load(project)
-        val parts = DesignParts(cwf)
+    /** The layers and views that `--only` and `--hide` leave; null is all of that kind. */
+    class Shown(val layers: Set<Int>?, val views: Set<String>?)
+
+    fun shown(parts: DesignParts, args: Args): Shown {
         var layers: Set<Int>? = null
         var views: Set<String>? = null
         args.text("only")?.let { only -> parts.parse(only).let { (l, v) -> layers = l; views = v } }
@@ -59,6 +58,24 @@ class PictureCommands(
             if (l.isNotEmpty()) layers = (layers ?: (0 until parts.layerCount).toSet()) - l
             if (v.isNotEmpty()) views = (views ?: parts.views.toSet()) - v
         }
+        return Shown(layers, views)
+    }
+
+    /** [cwf] with only the layers and views that `--only` and `--hide` of [args] leave. */
+    fun shownDesign(cwf: CwfData, args: Args): CwfData {
+        if (args.text("only") == null && args.text("hide") == null) return cwf
+        val parts = DesignParts(cwf)
+        return shown(parts, args).let { parts.with(it.layers, it.views, transparent = false) }
+    }
+
+    fun render(project: ProjectFolder, args: Args): JsonObject {
+        val scene = sceneOf(project, args)
+        val values = scenes.read(scene)
+        val cwf = loader.load(project)
+        val parts = DesignParts(cwf)
+        val shown = shown(parts, args)
+        val layers = shown.layers
+        val views = shown.views
         var bitmap = preview.picture(faceKey(project), parts.with(layers, views, transparent = false), values)
         if (args.flag("grid") || args.flag("annotate")) bitmap = pictures.editable(bitmap).also { bitmap.recycle() }
         if (args.flag("grid")) pictures.grid(bitmap)

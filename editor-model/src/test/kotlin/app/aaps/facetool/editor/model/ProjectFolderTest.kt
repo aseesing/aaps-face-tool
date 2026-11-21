@@ -137,6 +137,7 @@ class ProjectFolderTest {
         assertThat(info.text("name")).isEqualTo("Small")
         assertThat(info["counts"]!!.compact()).isEqualTo("""{"layers":4,"views":1,"templates":0,"options":0,"looks":0}""")
         assertThat(info["wakeMs"]).isEqualTo(JsonPrimitive(6000))
+        assertThat(info["wakeFps"]).isEqualTo(JsonPrimitive(24))
         assertThat(info["changedSinceOpen"]).isEqualTo(JsonPrimitive(false))
         assertThat(info["generated"]).isEqualTo(JsonPrimitive(false))
         File(dir, "Star.png").writeBytes(test.png(8, 8))

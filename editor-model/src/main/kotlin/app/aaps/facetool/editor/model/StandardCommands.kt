@@ -74,7 +74,7 @@ object StandardCommands {
             "info", PROJECT, "The facts of the project: name, author, sizes, counts of layers, views, templates, options and looks, the wake length, whether a generator makes it, whether the folder changed since open.",
             emptyList(), server = false,
             examples = listOf("facetool info", "facetool info --json"),
-            answer = "{\"name\", \"author\", \"filename\", \"dir\", \"sourceZip\", \"zipBytes\", \"zipLimit\", \"jsonBytes\", \"resources\": [{\"name\", \"bytes\"}], \"counts\": {\"layers\", \"views\", \"templates\", \"options\", \"looks\"}, \"wakeMs\", \"generated\": bool, \"changedSinceOpen\": bool, \"text\": text}"
+            answer = "{\"name\", \"author\", \"filename\", \"dir\", \"sourceZip\", \"zipBytes\", \"zipLimit\", \"jsonBytes\", \"resources\": [{\"name\", \"bytes\"}], \"counts\": {\"layers\", \"views\", \"templates\", \"options\", \"looks\"}, \"wakeMs\", \"wakeFps\", \"generated\": bool, \"changedSinceOpen\": bool, \"text\": text}"
         ),
         CommandSpec(
             "status", PROJECT, "The server: running or not, port, the AAPS commit it runs and whether that is the pinned one, uptime, the last requests.",
@@ -265,11 +265,14 @@ object StandardCommands {
                 opt("to", NUMBER, "The last moment in seconds. Default: the wake length of the design."),
                 opt("sheet", FLAG, "One contact sheet PNG (the default when nothing else is asked)."),
                 opt("frames", FILE, "A folder for the single PNG frames."),
-                opt("gif", FILE, "Write an animation to this GIF file.")
+                opt("no-sheet", FLAG, "Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240."),
+                opt("gif", FILE, "Write an animation to this GIF file."),
+                opt("only", STRING, "Draw only these layers or views, as render."),
+                opt("hide", STRING, "Do not draw these layers or views, as render.")
             ),
             server = true,
-            examples = listOf("facetool wake --sheet", "facetool wake --fps 12 --from 0 --to 3 --gif /tmp/wake.gif", "facetool wake --frames /tmp/frames"),
-            answer = "{\"file\": path of the sheet?, \"frames\": [paths], \"frameMs\": number, \"gif\": path?, \"scene\": {...}, \"text\": text}"
+            examples = listOf("facetool wake --sheet", "facetool wake --fps 12 --from 0 --to 3 --gif /tmp/wake.gif", "facetool wake --frames /tmp/frames", "facetool wake --fps 24 --frames /tmp/frames --no-sheet"),
+            answer = "{\"file\": path of the sheet?, \"frames\": [paths], \"frameMs\": number, \"times\": [seconds], \"seconds\": how long it took, \"gif\": path?, \"scene\": {...}, \"text\": text}"
         ),
         CommandSpec(
             "options", PICTURE, "One picture per choice of each option, as a sheet, and per colour slot.",
@@ -362,11 +365,12 @@ object StandardCommands {
             picture() + listOf(
                 version(), opt("seconds", NUMBER, "How many seconds.", default = "10"), opt("fps", INT, "Frames per second.", default = "10"),
                 opt("watch-fps", INT, "Show only the frames a watch with this frame rate shows."),
-                opt("sheet", FLAG, "One contact sheet PNG (the default when nothing else is asked)."), opt("frames", FILE, "A folder for the single PNG frames."), opt("gif", FILE, "Write an animation to this GIF file.")
+                opt("sheet", FLAG, "One contact sheet PNG (the default when nothing else is asked)."), opt("frames", FILE, "A folder for the single PNG frames."),
+                opt("no-sheet", FLAG, "Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240."), opt("gif", FILE, "Write an animation to this GIF file.")
             ),
             server = true,
-            examples = listOf("facetool wff wake", "facetool wff wake --seconds 5 --fps 10 --gif /tmp/wff.gif"),
-            answer = "{\"file\": path of the sheet?, \"frames\": [paths], \"frameMs\": number, \"gif\": path?, \"text\": text}"
+            examples = listOf("facetool wff wake", "facetool wff wake --seconds 5 --fps 10 --gif /tmp/wff.gif", "facetool wff wake --seconds 15 --fps 24 --frames /tmp/frames --no-sheet"),
+            answer = "{\"file\": path of the sheet?, \"frames\": [paths], \"frameMs\": number, \"seconds\": how long it took, \"gif\": path?, \"text\": text}"
         ),
         CommandSpec(
             "wff parts", WFF, "Each part alone: the static pictures, each loop's frames as a sheet, the live parts, the data picture.",

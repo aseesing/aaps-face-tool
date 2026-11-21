@@ -6,7 +6,13 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import app.aaps.facetool.editor.model.wrongUse
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.io.File
+import java.nio.ByteBuffer
+import java.util.zip.CRC32
+import java.util.zip.Deflater
+import java.util.zip.DeflaterOutputStream
 
 /** A box in pixels of a picture, with the text to write at it. */
 class LabelBox(val label: String, val left: Int, val top: Int, val width: Int, val height: Int)
@@ -17,6 +23,54 @@ class Pictures {
     fun save(bitmap: Bitmap, file: File) {
         file.absoluteFile.parentFile?.mkdirs()
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    /**
+     * Saves [bitmap] as a PNG with the same pixels as [save], much faster and a little larger: for the
+     * frames of a film, where the time counts. Android's PNG writer packs as small as it can, and that
+     * takes three times as long as drawing a frame (measured on Aurora Town: 49 ms of 65 ms a frame).
+     * This one packs with the fastest level. A picture that is not opaque everywhere goes through [save].
+     */
+    fun saveFast(bitmap: Bitmap, file: File) {
+        val width = bitmap.width
+        val height = bitmap.height
+        val argb = IntArray(width * height)
+        bitmap.getPixels(argb, 0, width, 0, 0, width, height)
+        if (argb.any { it ushr 24 != 0xFF }) return save(bitmap, file)
+        // Rows of red, green, blue, each row after its filter byte 1 ("Sub": the difference to the pixel on the left)
+        val stride = width * 3 + 1
+        val raw = ByteArray(stride * height)
+        for (y in 0 until height) {
+            var at = y * stride
+            raw[at++] = 1
+            var left = 0
+            for (x in 0 until width) {
+                val pixel = argb[y * width + x]
+                raw[at++] = (((pixel shr 16) and 0xFF) - ((left shr 16) and 0xFF)).toByte()
+                raw[at++] = (((pixel shr 8) and 0xFF) - ((left shr 8) and 0xFF)).toByte()
+                raw[at++] = ((pixel and 0xFF) - (left and 0xFF)).toByte()
+                left = pixel
+            }
+        }
+        val packed = ByteArrayOutputStream(raw.size / 2)
+        val deflater = Deflater(Deflater.BEST_SPEED)
+        DeflaterOutputStream(packed, deflater).use { it.write(raw) }
+        deflater.end()
+        file.absoluteFile.parentFile?.mkdirs()
+        DataOutputStream(file.outputStream().buffered()).use { out ->
+            fun chunk(type: String, data: ByteArray) {
+                val name = type.toByteArray(Charsets.US_ASCII)
+                out.writeInt(data.size)
+                out.write(name)
+                out.write(data)
+                out.writeInt(CRC32().apply { update(name); update(data) }.value.toInt())
+            }
+            out.write(byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte(), 13, 10, 26, 10))
+            // 8 bits a channel, colour type 2 (red, green, blue), no interlace
+            chunk("IHDR", ByteBuffer.allocate(13).putInt(width).putInt(height).put(8).put(2).put(0).put(0).put(0).array())
+            chunk("IDAT", packed.toByteArray())
+            chunk("IEND", ByteArray(0))
+        }
     }
 
     /** A copy of [bitmap] that can be drawn on. */
