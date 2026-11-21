@@ -118,7 +118,7 @@
     <div id="tabs"><button class="on" data-tab="engine" title="The face as the AAPS watch app draws it (the AAPS Custom watch face, CWF)">AAPS CWF</button> <button data-tab="wff4" title="The face as a Watch Face Format 4 face (Wear OS 6), drawn by the player of this tool">WFF 4</button> <button data-tab="wff2" title="The face as a Watch Face Format 2 face (Wear OS 5), drawn by the player of this tool">WFF 2</button> <button data-tab="compare" title="The AAPS CWF face next to the WFF 4 and WFF 2 faces, with the pixels that differ in red">Side by side</button> <button data-tab="diff" title="The design as it was when you opened it, next to the design now">Diff</button> <button data-tab="parts" title="The pictures the WFF face is made of">Parts</button></div>
     <div id="stage"><img id="face" alt="the face" draggable="false" title="Drag here to move the selected layer or view. With &quot;Pick a layer&quot; on, click to find what draws a point."><canvas id="film"></canvas><svg id="dragLayer"><line id="dragLine" stroke="#4fb3ff" stroke-width="2" stroke-dasharray="5 4"/><circle id="dragFrom" r="4" fill="none" stroke="#4fb3ff" stroke-width="2"/><circle id="dragTo" r="5" fill="#4fb3ff"/></svg><div id="dragLabel"></div></div>
     <div id="wakeRow"><span class="label" title="The wake is the animation that plays when the watch wakes up">Wake</span> <input id="wake" type="range" min="0" max="6" step="0.1" value="0" title="Move to see one moment of the wake: the seconds since the watch woke up. On the WFF tabs: the seconds since the screen came on."> <span id="wakeValue" title="The moment shown: seconds into the wake, or at rest">at rest</span> <button id="play" title="Play the whole wake as a film">Play</button> <button id="rest" title="Show the face at rest, after the wake has ended">At rest</button></div>
-    <div id="tools"><button id="annotate" title="Draw a box with its number around each layer and view (AAPS CWF tab)">Show boxes</button> <button id="grid" title="Draw the grid of the design, 400 units wide, and the round edge of the watch (AAPS CWF tab)">Grid</button> <button id="pick" title="Then click a point of the face: the page says which layers and views draw there, and selects the top one">Pick a layer</button> <button id="sheet" title="One picture with small frames of the whole wake, each with its time (facetool wake --sheet)">Wake overview</button> <button id="ambient" title="Show the always-on face, the dim face of a watch that is not in use. WFF tabs only: the AAPS CWF preview has no always-on picture yet.">Always-on</button></div>
+    <div id="tools"><button id="annotate" title="Draw a box with its number around each layer and view (AAPS CWF tab)">Show boxes</button> <button id="grid" title="Draw the grid of the design, 400 units wide, and the round edge of the watch (AAPS CWF tab)">Grid</button> <button id="pick" title="Then click a point of the face: the page says which layers and views draw there, and selects the top one">Pick a layer</button> <button id="sheet" title="One picture with small frames of the whole wake, each with its time (facetool wake --sheet)">Wake overview</button> <button id="ambient" title="Show the always-on face, the dim face of a watch that is not in use: on the AAPS CWF tab as the engine draws it, on the WFF tabs as the player draws it. Always-on has no wake animation.">Always-on</button></div>
     <div id="note"></div>
   </section>
   <section>
@@ -531,6 +531,7 @@ async function renderNow() {
   if (state.hidden.size) args.hide = [...state.hidden].join(',');
   if (state.annotate) args.annotate = true;
   if (state.grid) args.grid = true;
+  if (state.ambient) args.set = ['ambient=true'];
   const answer = await run('render', args);
   if (answer.file) { await showPicture(answer.file); if (!film.playing) $('film').classList.remove('on'); note((answer.warnings || []).join('\n')); }
 }
@@ -574,7 +575,7 @@ async function loadScene() {
   field('colour 1', 'colours.colour1', (scene.colours || {}).colour1);
   field('colour 2', 'colours.colour2', (scene.colours || {}).colour2);
   const hint = document.createElement('div'); hint.className = 'info';
-  hint.textContent = 'Always-on is for the WFF tabs: the AAPS CWF preview has no always-on picture yet. Tilt, tap and the glide are not built yet.';
+  hint.textContent = 'Tilt, tap and the glide are not built yet.';
   box.append(hint);
 }
 
@@ -748,6 +749,7 @@ $('face').onclick = async event => {
   const x = Math.round((event.clientX - box.left) / box.width * 400), y = Math.round((event.clientY - box.top) / box.height * 400);
   const args = { x, y };
   if (state.wake !== null) args.wake = state.wake;
+  if (state.ambient && state.tab === 'engine') args.set = ['ambient=true'];
   const answer = await run('pick', args);
   note('pick ' + x + ', ' + y + ':\n' + (answer.text || ''));
   const top = (answer.hits || [])[0];
@@ -769,7 +771,7 @@ $('rest').onclick = () => { if (film.playing) stopPlay(); state.wake = null; $('
 // second Play starts at once.
 const film = { key: null, fetching: null, images: [], total: 0, complete: false, frameMs: 42, began: 0, firstAt: null, allAt: null, queue: Promise.resolve(), playing: false, clock: 0, last: null };
 const PLAY_TABS = ['engine', 'wff4', 'wff2'];
-function filmKey() { return JSON.stringify([state.tab, [...state.hidden].sort(), state.tab === 'engine' ? false : state.ambient, state.fps, $('wake').max]); }
+function filmKey() { return JSON.stringify([state.tab, [...state.hidden].sort(), state.ambient, state.fps, $('wake').max]); }
 // The design or the scene changed: the kept frames are old.
 function forgetFrames() { stopFrames(); film.key = null; if (film.playing) stopPlay(); }
 // The server makes one picture at a time. When the page needs another picture while the frames of a film
@@ -810,6 +812,7 @@ function loadFrames() {
   const seconds = Number($('wake').max);
   let command = 'wake', args = { fps: state.fps, from: 0, to: seconds, frames: dir, 'no-sheet': true };
   if (state.hidden.size) args.hide = [...state.hidden].join(',');
+  if (state.ambient) args.set = ['ambient=true'];
   if (state.tab !== 'engine') { command = 'wff wake'; args = { version: state.tab === 'wff2' ? '2' : '4', seconds, fps: state.fps, frames: dir, 'no-sheet': true, set: ['ambient=' + state.ambient] }; }
   // One frames call at a time: a second one would write into the same folder
   film.queue = film.queue.then(async () => {

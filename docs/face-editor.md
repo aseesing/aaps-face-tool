@@ -72,16 +72,18 @@ Good to know:
   plain layers after the templates are expanded (`L24`). `facetool expand` shows both.
 - `--json` gives one JSON object. Exit codes: 0 done; 1 done, but a check has errors; 2 wrong use;
   3 the design does not read; 4 the server failed.
-- The first picture after a change of the scene takes about 2.5 s (the engine's data store waits),
-  each next picture of the same scene 0.1 to 0.3 s.
+- A picture takes 0.1 to 0.3 s in the server, and about 0.4 s when the values or the time of the
+  scene changed (the server then makes a new face, so no old value stays in a text). Each call of
+  the CLI adds about 0.5 s for its own start: use `render --batch` for many pictures.
 
 ## What the pictures are, and what they are not
 
 - The engine pictures are drawn by the engine itself, the code of the watch. At rest they are the
   picture of the watch for the scene.
-- **A wake frame of a design with text layers is not right yet**: the preview code of AAPS draws a
-  text layer in the wake with the default font and units (design section 15). The commands say so.
-- The engine preview has no always-on picture.
+- A wake frame is the frame of the watch's own wake animator, with the fonts and the units of the
+  face in its text layers.
+- `--set ambient=true` (and the Always-on button of the page) gives the always-on face, also drawn
+  by the engine. Always-on has no wake animation: a wake moment asked with it is the always-on face.
 - The WFF pictures are drawn by the **player**: our reading of the WFF runtime. The parity suite
   compares it with the emulator. Text can lie a little differently on a watch, and the wearer's
   slots show sample values.
@@ -712,6 +714,7 @@ Answer with `--json`: `{"file": path of the PNG, "scene": {...}, "aapsCommit": t
 facetool render
 facetool render --wake 2.5 --set sgv=180 --out /tmp/face.png
 facetool render --only 3,5 --annotate --grid
+facetool render --set ambient=true
 facetool render --batch scenes.json --out /tmp/pictures
 ```
 
@@ -814,7 +817,7 @@ facetool pick 200 120
 
 `facetool snapshot [--name <string>] [--scene <file>] [--set <string>] [--out <file>]`
 
-Pictures at a fixed set of moments (rest, 3 wake moments, night), for a before and after diff.
+Pictures at a fixed set of moments (rest, 3 wake moments, night, always-on), for a before and after diff.
 
 Runs: in the server (started when needed)
 

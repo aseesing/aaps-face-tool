@@ -79,10 +79,10 @@ class PictureCommands(
         return picture(file, scene, drawn.text(file), extraWarnings = listOfNotNull(drawn.warning))
     }
 
-    /** What [draw] made: the size of the picture, the moment of the wake, and the warning for a wake frame with text layers. */
-    private class Drawn(val size: String, val wakeMs: Long?, val warning: String?) {
+    /** What [draw] made: the size of the picture, the moment of the wake, always-on or not, and the warning for a wake moment of always-on. */
+    private class Drawn(val size: String, val wakeMs: Long?, val ambient: Boolean, val warning: String?) {
 
-        fun text(file: File): String = "Wrote ${file.path} ($size, ${if (wakeMs == null) "at rest" else "${wakeMs / 1000.0} s into the wake"})"
+        fun text(file: File): String = "Wrote ${file.path} ($size, ${if (ambient) "always-on" else if (wakeMs == null) "at rest" else "${wakeMs / 1000.0} s into the wake"})"
     }
 
     /**
@@ -155,7 +155,7 @@ class PictureCommands(
         pictures.save(bitmap, file)
         val size = "${bitmap.width} x ${bitmap.height}"
         bitmap.recycle()
-        return Drawn(size, values.wakeMs, parts.wakeTextWarning.takeIf { values.wakeMs != null })
+        return Drawn(size, values.wakeMs, values.ambient, AMBIENT_WAKE_WARNING.takeIf { values.ambient && values.wakeMs != null })
     }
 
     /** The answer of a picture command (design 5.4: every answer says which AAPS commit drew it). */
@@ -173,7 +173,7 @@ class PictureCommands(
      * clear background. In paint order as far as the editor knows it: the views first, then the layers.
      */
     fun partInks(project: ProjectFolder, parts: DesignParts, values: SceneValues, layers: Set<Int>?, views: Set<String>?): List<PartInk> {
-        val base = "${project.hash()}|${values.feedKey}|${values.wakeMs}|${values.size}|${values.options}|${values.colours}|${values.watch}"
+        val base = "${project.hash()}|${values.feedKey}|${values.wakeMs}|${values.ambient}|${values.size}|${values.options}|${values.colours}|${values.watch}"
         val result = ArrayList<PartInk>()
         for (view in parts.shownViews) if (views == null || view in views) result += ink("$base|v$view") { alone(project, parts.with(emptySet(), setOf(view), transparent = true), values, view, null, view) }
         for (index in 0 until parts.layerCount) if (layers == null || index in layers) result += ink("$base|l$index") { alone(project, parts.with(setOf(index), emptySet(), transparent = true), values, "L$index", index, null) }
@@ -234,5 +234,11 @@ class PictureCommands(
             put("text", (if (differs.isEmpty()) "The scene is the default scene." else "The scene differs from the defaults in:\n" + differs.entries.joinToString("\n") { "  ${it.key} = ${it.value}" }) +
                 (args.text("save")?.let { "\nKept as '$it'." } ?: ""))
         }
+    }
+
+    companion object {
+
+        /** For a moment of the wake asked of a scene with `ambient`. */
+        const val AMBIENT_WAKE_WARNING = "the scene has ambient=true: always-on has no wake animation, so this is the always-on face"
     }
 }

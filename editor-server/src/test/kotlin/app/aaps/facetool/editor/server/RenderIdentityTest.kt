@@ -18,8 +18,9 @@ import java.io.File
 /**
  * Design 12.3, the engine preview identity: `render` through the server gives the same PNG bytes as
  * [SnapshotEngine] with a new face and the same scene. For each of the 12 designs: the rest picture,
- * 3 moments of the wake, each choice of each option, and other colours. This guards the server's own
- * setup (the kept face, the settings, the values, the clock); the engine is the same.
+ * 3 moments of the wake, each choice of each option, other colours, other values, another time and
+ * always-on. This guards the server's own setup (the kept face, the settings, the values, the clock);
+ * the engine is the same.
  */
 abstract class RenderIdentityBase(private val designs: List<String>) : ServerTestBase() {
 
@@ -39,6 +40,13 @@ abstract class RenderIdentityBase(private val designs: List<String>) : ServerTes
             for (wake in listOf("1.0", "2.5", "4.0")) scenes += listOf("wake=$wake")
             for (option in options) for (choice in option.choices.indices) if (choice != option.default) scenes += listOf("options.${option.name}=$choice")
             if (loaded.colourSlots > 0) scenes += listOf("colours.colour1=#B6FF1A", "colours.colour2=#FF9A1A").take(loaded.colourSlots)
+            // Other values and another time, after the pictures above, and then the first scene again: the kept
+            // face must show them as a new face does (a face that is fed twice keeps old values in its text layers)
+            scenes += listOf("sgv=250", "delta=6.0", "direction=↑")
+            scenes += listOf("time=2026-12-25T18:30:00")
+            // Always-on, and then the first scene again: the kept face must leave always-on as a new face is
+            scenes += listOf("ambient=true")
+            scenes += listOf<String>()
             for (sets in scenes) {
                 val args = mapOf<String, JsonElement>("set" to JsonArray(sets.map { JsonPrimitive(it) }))
                 val file = File(text(run("render", args, project), "file"))
@@ -57,6 +65,7 @@ abstract class RenderIdentityBase(private val designs: List<String>) : ServerTes
         engineClock.moveTo(start)
         val face = engine.Face("reference${faces++}")
         try {
+            face.ambient = values.ambient
             face.settingsAtDefaults()
             face.feed(values.data, values.timeMs)
             face.show(design)

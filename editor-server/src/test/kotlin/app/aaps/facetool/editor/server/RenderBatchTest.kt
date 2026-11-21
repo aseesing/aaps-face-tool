@@ -46,10 +46,10 @@ class RenderBatchTest : ServerTestBase() {
             run("render", mapOf<String, JsonElement>("set" to JsonArray(sets.map { JsonPrimitive(it) }), "out" to JsonPrimitive(single.path)), project)
             assertWithMessage("picture %s of the batch (%s) is not the picture of a single render", i, sets).that(files[i].readBytes().contentEquals(single.readBytes())).isTrue()
         }
-        // The scenes are not all the same picture: the default, the wake and Christmas differ. (The high glucose
-        // does not differ today: a kept face that is fed again keeps the first glucose in its text layers, in a
-        // batch and in single renders alike. Design section 4.3, the open fault.)
-        assertThat(listOf(0, 2, 5).map { sha256(files[it].readBytes()) }.toSet()).hasSize(3)
+        // The scenes are not all the same picture: the default, the high glucose, the wake and Christmas differ.
+        // The high glucose shows in a text layer of Aurora Town: a face that was fed a second time kept the
+        // first glucose there, so each new set of values now gets a new face (design section 4.3).
+        assertThat(listOf(0, 1, 2, 5).map { sha256(files[it].readBytes()) }.toSet()).hasSize(4)
         assertThat(files[6].readBytes().contentEquals(files[0].readBytes())).isTrue()
 
         // The flags and the scene of the command hold for every picture

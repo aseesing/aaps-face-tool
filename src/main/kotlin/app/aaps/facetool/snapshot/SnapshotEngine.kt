@@ -127,6 +127,13 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
             renderer.applyWatchSettings(values)
         }
 
+        /** True to draw the always-on face, as the watch shows it while the wrist is down. No wake-up animation is drawn then. */
+        var ambient: Boolean
+            get() = renderer.ambient
+            set(value) {
+                renderer.ambient = value
+            }
+
         fun release() = renderer.release()
     }
 

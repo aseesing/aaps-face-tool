@@ -100,7 +100,7 @@ are decided.
 | Part | Where | What it gives the editor |
 |---|---|---|
 | The layer engine | AAPS `wear/src/main/.../watchfaces/` (`CustomWatchface`, `animation/LayerAnimator`, `WakeAnimationJson`, `Templates`, `Formula`, `design/Looks`, `options/DesignOptions`, `daynight/`) | The truth of how a design looks. Android code: Canvas, Views, Drawables. |
-| The phone preview renderer | AAPS module `:wear:cwfrender`, `phonepreview/CwfPreviewRenderer` | Draws a design into a `Bitmap` at a time `nowMs`, with the wake (`wake()`, `isAnimating`), the watch settings (`applyWatchSettings`: options and colours), and the phone's messages (`apply(EventData)`). Always draws the active screen, not always-on (section 15). |
+| The phone preview renderer | AAPS module `:wear:cwfrender`, `phonepreview/CwfPreviewRenderer` | Draws a design into a `Bitmap` at a time `nowMs`, with the wake (`wake()`, `isAnimating`), the watch settings (`applyWatchSettings`: options and colours), and the phone's messages (`apply(EventData)`). Its `ambient` property draws the always-on face (section 15). |
 | The planner | AAPS `wear/.../watchfaces/wff/WffPlanner`, `WffPlan`, `WffDesignParts`, `WffLooks` (branch `local/wear-wff-slim`) | The plan of a design: live, baked, data picture, left out; the lint text. |
 | The converter | this repo, `src/main/kotlin/app/aaps/facetool/wff/` (`WffFaceWriter`, `WffAssets`, `WffLoops`, `WffPictures`, `WffText`, `WffSlotLayout`, `WffShowDays`, `WffResources`, `WffFaceZip`, `WffExpressionPrinter`) | `watchface.xml` and the face folder. |
 | The harness | this repo, `src/test/kotlin/app/aaps/facetool/` (`snapshot/SnapshotEngine`, `SnapshotClock`, `SnapshotData`; `wff/WffBaker`, `WffApkBuilder`, `PaintFontMeasure`, `WffEval`) | Runs the engine under Robolectric with a frozen clock and fixed values; bakes pictures and frames; builds, packs and validates a face; works out WFF expressions. |
@@ -196,19 +196,24 @@ Two things the spike of step 1 showed:
   data store of the watch. The server keeps one face (`CwfPreviewRenderer`) per project. For each
   picture it frees the part that draws (`release()`), writes the watch settings at their defaults
   again, and shows the design: the wake starts again and the picture is the same as from a new face
-  (measured on 6 designs, rest and wake, one design after another in the same face). It feeds the
-  values again only when the scene's values or time changed.
-- **Open fault, found on 2026-11-21: a face that is fed a second time keeps old values in its text
-  layers.** On Aurora Town the glucose text stays at 6.7 for `--set sgv=250` once the face has
-  shown the default scene (the classic views of D2 do change), and a picture for another time
-  differs from the picture of a new face. No test has another value than the default, so 12.3 did
-  not see it. A fix was tried: a new face for the project whenever the values or the time change
-  (0.37 s for such a picture of Aurora Town). With it `RenderIdentity*Test` also passes for other
-  values and another time, on all 12 designs. But it changes golden hashes of
-  `sheets/D2.txt` (the looks sheet, the five snapshot pictures, the diff picture) and
-  `sheets/Aurora_Town.txt` (the snapshot at night): those pictures are made after the scene changed
-  in a kept face. The rule of this work was that no golden hash changes, so the fix is not in. It
-  waits for the owner's word.
+  (measured on 6 designs, rest and wake, one design after another in the same face). It never
+  feeds a face a second time: see the next point.
+- **A face is fed only once** (fixed on 2026-11-21). A face that is fed a second time keeps old
+  values in its text layers: on Aurora Town the glucose text stayed at 6.7 for `--set sgv=250` once
+  the face had shown the default scene (the classic views of D2 did change), and a picture for
+  another time differed from the picture of a new face. No test had another value than the default,
+  so 12.3 did not see it. Now the server makes a new face for the project whenever the values or
+  the time of the scene change (about 0.37 s for such a picture of Aurora Town; the wait of the data
+  store is gone since AAPS `f18261576e`). `RenderIdentity*Test` checks other values, another time
+  and always-on against a new face, on all 12 designs, and `RenderBatchTest` checks that the high
+  glucose gives another picture. The fix changed golden hashes of `sheets/D2.txt` (the looks sheet,
+  the five snapshot pictures, the diff picture) and `sheets/Aurora_Town.txt` (the snapshot at
+  night): those pictures are made after the scene changed in a kept face, so the old hashes were
+  of wrong pictures. The owner allowed writing these two files new.
+- **Always-on** (2026-11-21). A scene with `ambient` is drawn with `CwfPreviewRenderer.ambient`
+  (AAPS `7a0d9a9273`): `render`, `wake`, `pick`, `snapshot` (its moment `always-on`) and the page's
+  Always-on button on the AAPS CWF tab. Always-on has no wake animation, so a moment of the wake
+  asked with `ambient` is the always-on face, and the answer warns.
 
 ---
 
@@ -417,7 +422,7 @@ single keys (`--set sgv=180`).
 | `colours` | the design's own | `colour1`, `colour2` (the watch settings "Main colour", "Second colour"). |
 | `watch` | the defaults of a new watch | Other watch settings by name (show seconds, show date, wake length, ...). |
 | `wake` | `null` | Seconds since the wake began; `null` is the rest picture. |
-| `ambient` | `false` | Always-on (engine: see section 15; WFF player: yes). |
+| `ambient` | `false` | Always-on: the dim face of a watch that is not in use. The engine preview and the WFF player both draw it. It has no wake animation. |
 | `tilt` | `[0, 0]` | `[ACCELEROMETER_ANGLE_X]` and `_Y` in degrees, for `gyro` (player only). |
 | `visibleSec` | 5 | WFF player: seconds since the screen came on (frames on `ON_VISIBLE`). |
 | `tapSec` | `null` | WFF player: seconds since the last tap. |
@@ -434,7 +439,8 @@ As built:
   numbers of the scene. `SnapshotData` keeps the fixed texts the harness always had as its defaults,
   and one of them does not fit its number (the detailed delta is "+0,12" for 1.8 mg/dl). So the
   default scene of the editor writes "+0,10" there. No design of the 12 shows that text.
-- `ambient` and the keys of the WFF player change nothing in the engine preview.
+- The keys of the WFF player (`tilt`, `visibleSec`, `tapSec`, `sgvBefore`, `transition`) change
+  nothing in the engine preview. `ambient` does: the engine draws its always-on face.
 - `colours` takes a colour value of the watch setting (`#B6FF1A`, ...), `watch` the stored names
   and values of the watch settings. A wrong name or value is refused with the list of names.
 
@@ -510,7 +516,7 @@ Picture (server):
 | `options` | One picture per choice of each option (a sheet), and per colour slot. |
 | `looks` | Which looks are active in the scene, and a sheet of the looks with a scene for each that turns it on, when the editor can find one (`when` on values, time or day). As built: the harness cannot ask the engine which looks are on, so a look counts as on when the design without it draws another picture. The scenes tried are the scene of the command, the presets, and the weather `rain`, `cloudy` and `partly`. |
 | `pick <x> <y>` | Which layers and views draw the pixel at x, y (in 400 design units), top first. Works by drawing each one alone (cached per design hash). As built: "top first" is the layers from the last to the first, then the views; the editor does not know where the engine paints a view between the layers. |
-| `snapshot [--name name]` | Pictures at a fixed set of moments (rest, 3 wake moments, night, ambient when possible), for a before and after diff. |
+| `snapshot [--name name]` | Pictures at a fixed set of moments (rest, 3 wake moments, night, always-on), for a before and after diff. |
 
 Check (server):
 
@@ -556,9 +562,8 @@ As built (step 7):
   what `LayerAnimator` says (formulas, `let`, the limits of layers and copies), as errors.
 - Unknown keys are found with the key tables of the manual's chapter "Key reference" (the manual of
   the AAPS checkout the server runs), `LayerProp`, `JsonKeys`, `ViewKeys` and `CwfMetadataKey`. The
-  keys of a `use` entry must be parameters of its template. A `wff` key on a `use` entry is an error
-  of the engine today ("'rain' has no parameter 'wff'"): the motion doc 4.1 needs a change of the
-  engine for it (section 15).
+  keys of a `use` entry must be parameters of its template, or `wff`: the engine hands a `wff` key of
+  a `use` entry to every layer the template makes (AAPS `3b185386d4`).
 - By drawing: a part that draws only outside the round screen, and a layer that never shows (at rest
   and at 3 moments of the wake). "A text cut by its box" is not built: the pictures do not show it.
 - The 12 designs have no finding of the engine or the editor.
@@ -1129,9 +1134,9 @@ a flake that also happens on `380ea15181`: the default hand pictures (`R.drawabl
 by `WffApkBuilder`) come out with one of two hashes, depending on the run. Both show the same white
 hand at 12. A `mutate()` of the drawable did not make it stable. Not solved yet.
 
-Not yet used by the editor (next work): `render --wake` and `wake` still warn about text layers, the
-scene key `ambient` still works only in the player, and nothing has measured the new time for a
-picture with new scene values.
+Used by the editor since 2026-11-21: the warning about text layers in a wake frame is gone, the
+scene key `ambient` draws the engine's always-on face, and a picture with new scene values takes
+about 0.4 s (4.3).
 
 Left out on purpose: the skip of `wff.only` layers (the planner and `WffDesignParts` count on the
 engine reading as many layers as the templates make, so it belongs in the same change as the
@@ -1140,10 +1145,10 @@ does not change how an animation looks).
 
 | Where | Change | Why | Until then |
 |---|---|---|---|
-| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | A way to draw the always-on frame (`compose(..., ambient = true)` exists inside, the renderer always passes `false`) | Engine preview of always-on | Done (`7a0d9a9273`); the editor does not use it yet |
+| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | A way to draw the always-on frame (`compose(..., ambient = true)` exists inside, the renderer always passes `false`) | Engine preview of always-on | Done (`7a0d9a9273`); the editor uses it (4.3) |
 | AAPS engine | Skip a layer with `"wff": {"only": true}` (motion doc 8.1, already decided) | `only` layers must not show in the engine preview | The editor's `render` hides `only` layers itself (as `--hide`), and says so |
 | `aaps-watchfaces` | `editing/` in `.gitignore` | The default place of project folders (6.1) | `--dir` elsewhere |
-| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | Give its `WakeAnimator` the texts and the frame layers of the face (`texts = faceTexts`, `layers = frameLayers`), as `CustomWatchface` does on the watch | Found in step 6: in a wake frame of the preview a text layer is drawn with the default font and without the watch's units (Aurora Town shows a plain "121" in the wake and its own "6.7" at rest). This is also so in the AAPS phone app | Done (`95741bc6c0`, texts only); the editor still warns until its warning is removed |
+| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | Give its `WakeAnimator` the texts and the frame layers of the face (`texts = faceTexts`, `layers = frameLayers`), as `CustomWatchface` does on the watch | Found in step 6: in a wake frame of the preview a text layer is drawn with the default font and without the watch's units (Aurora Town shows a plain "121" in the wake and its own "6.7" at rest). This is also so in the AAPS phone app | Done (`95741bc6c0`, texts only); the editor's warning is removed |
 | AAPS engine, `Templates` | Let a `use` entry carry a `wff` key (and hand it to the layers it makes) | The motion doc 4.1 wants `wff` on any layer; today the engine says "'rain' has no parameter 'wff'" and leaves the layers out | Done (`3b185386d4`) |
 | AAPS `:wear:cwfrender` | Let the harness ask the face which looks are on, and the values it reads (`designValue` is internal) | `looks` could say which looks are on without drawing each one | `looks` compares pictures (8.2) |
 | AAPS `wear`, `ComplicationDataRepository` | A way for `CwfPreviewRenderer` to turn off the 500 ms wait before a write (`batchWindowMs` is `internal`) | A picture with new scene values in 0.3 s instead of 2.3 s (section 16) | Done (`f18261576e`) |
@@ -1176,8 +1181,10 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   Why a new scene costs 2 s: the engine keeps its values in the data store of the watch
   (`ComplicationDataRepository`), and that store waits 500 ms after each change to write changes
   together (`batchWindowMs`). `SnapshotEngine.feed` sends four such changes, one after the other. This
-  is real waiting, not work. The server therefore keeps one face per project and feeds it only when
-  the values or the time of the scene change (4.3). A change in AAPS could remove the wait (section 15).
+  is real waiting, not work. The server therefore keeps one face per project. A change in AAPS
+  removed the wait (`f18261576e`, section 15). Since then a picture with new values or a new time
+  comes from a new face (4.3): measured on 2026-11-21 with AAPS `3b185386d4`, about 0.4 s in the
+  server for Aurora Town, 1.0 s with the start of the CLI.
 
   **The gate of step 1, decided on 2026-11-21 (the owner left the decision to the build): passed.**
   The gate asks whether a picture comes fast enough for an edit loop. In that loop the design
@@ -1222,7 +1229,7 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   it was drawn with, and warns when it is not the pinned one.
 - **The player and the real runtime** differ in text and frame rate (11.4). The parity suite keeps
   the difference visible; it can never be zero for live text.
-- **Always-on cannot be checked on the emulator.** Neither the engine preview (section 15) nor the
+- **Always-on cannot be checked on the emulator.** Neither the engine preview nor the
   player can be compared with a picture of always-on. Only a real watch shows it, on the owner's
   request.
 - **Two writers on one folder.** An agent and the GUI, or two agents. The lock file prevents broken

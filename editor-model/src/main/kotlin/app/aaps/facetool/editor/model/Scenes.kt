@@ -55,7 +55,7 @@ object Scenes {
         SceneKey("colours", JsonObject(emptyMap()), "colour1 and colour2 of the watch settings. Empty: the design's own."),
         SceneKey("watch", JsonObject(emptyMap()), "Other watch settings by name. Empty: the defaults of a new watch."),
         SceneKey("wake", JsonNull, "Seconds since the wake began. null is the rest picture."),
-        SceneKey("ambient", JsonPrimitive(false), "Always-on (WFF player only)."),
+        SceneKey("ambient", JsonPrimitive(false), "Always-on: the dim face of a watch that is not in use. It has no wake animation."),
         SceneKey("tilt", buildJsonArray { add(0); add(0) }, "The tilt of the watch in degrees, x and y (WFF player only)."),
         SceneKey("visibleSec", JsonPrimitive(5), "WFF player: seconds since the screen came on."),
         SceneKey("tapSec", JsonNull, "WFF player: seconds since the last tap."),

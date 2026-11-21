@@ -50,6 +50,4 @@ Use `--json` when you read the answer in code. Quote paths with brackets: `'anim
 - Keep a zip under 320 KB: a larger one never reaches the watch, without an error.
 - The pictures are true for the AAPS commit of `aaps-commit.txt`. An answer warns when the checkout
   is on another commit.
-- A wake frame of a design with text layers shows the text in the default font: that is a known
-  fault of the preview code in AAPS, not of the design. Judge text layers by the rest picture.
 - Do not call a design "working" from pictures alone. The owner tries it on a watch.

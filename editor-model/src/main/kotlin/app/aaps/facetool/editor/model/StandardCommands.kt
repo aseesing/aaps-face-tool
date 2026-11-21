@@ -262,7 +262,7 @@ object StandardCommands {
                 opt("batch", FILE, "A JSON file with a list of scenes: one picture each, in one call.")
             ),
             server = true,
-            examples = listOf("facetool render", "facetool render --wake 2.5 --set sgv=180 --out /tmp/face.png", "facetool render --only 3,5 --annotate --grid", "facetool render --batch scenes.json --out /tmp/pictures"),
+            examples = listOf("facetool render", "facetool render --wake 2.5 --set sgv=180 --out /tmp/face.png", "facetool render --only 3,5 --annotate --grid", "facetool render --set ambient=true", "facetool render --batch scenes.json --out /tmp/pictures"),
             answer = "$PICTURE_ANSWER; with --batch: {\"dir\": folder, \"files\": [{\"file\": path of the PNG, \"keys\": the scene keys of the entry, \"seconds\": number}], \"seconds\": the whole time, \"aapsCommit\": text, \"warnings\": [text], \"text\": text}"
         ),
         CommandSpec(
@@ -302,7 +302,7 @@ object StandardCommands {
             answer = "{\"x\", \"y\", \"hits\": [{\"layer\": index? , \"view\": name?, \"path\", \"summary\"}], \"text\": text}"
         ),
         CommandSpec(
-            "snapshot", PICTURE, "Pictures at a fixed set of moments (rest, 3 wake moments, night), for a before and after diff.",
+            "snapshot", PICTURE, "Pictures at a fixed set of moments (rest, 3 wake moments, night, always-on), for a before and after diff.",
             listOf(opt("name", STRING, "The name of the set of pictures.", default = "default"), opt("scene", FILE, "A scene file (JSON)."), opt("set", STRING, "One scene key as key=value. May repeat.", repeat = true), opt("out", FILE, "The folder for the pictures. Default: .facetool/out/snapshot/<name>/.")),
             server = true,
             examples = listOf("facetool snapshot", "facetool snapshot --name before"),

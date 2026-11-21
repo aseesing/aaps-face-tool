@@ -55,15 +55,6 @@ class DesignParts(private val source: CwfData) {
 
     val layerCount: Int get() = expanded.size
 
-    /**
-     * The warning for a picture of the wake of this design, or null. The phone preview renderer of
-     * AAPS (`CwfPreviewRenderer`) does not give its wake animator the texts of the face, as the watch
-     * does. So a text layer in a wake frame is drawn with the default font and without the units of the
-     * watch. At rest the face draws the text layers itself, and they are right. See design section 15.
-     */
-    val wakeTextWarning: String?
-        get() = "the design has text layers: in a wake frame the engine preview draws them with the default font and units, not as the watch does (design section 15). The rest picture is right".takeIf { expanded.flatten().any { it.has("text") } }
-
     /** The classic views of the design: every key with a `visibility`, but not the background. */
     val views: List<String> = json.keys().asSequence().filter { key -> key != BACKGROUND && json.optJSONObject(key)?.has(VISIBILITY) == true }.toList()
 

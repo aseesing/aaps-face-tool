@@ -14,9 +14,13 @@ import org.json.JSONObject
  * The engine preview (design section 4): draws a design for a scene with the real engine, through
  * the harness ([SnapshotEngine]). Call it only on the render thread.
  *
- * One face is kept per [draw] key (a project). Feeding the values waits for the data store of the
- * watch (2 s), so a kept face is fed only when the values or the time of the scene changed. The part
- * that draws is made new for each picture, so a picture never depends on the pictures before it.
+ * One face is kept per [draw] key (a project), and it is fed once. When the values or the time of the
+ * scene change, a new face takes its place: a face that is fed a second time keeps old values in its
+ * text layers. The part that draws is made new for each picture, so a picture never depends on the
+ * pictures before it.
+ *
+ * A scene with `ambient` is drawn as the always-on face of the engine (`CwfPreviewRenderer.ambient`):
+ * it has no wake animation, so every moment of its wake is the always-on face.
  */
 class EnginePreview(private val app: Application, private val engine: SnapshotEngine, private val clock: EngineClock) {
 
@@ -26,6 +30,7 @@ class EnginePreview(private val app: Application, private val engine: SnapshotEn
     }
 
     private val kept = HashMap<String, Kept>()
+    private var faces = 0
     private val settingNames by lazy { CwfSettingNames(app.resources) }
 
     /** The face of [scene]: at rest, or `scene.wakeMs` after the wake began. The caller owns the bitmap. */
@@ -50,10 +55,14 @@ class EnginePreview(private val app: Application, private val engine: SnapshotEn
         key: String, design: CwfData, scene: SceneValues, startMs: Long, atMs: List<Long>, rest: Boolean, each: ((Int, Bitmap) -> Unit)? = null, keep: Boolean = true
     ): List<Bitmap> {
         clock.moveTo(startMs)
-        val entry = kept.getOrPut(key) { Kept(engine.Face("editor${kept.size}")) }
+        // New values or a new time: a new face. A face that is fed a second time keeps the old values in its
+        // text layers (seen on Aurora Town: the glucose text stayed at the first value, the classic views
+        // changed), so its picture would not be the picture of a new face.
+        val entry = kept[key]?.takeIf { it.fedKey == null || it.fedKey == scene.feedKey } ?: Kept(engine.Face("editor${faces++}")).also { kept[key] = it }
         val face = entry.face
         // A new part that draws: the wake starts again, as with a new face
         face.release()
+        face.ambient = scene.ambient
         face.settingsAtDefaults()
         if (entry.fedKey != scene.feedKey) {
             face.feed(scene.data, scene.timeMs)

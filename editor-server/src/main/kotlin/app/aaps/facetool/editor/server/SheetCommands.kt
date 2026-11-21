@@ -101,7 +101,7 @@ class SheetCommands(
             put("times", JsonArray(atMs.map { JsonPrimitive(it / 1000.0) }))
             put("seconds", seconds)
             put("scene", scene)
-            val warning = DesignParts(cwf).wakeTextWarning
+            val warning = PictureCommands.AMBIENT_WAKE_WARNING.takeIf { values.ambient }
             put("warnings", JsonArray(listOfNotNull(warning).map { JsonPrimitive(it) }))
             put("text", (file?.let { "Wrote the contact sheet ${it.path}: ${files.size} frames" } ?: "Wrote ${files.size} frames") +
                 " from $from s to $to s at $fps a second. Single frames in ${dir.path}" + (warning?.let { "\nwarning: $it" } ?: ""))
@@ -265,13 +265,14 @@ class SheetCommands(
         val moments = listOf(
             "rest" to scene,
             "wake-1" to Scenes.set(scene, "wake=${wake * 0.25}"), "wake-2" to Scenes.set(scene, "wake=${wake * 0.5}"), "wake-3" to Scenes.set(scene, "wake=${wake * 0.75}"),
-            "night" to Scenes.set(scene, "time=\"${day}T23:30:00\"")
+            "night" to Scenes.set(scene, "time=\"${day}T23:30:00\""),
+            "always-on" to Scenes.set(Scenes.set(scene, "wake=null"), "ambient=true")
         )
         val files = moments.map { (moment, momentScene) -> moment to File(dir, "$moment.png").also { draw(project, cwf, momentScene, it).recycle() } }
         return buildJsonObject {
             put("dir", dir.absolutePath)
             put("files", buildJsonArray { for ((moment, file) in files) add(buildJsonObject { put("moment", moment); put("file", file.absolutePath) }) })
-            put("text", "Wrote ${files.size} pictures to ${dir.path}: ${files.joinToString(", ") { it.first }}. The engine preview has no always-on picture (design section 15).")
+            put("text", "Wrote ${files.size} pictures to ${dir.path}: ${files.joinToString(", ") { it.first }}.")
         }
     }
 
