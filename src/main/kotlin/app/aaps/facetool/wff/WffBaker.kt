@@ -99,17 +99,20 @@ class WffBaker(
 
     /** The values and the design of [design] as the watch app stores them, for the emulator, with the face of now as `reference.png`. */
     fun scene(design: CwfData, out: File, filesDir: File, preferences: (String) -> Map<String, *>) {
-        val face = engine.Face("scene")
+        // The face of the scene keeps its stores under its name. A baker with its own prefix (the
+        // editor's server makes many in one process) gets a name of its own
+        val name = if (facePrefix == "wff") "scene" else "${facePrefix}scene"
+        val face = engine.Face(name)
         try {
             face.settingsAtDefaults()
             face.feed(data, clock.now)
             face.show(SnapshotEngine.Design("scene", design))
             face.frame(size, clock.now).recycle()
             // The stores, while the face still holds them
-            File(filesDir, "scene/datastore").listFiles()?.forEach { it.copyTo(File(out, "datastore/${it.name}"), overwrite = true) }
+            File(filesDir, "$name/datastore").listFiles()?.forEach { it.copyTo(File(out, "datastore/${it.name}"), overwrite = true) }
             File(out, "shared_prefs").mkdirs()
-            File(out, "shared_prefs/watch_settings.xml").writeText(preferencesXml(preferences("scene_watch_settings")))
-            File(out, "shared_prefs/aaps_health_values.xml").writeText(preferencesXml(aheadOfSensors(preferences("scene_aaps_health_values"))))
+            File(out, "shared_prefs/watch_settings.xml").writeText(preferencesXml(preferences("${name}_watch_settings")))
+            File(out, "shared_prefs/aaps_health_values.xml").writeText(preferencesXml(aheadOfSensors(preferences("${name}_aaps_health_values"))))
             // The battery of the watch is no store of the app: the emulator driver sets it (dumpsys battery)
             data.watchBattery?.let { File(out, WATCH_BATTERY_FILE).writeText("$it\n") }
             clock.setTo(clock.now + REST_LEAD_MS)

@@ -8,9 +8,8 @@ agent can use it without a screen. A small browser page gives a person the same 
 
 The design of the tool is `docs/face-editor-design.md`. This page tells how to use it.
 
-Status (2026-11-21): the commands below are built and have tests, but `wff emulator` (it answers
-"not built yet": use `tools/wff-emulator.sh` as `docs/wff-apk.md` says). The owner has not tried the
-tool yet.
+Status (2026-11-21): the commands below are built and have tests. `wff emulator` was tried by hand
+on a Wear OS 6 emulator. The owner has not tried the tool yet.
 
 ## Set up, once
 

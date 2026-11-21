@@ -926,7 +926,7 @@ Do not change the engine or the converter; section 15 lists what needs the owner
   | `ParityClassicFaceDataTest.complicationRoundRing` | whole face 2.03 % (limit 1 %), the icon 22.22 % | A slot of the wearer: the player shows a sample text, the emulator the real provider with its icon and ring (11.4). Known limit. |
   | `ParityClassicFaceDataTest.complicationStyleSection` | whole face 1.06 % (limit 1 %) | The same: a sample in a slot of the wearer. Known limit. |
   | `ParityCopiesFormulasTextsTest.textClock` | `clock()` 2.30 % (limit 2 %) | Live text: the player places it with Android's text code, WFF a little differently (11.4). The engine against the emulator is at 1.48 % here. Known limit. |
-  | `ParityClassicFaceGlucoseTest.sgvColourByLevel` | whole face 1.87 % (limit 1 %) | In this run the emulator showed no glucose text at all (the slot was empty). The player and the engine agree (0.00 %). The suite's own check of this face (engine against emulator) failed for the same reason. It is not a difference of the player; it needs one more run to see whether it comes back. |
+  | `ParityClassicFaceGlucoseTest.sgvColourByLevel` | whole face 1.87 % (limit 1 %) | In this run the emulator showed no glucose text at all (the slot was empty). The player and the engine agree (0.00 %). The suite's own check of this face (engine against emulator) failed for the same reason. **A flake of the emulator:** the face was shown again twice with a fresh picture (`-PwffParityFresh`), alone and with its whole group of 9 faces, and passed both times at 0.00 %, for the engine and for the player. |
 
 ### Step 12: GUI, WFF part
 
@@ -943,12 +943,21 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - `wff apk`, `wff emulator` (section 13); the GUI button.
 - Done when: a face of Aurora Town is shown on the Wear OS 6 emulator through `facetool`, and
   `compare.png` matches what `tools/wff-emulator.sh` gives by hand.
-- Partly done on 2026-11-21: `wff apk` is built (`WffCommands*Test` makes a valid face APK of D2
-  and Cyberpunk Tech with Pack and the validator; `--zip` makes the face zip). `wff emulator` and the
-  GUI button are not built: the command answers "not built yet". The scripts need the stores of the
-  scene (`WffBaker.scene`), and that code makes a face with a fixed name, which works only once in
-  the server's process. Until then: `sh tools/wff-emulator.sh` on the folder of a face made as
-  `docs/wff-apk.md` says.
+- Done on 2026-11-21, but for the GUI button and for Aurora Town itself. `wff apk` makes the face
+  APK with Pack and the validator, with the scene for the emulator (`scene/`: the stores of the wear
+  app and `reference.png`); `--zip` makes the face zip (`WffCommands*Test`: valid APKs of D2 and
+  Cyberpunk Tech, two in one process). `wff emulator` checks that the device is an emulator
+  (`ro.kernel.qemu`), makes the APK and runs `tools/wff-emulator.sh` with the time of the scene.
+  `WffBaker.scene` gives its face a name of its own when the baker has its own prefix, so it works
+  more than once in the server.
+- Tried by hand: Cyberpunk Tech through `facetool wff emulator --device emulator-5554` gave
+  `emulator.png` and `compare.png`. They differ where the script differs from the parity driver: the
+  watch battery, the heart rate and the steps are the emulator's own.
+- **Aurora Town did not get onto the emulator this way.** Baked at the default scene (17 November
+  2026, 10:08) its face has a memory footprint of 110.57 MB, and the validator allows 100 MB, so
+  there is no token. The face of the harness run at the real time passes. So this face is close to
+  the limit, and how close depends on the moment it is baked at. That is a matter of the converter's
+  frame budget, not of the editor.
 
 ### Step 14: the player, level 2
 
@@ -975,7 +984,27 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 
 ## 15. Changes outside this repository
 
-None is needed to start. Each needs the owner's yes, in its own session:
+None is needed to start. Each needs the owner's yes, in its own session.
+
+On 2026-11-21 the owner allowed small AAPS changes through the coordinator of the build, and the
+build prepared four of them in a worktree of its own (`~/Projects/AndroidAPS-editor-aaps`, branch
+`local/editor-engine`, cut from `380ea15181`). The permission system of the build session refused
+to commit into AAPS on a coordinator's word, so **no AAPS change was made**: the worktree is as it
+was cut. The four changes, each small, ready to be made once the owner says so himself:
+
+1. `CwfPreviewRenderer`: `texts = face.faceTexts` for its `WakeAnimator` (one line; `faceTexts` is
+   already `internal`). Fixes the text layers in wake frames, also in the AAPS phone preview.
+2. `PreviewHost`: `ComplicationDataRepository(...).apply { batchWindowMs = 0L }` (the field is
+   `internal` and in the same module). A picture with new scene values in 0.3 s instead of 2.3 s.
+3. `CwfPreviewRenderer`: a property `ambient` (default false) handed to the two `compose` calls,
+   and no wake animation while it is true. The engine preview of always-on.
+4. `Templates`: `wff` is no parameter of a `use`, and each layer the `use` makes gets the key when
+   it has none. The engine never reads `wff`, so no picture changes.
+
+Left out on purpose: the skip of `wff.only` layers (the planner and `WffDesignParts` count on the
+engine reading as many layers as the templates make, so it belongs in the same change as the
+converter's motion), and a way to ask which looks are on (`looks` works by comparing pictures; it
+does not change how an animation looks).
 
 | Where | Change | Why | Until then |
 |---|---|---|---|
@@ -1016,8 +1045,14 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   (`ComplicationDataRepository`), and that store waits 500 ms after each change to write changes
   together (`batchWindowMs`). `SnapshotEngine.feed` sends four such changes, one after the other. This
   is real waiting, not work. The server therefore keeps one face per project and feeds it only when
-  the values or the time of the scene change (4.3). The gate of step 1 (a rest picture under 1 s) is
-  met by the kept face, not by a new face. A change in AAPS could remove the wait (section 15).
+  the values or the time of the scene change (4.3). A change in AAPS could remove the wait (section 15).
+
+  **The gate of step 1, decided on 2026-11-21 (the owner left the decision to the build): passed.**
+  The gate asks whether a picture comes fast enough for an edit loop. In that loop the design
+  changes and the scene stays, and that picture takes 0.1 to 0.3 s with the kept face, with the same
+  pixels as a new face (12.3). The 2.3 s case is a new scene, and 2.0 s of it is a fixed wait in the
+  data store, not drawing: it does not grow with the design, and one line in the preview's host
+  (`batchWindowMs = 0`, section 15) removes it. So the renderer choice stands.
 
 - **The pinned AAPS commit.** The preview is true only for the commit in `aaps-commit.txt`. The
   owner's watch may run another branch (`local/personal-wff` today). Every answer names the commit

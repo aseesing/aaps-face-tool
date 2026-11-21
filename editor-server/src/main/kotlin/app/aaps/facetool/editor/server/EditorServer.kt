@@ -39,7 +39,7 @@ class EditorServer(
     private val loader = DesignLoader()
     private val engine = SnapshotEngine(app, logger)
     private val preview = EnginePreview(app, engine, clock)
-    private val wff = WffCommands(app, engine, clock, loader, SceneReader(), facts)
+    private val wff = WffCommands(app, engine, clock, loader, SceneReader(), facts, checkout?.let { File(it) })
     private val pictureCommands = PictureCommands(preview, loader, SceneReader(), pictures, facts)
 
     private val player = PlayerCommands(app, wff, preview, loader, SceneReader(), pictures, pictureCommands)
@@ -66,6 +66,7 @@ class EditorServer(
             "wff build" to { project, args -> wff.buildCommand(project!!, args) },
             "wff plan" to { project, args -> wff.plan(project!!, args) },
             "wff xml" to { project, args -> wff.xml(project!!, args) },
+            "wff emulator" to { project, args -> wff.emulator(project!!, args) },
             "wff apk" to { project, args -> wff.apk(project!!, args) },
             "wff render" to { project, args -> player.render(project!!, args) },
             "wff wake" to { project, args -> player.wake(project!!, args) },

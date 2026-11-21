@@ -71,7 +71,15 @@ abstract class WffCommandsBase(private val design: String) : ServerTestBase() {
             val apk = run("wff apk", emptyMap(), project)
             assertThat(text(apk, "valid")).isEqualTo("true")
             assertThat(File(text(apk, "apk")).length()).isGreaterThan(10_000L)
+            // With the scene for the emulator: the stores of the wear app and our engine's picture
+            assertThat(File(text(apk, "dir"), "scene/reference.png").isFile).isTrue()
+            assertThat(File(text(apk, "dir"), "scene/shared_prefs/watch_settings.xml").isFile).isTrue()
+            // A second face APK in the same process works too (the scene's face has a name of its own)
+            assertThat(text(run("wff apk", emptyMap(), project), "valid")).isEqualTo("true")
         }
+        // wff emulator refuses a device that does not run, before it makes anything
+        val refused = answer("wff emulator", mapOf("device" to JsonPrimitive("no-such-device")), project)
+        assertThat(refused.exitCode).isEqualTo(2)
     }
 
     private companion object {
