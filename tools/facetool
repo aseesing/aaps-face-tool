@@ -1,0 +1,14 @@
+#!/bin/sh
+# facetool: the command line of the AAPS watch face editor (docs/face-editor-design.md).
+# This script only finds the built program and runs it. Build it first, in the repository folder:
+#   ./gradlew :editor-cli:installDist
+# The program needs Java 21 or newer (JAVA_HOME, or `java` on the PATH).
+FACETOOL_HOME="$(cd "$(dirname "$0")/.." && pwd -P)"
+export FACETOOL_HOME
+PROGRAM="$FACETOOL_HOME/editor-cli/build/install/facetool/bin/facetool"
+if [ ! -x "$PROGRAM" ]; then
+    echo "facetool is not built: $PROGRAM is missing." >&2
+    echo "Build it in $FACETOOL_HOME with: ./gradlew :editor-cli:installDist" >&2
+    exit 4
+fi
+exec "$PROGRAM" "$@"
