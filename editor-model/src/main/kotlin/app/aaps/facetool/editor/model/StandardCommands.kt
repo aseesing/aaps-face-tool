@@ -147,10 +147,10 @@ object StandardCommands {
 
     private fun edit(): List<CommandSpec> = listOf(
         CommandSpec(
-            "set", EDIT, "Sets a value in the design JSON. The value is JSON (5, \"text\", {...}); --text takes it as a text. A new key goes to the end of its object. In a list, the size of the list as index adds the value.",
+            "set", EDIT, "Sets a value in the design JSON. The value is JSON (5, true, \"text\", {...}); --text takes it as a text. A new key goes to the end of its object. In a list, the size of the list as index adds the value.",
             listOf(pos("path", STRING, "The JSON path."), pos("value", JSON, "The value, as JSON."), opt("text", FLAG, "Take the value as a text, not as JSON.")),
             server = false,
-            examples = listOf("facetool set animation.durationMs 12000", "facetool set sgv.fontColor --text \"#FF0000\"", "facetool set 'animation.layers[3].rect' '{\"left\": 0, \"top\": 0, \"width\": 400, \"height\": 400}'"),
+            examples = listOf("facetool set animation.durationMs 12000", "facetool set metadata.key_show_complication1 true", "facetool set sgv.fontColor --text \"#FF0000\"", "facetool set 'animation.layers[3].rect' '{\"left\": 0, \"top\": 0, \"width\": 400, \"height\": 400}'"),
             answer = EDIT_ANSWER
         ),
         CommandSpec(

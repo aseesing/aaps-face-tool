@@ -52,6 +52,20 @@ class EditsTest {
     }
 
     @Test
+    fun `set keeps a switch of the metadata as a JSON boolean or as a text`() {
+        // true and false are JSON: the switch is a boolean in the file, as the engine reads it
+        edit("set", "metadata.key_show_complication1", "true")
+        assertThat(at("metadata.key_show_complication1")).isEqualTo(JsonPrimitive(true))
+        assertThat(File(dir, "CustomWatchface.json").readText()).contains("\"key_show_complication1\": true\n")
+        edit("set", "metadata.key_show_complication1", "false")
+        assertThat(at("metadata.key_show_complication1")).isEqualTo(JsonPrimitive(false))
+        // The text form of older designs stays a text
+        edit("set", "metadata.key_show_date", "\"true\"")
+        assertThat(at("metadata.key_show_date")).isEqualTo(JsonPrimitive("true"))
+        assertThat(File(dir, "CustomWatchface.json").readText()).contains("\"key_show_date\": \"true\"\n")
+    }
+
+    @Test
     fun `set refuses a bad path, a bad value and an index too far`() {
         assertThat(test.run(dir, "set", "animation.layers[9].x", "1").exitCode).isEqualTo(ExitCodes.WRONG_USE)
         assertThat(test.run(dir, "set", "animation.layers[", "1").exitCode).isEqualTo(ExitCodes.WRONG_USE)

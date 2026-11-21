@@ -43,6 +43,8 @@ base line.
 3. Change, in few steps: write all edits of one idea into a patch file and run
    `facetool apply patch.json` (a JSON list of `{"op": "set", "path": ..., "value": ...}`; all or none).
    Single edits: `facetool set <path> <json>`, `facetool layer add '<json>'`, `facetool res add <file>`.
+   A switch of the design is a JSON boolean: `facetool set metadata.key_show_complication1 true`
+   (older designs have the text `"true"`; the engine reads both, keep the form a design has).
    `facetool undo` takes a change back.
 4. Look, in few calls: `facetool render --annotate --grid` (where each layer draws), then
    `facetool render --batch scenes.json --out <folder>` for many scenes in one call (a JSON list such as

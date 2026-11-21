@@ -459,7 +459,7 @@ facetool manual wff-faces
 
 `facetool set <path> <value> [--text]`
 
-Sets a value in the design JSON. The value is JSON (5, "text", {...}); --text takes it as a text. A new key goes to the end of its object. In a list, the size of the list as index adds the value.
+Sets a value in the design JSON. The value is JSON (5, true, "text", {...}); --text takes it as a text. A new key goes to the end of its object. In a list, the size of the list as index adds the value.
 
 Runs: local, without the server
 
@@ -473,6 +473,7 @@ Answer with `--json`: `{"changed": true|false, "history": number of the history 
 
 ```
 facetool set animation.durationMs 12000
+facetool set metadata.key_show_complication1 true
 facetool set sgv.fontColor --text "#FF0000"
 facetool set 'animation.layers[3].rect' '{"left": 0, "top": 0, "width": 400, "height": 400}'
 ```

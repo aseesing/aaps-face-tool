@@ -246,6 +246,7 @@ both.</p>
 <h3 id="step-change">Step 3: change</h3>
 <pre>facetool set animation.durationMs 4000                       # the value is JSON
 facetool set background.color --text "#0B1530"               # --text: the value is a plain text
+facetool set metadata.key_show_complication1 true            # a switch of the design: true or false (the text "true" of older designs works too)
 facetool layer add '{"shape": "circle", "x": 200, "y": 200, "radius": 20, "color": "#FFFFFF"}'
 facetool apply patch.json                                    # many edits in one step, all or none
 facetool res add Star.png                                    # a picture or a font; the key is the file name without extension
