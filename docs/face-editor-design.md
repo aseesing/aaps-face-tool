@@ -612,8 +612,8 @@ the command log, so a person can copy it into a script or give it to an agent.
 +---------------------------------------------------------------------------------------+
 | Aurora Town   [Save] [Undo] [Redo]   server: AAPS 380ea15181 (pinned)    ! generated  |
 +----------------------+-------------------------------------+--------------------------+
-| Layers and views     |  [Engine] [WFF 4] [WFF 2] [Side by  |  Inspector               |
-|  L0  shape circle x45|   side] [Diff] [Parts]              |  animation.layers[24]    |
+| Layers and views     |  [AAPS CWF] [WFF 4] [WFF 2] [Side   |  Inspector               |
+|  L0  shape circle x45|   by side] [Diff] [Parts]           |  animation.layers[24]    |
 |  L1  image MoonHalo  |                                     |  { "shape": "circle",    |
 |  ...                 |        +-----------------+          |    "count": 120, ... }   |
 |  L24 shape circle x120|       |                 |          |  [Apply] [Expanded]      |
@@ -1192,8 +1192,8 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   | Measure | Value |
   |---|---|
   | Play before: one `render` per 0.25 s step | not measured again; 61 pictures of 0.1 to 0.3 s each (the table above), so 4 pictures a second at best |
-  | Engine tab: click on Play to the first frame on the screen | 0.30 s |
-  | Engine tab: all 361 frames in the page | 5.5 s (the server took 5.5 s: 15 ms a frame, 65 frames a second) |
+  | AAPS CWF tab: click on Play to the first frame on the screen | 0.30 s |
+  | AAPS CWF tab: all 361 frames in the page | 5.5 s (the server took 5.5 s: 15 ms a frame, 65 frames a second) |
   | The same with Android's PNG writer (`Bitmap.compress`) | 23.6 s (65 ms a frame, 15 frames a second: slower than the film) |
   | WFF 4 tab: first frame, all 361 frames (the face was built before) | 0.22 s, 3.0 s |
   | A second Play of the same design and scene | starts at once: no request |
