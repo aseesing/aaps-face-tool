@@ -108,7 +108,21 @@ tasks.withType<Test>().configureEach {
 val parityDrivers = ArrayList<Process>()
 afterEvaluate {
     val base = tasks.named<Test>("testDebugUnitTest")
-    base.configure { filter { excludeTestsMatching("app.aaps.facetool.wffparity.*") } }
+    base.configure {
+        filter {
+            excludeTestsMatching("app.aaps.facetool.wffparity.*")
+            excludeTestsMatching("app.aaps.facetool.golden.*")
+        }
+    }
+    // The golden hash lists of the face folders (docs/face-editor-design.md, 12.1): -PwffGoldenWrite writes them new
+    val goldenWrite = providers.gradleProperty("wffGoldenWrite").isPresent
+    fun Test.withGolden() {
+        inputs.dir("src/test/golden").withPropertyName("golden")
+        if (goldenWrite) {
+            systemProperty("wff.golden.write", "true")
+            outputs.upToDateWhen { false }
+        }
+    }
     val emulator = providers.gradleProperty("wffParityEmulator").isPresent
     val root = layout.buildDirectory.dir("wff-parity").get().asFile
     val queue = File(root, "queue.txt")
@@ -147,6 +161,7 @@ afterEvaluate {
         description = "Compares the WFF face of each feature of the layer engine with our own engine"
         likeBase()
         systemProperty("wff.parity", "true")
+        withGolden()
         providers.gradleProperty("wffParityWait").orNull?.let { systemProperty("wff.parity.wait", it) }
         filter {
             val only = providers.gradleProperty("wffParityOnly").orNull?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
@@ -197,6 +212,33 @@ afterEvaluate {
                 }
             }
         }
+    }
+}
+
+// The face folder of each design zip at a fixed moment, checked against its golden hash list
+// (src/test/kotlin/app/aaps/facetool/golden, docs/face-editor-design.md 12.1). Minutes, so not in testDebugUnitTest.
+//   ./gradlew wffGoldenTest                      checks; -PwffGoldenWrite writes the lists new
+afterEvaluate {
+    val base = tasks.named<Test>("testDebugUnitTest")
+    tasks.register<Test>("wffGoldenTest") {
+        group = "verification"
+        description = "Checks the face folders of the design zips against their golden hash lists"
+        val b = base.get()
+        classpath = b.classpath
+        testClassesDirs = b.testClassesDirs
+        javaLauncher.set(b.javaLauncher)
+        jvmArgumentProviders.addAll(b.jvmArgumentProviders)
+        b.systemProperties.forEach { (key, value) -> if (key !in systemProperties) systemProperty(key, value as Any) }
+        systemProperty("wff.golden", "true")
+        inputs.dir("src/test/golden").withPropertyName("golden")
+        if (providers.gradleProperty("wffGoldenWrite").isPresent) {
+            systemProperty("wff.golden.write", "true")
+            outputs.upToDateWhen { false }
+        }
+        filter { includeTestsMatching("app.aaps.facetool.golden.*") }
+        // A design per JVM, as the real faces are made
+        forkEvery = 1
+        maxParallelForks = b.maxParallelForks
     }
 }
 

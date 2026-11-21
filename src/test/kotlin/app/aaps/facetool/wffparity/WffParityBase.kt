@@ -1,6 +1,7 @@
 package app.aaps.facetool.wffparity
 
 import android.app.Application
+import app.aaps.facetool.golden.FaceFolderGolden
 import app.aaps.facetool.snapshot.SnapshotClock
 import app.aaps.facetool.snapshot.SnapshotData
 import app.aaps.facetool.snapshot.SnapshotEngine
@@ -104,6 +105,8 @@ abstract class WffParityBase {
         val report = StringBuilder(result.lint)
         try {
             assertWithMessage("no valid face, see %s", File(dir, "lint.txt")).that(result.token).isNotNull()
+            // The harness must make the same face folder as before (docs/face-editor-design.md, 12.1)
+            FaceFolderGolden.ofRepository().check("parity/${javaClass.simpleName}.${testName.methodName}", File(dir, "face"))
             for (text in lint) assertWithMessage("the lint should say %s:\n%s", text, result.lint).that(result.lint).contains(text)
             val queue = System.getProperty("wff.parity.queue")
             when {
