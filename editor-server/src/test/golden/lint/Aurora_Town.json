@@ -51,7 +51,7 @@
         "severity": "info",
         "source": "wff4",
         "path": "",
-        "text": "picture 0 moves in the wake: 60 frames at 4 a second"
+        "text": "picture 0 moves in the wake: 30 frames at 2 a second"
     },
     {
         "severity": "info",
@@ -64,6 +64,12 @@
         "source": "wff4",
         "path": "L11",
         "text": "L11: shows only on 2 days of the year: its frames play only then"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "picture 0 moves at 2 frames a second, not 4: the memory of a face (90 MB of the 100 MB a face may have) has no room for more"
     },
     {
         "severity": "warning",
@@ -117,7 +123,7 @@
         "severity": "info",
         "source": "wff2",
         "path": "",
-        "text": "picture 0 moves in the wake: 60 frames at 4 a second"
+        "text": "picture 0 moves in the wake: 30 frames at 2 a second"
     },
     {
         "severity": "info",
@@ -130,5 +136,11 @@
         "source": "wff2",
         "path": "L11",
         "text": "L11: shows only on 2 days of the year: its frames play only then"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "picture 0 moves at 2 frames a second, not 4: the memory of a face (90 MB of the 100 MB a face may have) has no room for more"
     }
 ]

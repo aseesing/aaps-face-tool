@@ -953,11 +953,13 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - Tried by hand: Cyberpunk Tech through `facetool wff emulator --device emulator-5554` gave
   `emulator.png` and `compare.png`. They differ where the script differs from the parity driver: the
   watch battery, the heart rate and the steps are the emulator's own.
-- **Aurora Town did not get onto the emulator this way.** Baked at the default scene (17 November
-  2026, 10:08) its face has a memory footprint of 110.57 MB, and the validator allows 100 MB, so
-  there is no token. The face of the harness run at the real time passes. So this face is close to
-  the limit, and how close depends on the moment it is baked at. That is a matter of the converter's
-  frame budget, not of the editor.
+- Aurora Town at first got no token this way: baked at the default scene (17 November 2026, 10:08)
+  its face had a memory footprint of 110.57 MB, and the validator allows 100 MB. The owner chose a
+  frame budget in the converter (`WffMemory`, converter doc 13.3): a face is filled to 90 MB at most.
+  A static picture in motion gives way first, so the loops keep their rate. For Aurora Town the sky
+  now moves at 2 frames a second instead of 4 (30 frames of 60), the snow and the sleigh keep all
+  their frames, the validator passes it, and `facetool wff emulator` showed it on the Wear OS 6
+  emulator. The other 11 designs and the 102 parity faces are byte for byte as before.
 
 ### Step 14: the player, level 2
 
@@ -990,7 +992,9 @@ On 2026-11-21 the owner allowed small AAPS changes through the coordinator of th
 build prepared four of them in a worktree of its own (`~/Projects/AndroidAPS-editor-aaps`, branch
 `local/editor-engine`, cut from `380ea15181`). The permission system of the build session refused
 to commit into AAPS on a coordinator's word, so **no AAPS change was made**: the worktree is as it
-was cut. The four changes, each small, ready to be made once the owner says so himself:
+was cut. Later the same day the owner answered "Yes, all four" to the coordinator; the first edit in
+that worktree was refused again, and the build did not work around it. The changes wait for a
+session whose permissions allow edits in `~/Projects/AndroidAPS-editor-aaps`. The four changes, each small, ready to be made once the owner says so himself:
 
 1. `CwfPreviewRenderer`: `texts = face.faceTexts` for its `WakeAnimator` (one line; `faceTexts` is
    already `internal`). Fixes the text layers in wake frames, also in the AAPS phone preview.

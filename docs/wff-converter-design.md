@@ -1111,6 +1111,14 @@ build on the phone, send, push) is not built.
   length, with each letter counted as a mean digit of the design's font. `textLength()` works on
   Wear OS 5 and 6. Before, every slot text was small enough for 4 digits, so a heart rate of 72
   came out at about half the design's size.
+- **A memory budget** (`WffMemory`, 2026-11-21). The validator counts every picture at 4 bytes a
+  pixel and allows 100 MB for an active face (7.3); a face over it gets no token. Aurora Town baked
+  on 17 November 2026 at 10:08 came to 110.57 MB. The converter now fills a face to 90 MB at most.
+  When the frames do not fit, a static picture in motion gives way first: its frames are counted at
+  one a second while the loops are made, and at the end it gets the highest rate that still fits
+  (a step that divides its rate, so 4 becomes 2 or 1). Only when that is not enough does a loop keep
+  every 2nd, 3rd, ... frame at that much lower a rate, or is left out, with a line in the lint. A
+  slow sky at half its rate is the smallest loss; snow at a third of its rate shows at once.
 - The fitted sun times (4.3), `[REFERENCE]` across slots and the expression printer are proven or
   built but not needed by the writer so far.
 

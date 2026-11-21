@@ -100,6 +100,9 @@ class WffApkBuilder(
         val plan = planner.settle(first, still)
         val parts = WffDesignParts(design, animation, plan)
 
+        // The memory of the face: the frames of the wake must leave it under the limit of the validator
+        val memory = WffMemory()
+
         // The static pictures, each cut to what it shows
         val statics = HashMap<Int, WffAssets.Picture>()
         val rests = HashMap<Int, Bitmap>()
@@ -109,8 +112,10 @@ class WffApkBuilder(
             save(WffBaker.crop(picture, box), face, "static_$run")
             statics[run] = WffAssets.Picture("static_$run", WffPictures.designRect(box, baker.size))
             rests[run] = picture
+            memory.add(box.width, box.height)
         }
         save(baker.rest(cwf), face, PREVIEW)
+        memory.add(baker.size, baker.size)
 
         val wakeMs = (animation?.durationMs ?: 0L)
         val frameRules = WffLoops(wakeMs, animation?.fadeMs ?: 0L)
@@ -118,6 +123,7 @@ class WffApkBuilder(
 
         // A static picture with layers that also move in the wake: the whole picture in motion, from the
         // start of the wake to its end, so it starts and ends at rest
+        val movingPictures = ArrayList<MovingPicture>()
         val movingRuns = plan.items.filter { it.layer in still && it.run != null }.groupBy { it.run!! }
         for ((run, items) in movingRuns.toSortedMap()) {
             val rest = rests[run] ?: continue
@@ -138,8 +144,11 @@ class WffApkBuilder(
                 frames.forEach { it.recycle() }
                 continue
             }
+            // Counted at its lowest rate for now: the loops come first, see WffMemory
+            memory.reserveRun(frames.size, box.width, box.height, fps)
             val names = frames.mapIndexed { i, frame -> "run${run}_%03d".format(i).also { save(WffBaker.crop(frame, box), face, it); frame.recycle() } }
             frameRules.spend(names.size)
+            movingPictures += MovingPicture(run, loops.size, notes.size, fps)
             loops += WffAssets.Loop(layers = items.mapNotNull { it.layer }.toSet(), frames = names, fps = fps, box = WffPictures.designRect(box, baker.size), overRun = run)
             notes += "picture $run moves in the wake: ${names.size} frames at $fps a second"
         }
@@ -166,12 +175,21 @@ class WffApkBuilder(
                 notes += "the layers $layers show nothing in their frames"
                 return
             }
+            val step = memory.fit(frames.size, box.width, box.height, take.fps)
+            if (step == null) {
+                frames.forEach { it.recycle() }
+                warnings += "the layers $layers have no frames: they do not fit in the memory of a face (${WffMemory.LIMIT_MB} MB of the ${WffMemory.VALIDATOR_MB} MB a face may have), they do not show"
+                return
+            }
+            if (step > 1) warnings += "the loop of the layers $layers plays at ${take.fps / step} frames a second, not ${take.fps}: the memory of a face (${WffMemory.LIMIT_MB} MB) has no room for more"
             val index = loops.size
-            val names = frames.mapIndexed { i, frame -> "loop${index}_%03d".format(i).also { save(WffBaker.crop(frame, box), face, it, addsLight = blend != null); frame.recycle() } }
+            // With fewer frames at a lower rate the loop lasts as long, so it repeats as often as with all of them
+            val loopCount = frameRules.loopCount(take, frames.size)
+            val names = thinned(frames, step).mapIndexed { i, frame -> "loop${index}_%03d".format(i).also { save(WffBaker.crop(frame, box), face, it, addsLight = blend != null); frame.recycle() } }
             frameRules.spend(names.size)
             loops += WffAssets.Loop(
-                layers = layers, frames = names, fps = take.fps, box = WffPictures.designRect(box, baker.size),
-                loopCount = frameRules.loopCount(take, names.size), delaySeconds = take.delaySeconds, blend = blend, condition = condition
+                layers = layers, frames = names, fps = take.fps / step, box = WffPictures.designRect(box, baker.size),
+                loopCount = loopCount, delaySeconds = take.delaySeconds, blend = blend, condition = condition
             )
         }
         fun frameLoop(layers: Set<Int>, span: WffLoops.Span?, condition: String?) {
@@ -208,6 +226,18 @@ class WffApkBuilder(
                 frameLoop(setOf(layer), span.takeUnless { frameRules.isWholeWake(it) }, WffShowDays.condition(showDays))
                 notes += "L$layer: shows only on ${showDays.size} days of the year: its frames play only then"
             }
+        }
+
+        // Now that the loops are made: each picture in motion gets the highest rate the memory still has
+        // room for. The frames it leaves out are removed with the pictures the xml does not show.
+        memory.settleRuns().forEachIndexed { k, step ->
+            if (step == 1) return@forEachIndexed
+            val moving = movingPictures[k]
+            val loop = loops[moving.loop]
+            val kept = loop.frames.filterIndexed { i, _ -> i % step == 0 }
+            loops[moving.loop] = loop.copy(frames = kept, fps = moving.fps / step)
+            notes[moving.note] = "picture ${moving.run} moves in the wake: ${kept.size} frames at ${moving.fps / step} a second"
+            warnings += "picture ${moving.run} moves at ${moving.fps / step} frames a second, not ${moving.fps}: the memory of a face (${WffMemory.LIMIT_MB} MB of the ${WffMemory.VALIDATOR_MB} MB a face may have) has no room for more"
         }
 
         val assets = WffAssets(statics, loops)
@@ -341,6 +371,15 @@ class WffApkBuilder(
     private fun validate(apk: File, appId: String): Pair<String, String?> {
         val output = run(listOf(File(System.getProperty("java.home"), "bin/java").path, "-cp", validatorJar(), "com.google.android.wearable.watchface.validator.cli.DwfValidation", "-a", apk.path, "-p", appId))
         return output to TOKEN.find(output)?.groupValues?.get(1)
+    }
+
+    /** A static picture in motion: its run, where its loop and its note are, and its full rate. */
+    private class MovingPicture(val run: Int, val loop: Int, val note: Int, val fps: Int)
+
+    /** Every [step]th frame of [frames], from the first; the frames left out are freed. */
+    private fun thinned(frames: List<Bitmap>, step: Int): List<Bitmap> {
+        if (step == 1) return frames
+        return frames.filterIndexed { i, frame -> (i % step == 0).also { kept -> if (!kept) frame.recycle() } }
     }
 
     /** When [design] shows something in its wake, looked at at the moments of [frameRules]; null when it never does. */
