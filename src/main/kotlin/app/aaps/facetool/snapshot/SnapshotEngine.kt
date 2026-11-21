@@ -12,6 +12,7 @@ import app.aaps.core.interfaces.rx.weardata.EventData
 import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import app.aaps.wear.R
 import app.aaps.wear.phonepreview.CwfPreviewRenderer
+import app.aaps.wear.phonepreview.PreviewSlotSource
 import app.aaps.wear.watchfaces.settingsync.CwfSettingNames
 import app.aaps.wear.watchfaces.settingsync.CwfSyncedSetting
 import app.aaps.wear.watchfaces.settingsync.CwfSyncedSettings
@@ -57,6 +58,12 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
      * checks it, to be sure the clock of the engine is frozen.
      */
     fun engineNow(): Long = WatchFaceTime().apply { setToNow() }.millis
+
+    /**
+     * What each complication slot (1 to 5) shows on the watch before the wearer picks a source, and so
+     * in a face whose [SnapshotData.slotSources] leaves the slot out.
+     */
+    val slotDefaults: List<PreviewSlotSource> by lazy { CwfPreviewRenderer(app, logger, "slot_defaults").let { renderer -> (1..5).map(renderer::defaultSlotSource) } }
 
     /**
      * One watch face that draws a design. [name] must be new for each face in the test run: the face
@@ -107,6 +114,9 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
             data.watchBattery?.let { percent ->
                 app.sendStickyBroadcast(Intent(Intent.ACTION_BATTERY_CHANGED).putExtra(BatteryManager.EXTRA_LEVEL, percent).putExtra(BatteryManager.EXTRA_SCALE, 100))
             }
+            // The complication slots: the steps for a slot that shows them, and the source of each slot
+            renderer.stepsToday = data.steps
+            renderer.slotSources = data.slotSources
             messages(data, nowMs).forEach(renderer::apply)
         }
 
@@ -209,6 +219,10 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
  * the harness always showed, so a face made with the defaults does not change. [sgv] null is a phone
  * that never sent a reading. [graph] null is the wave the harness always showed; a list gives the
  * glucose of the graph in mg/dl, oldest first (an empty list: no graph points).
+ *
+ * [slotSources] is what each complication slot shows, by its number (1 to 5). A slot that is left out
+ * shows what it shows on the watch before the wearer picks a source (see [SnapshotEngine.slotDefaults]).
+ * [steps] is only drawn in a slot that shows the steps.
  */
 data class SnapshotData(
     val weather: String,
@@ -252,5 +266,6 @@ data class SnapshotData(
     val reservoir: Double = 120.0,
     val reservoirText: String = "120U",
     val rigBattery: String = "--",
-    val graph: List<Double>? = null
+    val graph: List<Double>? = null,
+    val slotSources: Map<Int, PreviewSlotSource> = emptyMap()
 )

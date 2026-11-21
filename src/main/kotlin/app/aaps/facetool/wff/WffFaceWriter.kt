@@ -4,6 +4,7 @@
 // ============================================================================================
 package app.aaps.facetool.wff
 
+import app.aaps.wear.phonepreview.PreviewSlotSource
 import app.aaps.wear.watchfaces.animation.DesignRect
 import app.aaps.wear.watchfaces.animation.Formula
 import app.aaps.wear.watchfaces.animation.FormulaException
@@ -689,8 +690,9 @@ class WffFaceWriter(
         private const val CLEAR = "#00000000"
 
         /**
-         * What a slot of the wearer shows until they pick something, as on the code-based face
-         * (`customSlotDefaultSource`). The heart rate and the steps come from the watch itself: the
+         * What a slot of the wearer shows until they pick something. Not as on the code-based face:
+         * there `customSlotDefaultSource` of AAPS starts slot 1 with COB and slot 2 with IOB, and
+         * nothing else. The heart rate and the steps come from the watch itself: the
          * providers of AAPS for them were removed. WFF 2 and 4 both have `HEART_RATE` and `STEP_COUNT`;
          * they give a short text.
          */
@@ -700,6 +702,23 @@ class WffFaceWriter(
             3 to SlotDefault(aapsProvider = "app.aaps.wear.complications.CobIconComplication", aapsType = "SHORT_TEXT"),
             4 to SlotDefault(aapsProvider = "app.aaps.wear.complications.IobIconComplication", aapsType = "SHORT_TEXT")
         )
+
+        /**
+         * What the slots of the wearer show in a picture that our engine draws of a WFF face (its
+         * preview picture, the reference of the parity suite): the sources of [USER_SLOT_DEFAULTS], by
+         * slot number. The heart rate and the steps of the watch itself are stand-ins there. The
+         * code-based face starts its slots with other sources (`customSlotDefaultSource` of AAPS has
+         * COB in slot 1 and IOB in slot 2), so without this the picture would not show this face.
+         */
+        val USER_SLOT_PREVIEW: Map<Int, PreviewSlotSource> = USER_SLOT_DEFAULTS.mapValues { (_, start) ->
+            when {
+                start.system == "HEART_RATE"                                    -> PreviewSlotSource.HEART_RATE
+                start.system == "STEP_COUNT"                                    -> PreviewSlotSource.STEPS
+                start.aapsProvider?.endsWith(".CobIconComplication") == true    -> PreviewSlotSource.COB
+                start.aapsProvider?.endsWith(".IobIconComplication") == true    -> PreviewSlotSource.IOB
+                else                                                            -> PreviewSlotSource.NONE
+            }
+        } + (1..5).filter { it !in USER_SLOT_DEFAULTS }.associateWith { PreviewSlotSource.NONE }
         private const val PROVIDERS = "app.aaps.wear.complications.wff"
         private const val HIDE_IN_AMBIENT = """<Variant mode="AMBIENT" target="alpha" value="0" />"""
 

@@ -24,6 +24,13 @@ class WffBaker(
 
     private var faces = 0
 
+    /**
+     * The values the faces are fed: [data], where a slot of the wearer that it leaves out shows what a
+     * WFF face starts it with ([WffFaceWriter.USER_SLOT_PREVIEW]), not what the code-based face starts
+     * it with. The pictures of this baker are pictures of the WFF face.
+     */
+    private val fed = data.copy(slotSources = WffFaceWriter.USER_SLOT_PREVIEW + data.slotSources)
+
     /** The time of the baker's clock. */
     val now: Long get() = clock.now
 
@@ -34,7 +41,7 @@ class WffBaker(
 
     private fun newFace(): SnapshotEngine.Face = engine.Face("$facePrefix${faces++}").apply {
         settingsAtDefaults()
-        feed(data, clock.now)
+        feed(fed, clock.now)
     }
 
     /** [design] at rest: shown, and drawn when its wake-up animation is over. */
@@ -105,7 +112,7 @@ class WffBaker(
         val face = engine.Face(name)
         try {
             face.settingsAtDefaults()
-            face.feed(data, clock.now)
+            face.feed(fed, clock.now)
             face.show(SnapshotEngine.Design("scene", design))
             face.frame(size, clock.now).recycle()
             // The stores, while the face still holds them

@@ -9,6 +9,7 @@ import app.aaps.facetool.snapshot.SnapshotData
 import app.aaps.facetool.snapshot.SnapshotEngine
 import app.aaps.facetool.wff.WffApkBuilder
 import app.aaps.facetool.wff.WffBaker
+import app.aaps.wear.phonepreview.PreviewSlotSource
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.After
 import org.junit.Assume.assumeTrue
@@ -76,10 +77,13 @@ abstract class WffParityBase {
      *   test that proves such a picture is drawn one to one
      * @param editFace changes the `watchface.xml` the converter wrote before the face is packed: for a
      *   test that needs a part the converter does not write by itself (see [WffApkBuilder])
+     * @param slots what a complication slot of the wearer shows in our engine, by its number; a slot left
+     *   out shows what the WFF face starts it with (see [WffBaker])
      */
     protected fun check(
         design: ParityDesign, lint: List<String> = emptyList(), regions: List<ParityCompare.Region> = listOf(WHOLE), wake: Boolean = false,
-        stillInWake: List<ParityCompare.Region> = emptyList(), onEmulator: Boolean = false, editFace: (String) -> String = { it }
+        stillInWake: List<ParityCompare.Region> = emptyList(), onEmulator: Boolean = false, editFace: (String) -> String = { it },
+        slots: Map<Int, PreviewSlotSource> = emptyMap()
     ) {
         val dir = File("build/wff-parity/${javaClass.simpleName}/${testName.methodName}")
         // The last pictures of the emulator stay: the driver keeps them when the face did not change
@@ -95,7 +99,7 @@ abstract class WffParityBase {
         // Wear OS watch takes the language of its phone. A phone in another language would make the
         // glucose text of the slot ("6,7") differ from what glucose() writes on the watch ("6.7").
         val engine = SnapshotEngine(app, mock<AAPSLogger>())
-        val data = SnapshotData(weather = "clear", watchBattery = WATCH_BATTERY, decimalSign = '.')
+        val data = SnapshotData(weather = "clear", watchBattery = WATCH_BATTERY, decimalSign = '.', slotSources = slots)
         val baker = WffBaker(engine, clock, ParityCompare.SIZE, data)
         val cwf = design.cwf()
         // The values and our picture first, at the fixed moment; baking then moves the clock on

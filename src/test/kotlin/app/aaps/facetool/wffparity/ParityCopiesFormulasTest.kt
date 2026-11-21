@@ -321,8 +321,8 @@ class ParityCopiesFormulasTextsTest : WffParityBase() {
 
     /**
      * Values of AAPS as bars: glucose (coloured by its level), reservoir, delta, age, sensor and pump
-     * time left, phone battery, heart rate, steps, insulin and carbs on board, the basal rate and the
-     * watch battery. The scene sends iob, cob and the basal rate as numbers too, and sets the watch
+     * time left, phone battery, insulin and carbs on board, the basal rate and the watch battery (the
+     * gap is where the heart rate and the steps were: the watch app no longer has these values). The scene sends iob, cob and the basal rate as numbers too, and sets the watch
      * battery in our engine and on the emulator (`WffParityBase.WATCH_BATTERY`).
      */
     @Test
@@ -336,8 +336,6 @@ class ParityCopiesFormulasTextsTest : WffParityBase() {
             {"shape": "rect", "color": "#F72585", "rest": 0, "x": 90, "y": 150, "width": "20 + v_timestamp * 20", "height": 16},
             {"shape": "rect", "color": "#2A9D8F", "rest": 0, "x": 90, "y": 172, "width": "clamp(v_pump_left, 0, 100) * 2", "height": 16},
             {"shape": "rect", "color": "#9AA5B5", "rest": 0, "x": 90, "y": 194, "width": "v_uploader_battery * 2", "height": 16},
-            {"shape": "rect", "color": "#E63946", "rest": 0, "x": 90, "y": 216, "width": "v_heart_rate * 2", "height": 16},
-            {"shape": "rect", "color": "#5AE66E", "rest": 0, "x": 90, "y": 238, "width": "v_steps / 40", "height": 16},
             {"shape": "rect", "color": "#4CC9F0", "rest": 0, "x": 90, "y": 260, "width": "v_iob * 80", "height": 16},
             {"shape": "rect", "color": "#FFD166", "rest": 0, "x": 90, "y": 282, "width": "v_cob * 8", "height": 16},
             {"shape": "rect", "color": "#B388FF", "rest": 0, "x": 90, "y": 304, "width": "v_basalRate * 120", "height": 16},

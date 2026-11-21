@@ -1,3 +1,4 @@
-# The AAPS commit this repo was last tested with (branch local/editor-engine, from local/wear-wff-slim). The build warns
-# when aapsDir is on another commit. After a green parity run on a new AAPS commit, write it here.
-3fe702b33ae490aaf21b90029ee201c542130477
+# The AAPS commit this repo was last tested with (branch local/personal-wff-editor: local/personal-wff merged with
+# local/editor-engine). The build warns when aapsDir is on another commit. After a green parity run on a new AAPS
+# commit, write it here.
+6a03a7a5d6e30ccb56117e2082028033898b7b20

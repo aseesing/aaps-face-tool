@@ -1,5 +1,6 @@
 package app.aaps.facetool.wffparity
 
+import app.aaps.wear.phonepreview.PreviewSlotSource
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -260,13 +261,12 @@ class ParityClassicFaceDataTest : WffParityBase() {
 
     // ---- the wearer's slots ----
 
-    // The values in the wearer's slots: slots 1 and 2 start with the heart rate and the steps. Our
-    // engine shows those of the AAPS providers, which the scene feeds (72, 6482, each a ranged value).
-    // The WFF face starts with the watch's own heart rate and steps (a short text), so the emulator
-    // shows its own values (105, 644 and 10 were seen), and a value can differ between runs. A test of
-    // the look of a slot therefore gives slot 2 the AAPS steps on the emulator too, see
-    // aapsStepsInSlot2. Slots 3 to 5 cannot be used: our engine has no data for them in the test and
-    // draws them empty.
+    // The values in the wearer's slots. The WFF face starts slots 1 and 2 with the watch's own heart
+    // rate and steps (a short text), so the emulator shows its own values (105, 644 and 10 were seen),
+    // and a value can differ between runs. Our engine has no such sources: in a picture of a WFF face
+    // these slots show a stand-in with the values of the scene (72, 6482), see `WffBaker`. A test of
+    // the look of a slot gives slot 2 the phone battery of AAPS on both sides (78 % of the scene, a
+    // value in a ring with an icon), see aapsBatteryInSlot2.
 
     /** As D2 and Cyberpunk: two text slots without a fill, in a zip font. */
     @Test
@@ -278,7 +278,7 @@ class ParityClassicFaceDataTest : WffParityBase() {
         lint = listOf("user slot 1", "user slot 2")
     )
 
-    /** As Grand Complication: a round slot with a fill, a ring and an icon (slot 2, the AAPS steps on both sides). */
+    /** As Grand Complication: a round slot with a fill, a ring and an icon (slot 2, the phone battery of AAPS on both sides). */
     @Test
     fun complicationRoundRing() = check(
         ParityDesign("SlotRound").meta("key_show_complication2", "true")
@@ -293,7 +293,8 @@ class ParityClassicFaceDataTest : WffParityBase() {
             // Above the text, so the value does not count: the icon our engine draws over the text
             ParityCompare.Region("the icon", 1.0, intArrayOf(189, 172, 22, 16))
         ),
-        editFace = ::aapsStepsInSlot2
+        editFace = ::aapsBatteryInSlot2,
+        slots = BATTERY_IN_SLOT_2
     )
 
     /** The style in the design's `complicationStyle` section, nothing on the slot itself: our engine uses the section. */
@@ -308,7 +309,8 @@ class ParityClassicFaceDataTest : WffParityBase() {
             // A strip of the fill above the text and right of the icon, so the value does not count
             ParityCompare.Region("the fill", 1.0, intArrayOf(175, 172, 110, 6))
         ),
-        editFace = ::aapsStepsInSlot2
+        editFace = ::aapsBatteryInSlot2,
+        slots = BATTERY_IN_SLOT_2
     )
 
     // ---- always-on ----
@@ -359,24 +361,28 @@ private fun hand(colour: Int, width: Float, tip: Float): ResData {
 }
 
 /**
- * The face [xml] with the AAPS steps (a ranged value) as the source that slot 2 starts with, in place
- * of the watch's own steps that the converter writes there. Our engine starts slot 2 with the AAPS
- * steps, and the scene feeds them on both sides (6482; on the emulator the scene's value is kept over
- * the emulator's own steps, see `WffBaker.aheadOfSensors`), so a test of the look of a slot sees the
- * same value, ring and icon on both sides. The wear app of `aapsDir` must still have this provider.
+ * The face [xml] with the phone battery of AAPS (a ranged value) as the source that slot 2 starts with,
+ * in place of the watch's own steps that the converter writes there. Our engine shows the same source
+ * in slot 2 ([BATTERY_IN_SLOT_2]), and the scene feeds the phone battery on both sides (78 %), so a test
+ * of the look of a slot sees the same value, ring and icon on both sides. The wear app of `aapsDir`
+ * must still have this provider.
  */
-private fun aapsStepsInSlot2(xml: String): String {
-    check(runCatching { Class.forName(AAPS_STEPS, false, WffParityBase::class.java.classLoader) }.isSuccess) { "the wear app of aapsDir has no $AAPS_STEPS: this test needs another source for slot 2" }
+private fun aapsBatteryInSlot2(xml: String): String {
+    val source = File(System.getProperty("aaps.dir") ?: error("aaps.dir is not set"), "wear/src/main/kotlin/${AAPS_BATTERY.replace('.', '/')}.kt")
+    check(source.isFile) { "the wear app of aapsDir has no $AAPS_BATTERY: this test needs another source for slot 2" }
     val policy = Regex("""(<ComplicationSlot slotId="2"[^>]*>\s*)<DefaultProviderPolicy [^>]*/>""")
     check(policy.containsMatchIn(xml)) { "slot 2 has no DefaultProviderPolicy in the face:\n$xml" }
     return policy.replace(xml) { match ->
         match.groupValues[1] +
-            """<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="${WffParityBase.CLIENT}/$AAPS_STEPS" primaryProviderType="RANGED_VALUE" />"""
+            """<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="${WffParityBase.CLIENT}/$AAPS_BATTERY" primaryProviderType="RANGED_VALUE" />"""
     }
 }
 
-/** The steps provider of the AAPS wear app, which reads the steps that the scene writes. */
-private const val AAPS_STEPS = "app.aaps.wear.health.StepsComplication"
+/** The phone battery provider of the AAPS wear app, which reads the battery level the phone sends. */
+private const val AAPS_BATTERY = "app.aaps.wear.complications.UploaderBatteryComplication"
+
+/** Slot 2 of our engine with the same source as [aapsBatteryInSlot2] gives the face. */
+private val BATTERY_IN_SLOT_2 = mapOf(2 to PreviewSlotSource.PHONE_BATTERY)
 
 /** A row of the lint: [name] is live in WFF. */
 private fun live(name: String) = name.padEnd(NAME) + " live"
