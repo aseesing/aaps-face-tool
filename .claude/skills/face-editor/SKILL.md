@@ -34,6 +34,11 @@ through `~/.claude/bin/gradle-locked.sh`, in the background):
    `facetool wff compare` (the engine next to WFF 4 and WFF 2), `facetool wff xml`.
 7. `facetool save --out <zip>`.
 
+The owner may have the browser page of the editor open on the same folder (`facetool gui`). It
+follows the folder: each change you make shows there at once, with a mark on the changed layers.
+You do not need to do anything for that, and the page has no AI of its own. Say in your answer what
+you changed, so the owner knows what the marks mean.
+
 Use `--json` when you read the answer in code. Quote paths with brackets: `'animation.layers[3]'`.
 
 ## Rules

@@ -9,7 +9,9 @@ agent can use it without a screen. A small browser page gives a person the same 
 The design of the tool is `docs/face-editor-design.md`. This page tells how to use it.
 
 Status (2026-11-21): the commands below are built and have tests. `wff emulator` was tried by hand
-on a Wear OS 6 emulator. The owner has not tried the tool yet.
+on a Wear OS 6 emulator. The owner tried the browser page once. Open and New, the busy signs, the
+new Play, `render --batch`, dragging and the colour box were built after that; the owner has not
+tried those yet.
 
 ## Set up, once
 
@@ -118,10 +120,46 @@ the layer or view and use the **colour box** under its JSON. Both are plain `set
 takes them back (a drag that changed two numbers needs Undo twice) and the command log shows them.
 Hold the mouse over a button to read what it does.
 
-The page shows the layers and views (the eye hides one
-in the preview only), the engine picture with the wake slider, annotate, grid and pick, the JSON of
-the selection with Apply, the scene, the lint and a log of every command as its command line. When
-an agent changes the folder, the page shows the change and marks the changed layers.
+The page shows the layers and views (the eye hides one in the preview only), the engine picture
+with the wake slider, "Show boxes", "Grid" and "Pick a layer", the JSON of the selection with Apply,
+the scene, the check and a log of every command as its command line. When an agent changes the
+folder, the page shows the change and marks the changed layers.
+
+## Working with an AI
+
+The page has no chat box. AI help stays outside the editor (design decision 9): you run an agent
+next to the page, and the page shows what the agent does.
+
+1. Open the design in the page (`facetool gui`, then Open). The top of the Open list says where the
+   project folder is, for example `~/Projects/aaps-face-editing/Aurora_Town`.
+2. Start the agent in that folder, in a terminal. With Claude Code:
+
+   ```
+   cd ~/Projects/aaps-face-editing/Aurora_Town
+   claude --add-dir ~/Projects/aaps-face-tool
+   ```
+
+   Give your own path of `aaps-face-tool`: `--add-dir` lets the agent read that folder. Then say in
+   your first message: "Read `~/Projects/aaps-face-tool/.claude/skills/face-editor/SKILL.md` and use
+   `~/Projects/aaps-face-tool/tools/facetool` in this folder." Any other agent that can run commands
+   works the same way.
+3. Ask in plain words. Examples:
+   - "Make the clock text 10 units larger and move it up a little. Show me the result."
+   - "Add slow snow in front of the houses, only in December."
+   - "The glucose text is hard to read when it is high. Try three colours and make one picture of each."
+   - "Why is layer 9 not in the WFF 4 face? Check with `facetool wff plan`."
+   - "Run the check and fix every error."
+4. Keep the page open. It follows the folder: each change of the agent shows within a second, and
+   the layers and views that changed get a mark in the list. Undo in the page also takes back a
+   change of the agent, also one it made by editing the JSON file itself.
+
+Good to know:
+
+- The agent and the page use the same server, so the agent's pictures and yours are the same.
+- When the agent runs a long command (a whole wake, a WFF build) the page waits for the server too:
+  the top bar shows "Working".
+- You and the agent can both change the design. A lock stops two writes at the same moment. It does
+  not stop one of you from undoing the other's change: say what you changed by hand.
 
 ## Command reference
 

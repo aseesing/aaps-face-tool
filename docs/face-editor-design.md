@@ -3,7 +3,9 @@
 Status: 2026-11-21. The owner answered the main choices in the design session (section 1). A build
 session built steps 0 to 10 and parts of 11, 12 and 15 from this document (section 14 says what is
 done per step, and "As built" notes say where the build differs from the first design). The owner
-has not tried the result yet.
+tried the browser page once; a second build session then built Open and New, the busy signs, the new
+Play, `render --batch`, dragging and the colour picker (sections 8.2, 9, 10 and 16), and decision 9
+was made. The owner has not tried those yet.
 
 The editor is a tool to make and change AAPS watch face designs (the design zips of the Custom watch
 face, with layers, templates, options, looks, text layers and the wake animation). It shows the face
@@ -50,6 +52,7 @@ Asked in the design session on 2026-11-21. The owner picked every recommended op
 | 6 | Designs made by the generators of `aaps-watchfaces` | **Warn, allow edits.** The editor knows these designs and says on `open` and `save` that the generator is their source. |
 | 7 | When the render server runs | **Auto start, idle stop.** The first command that needs it starts it in the background; it stops after 2 hours without a request. |
 | 8 | Name of the CLI | **`facetool`** |
+| 9 | AI help in the page (decided on 2026-11-21, after the owner tried the page) | **AI help stays outside the editor.** The page has no "Ask" box and talks to no AI. A person runs Claude Code, or another agent, in the project folder with the `face-editor` skill. The agent uses the CLI and its own file tools; the page watches the folder, shows each change at once and marks the changed layers. So the editor needs no AI key and no chat code, and any agent works. `docs/face-editor.md` has the section "Working with an AI". |
 
 Owner decisions from before, not to reopen: the tool never merges two zips; the phone never builds
 WFF APKs; APKs only verify the converter; the motion model choices (section 6 of the motion doc)
@@ -740,6 +743,10 @@ the inspector with apply and the expanded form, the scene fields, the lint and t
 tabs WFF 4, WFF 2, Side by side, Diff (against the design at open) and Parts call `wff render`,
 `wff compare`, `diff --render` and `wff parts`; in the WFF tabs the slider is the seconds since the
 screen came on, and a button shows always-on. `facetool gui` gives the page the project of the working folder.
+`OutsideChangeTest` proves that a change of a design file from outside reaches the page as the
+event `changed`, and that a file under `.facetool` does not; that the page then marks the changed
+layers was tried in a browser on Aurora Town (a text colour and a view changed in the JSON file:
+exactly these two rows were marked).
 The server looks at a project folder every 0.4 s instead of using `WatchService`, which only polls
 on macOS too, and more slowly. The tests check that the page is served and that it sends only
 commands of the table; the build session looked at it once in a browser (section 14, step 8).
