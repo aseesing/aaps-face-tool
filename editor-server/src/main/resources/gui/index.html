@@ -75,6 +75,9 @@
   a.button[hidden] { display: none; }
   #exportPath { font: 12px ui-monospace, Menlo, monospace; white-space: normal; word-break: break-all; }
   #exportText { color: var(--dim); }
+  #follow { display: flex; gap: 8px; align-items: center; width: 100%; max-width: 560px; background: #2d4460; border: 1px solid var(--accent); border-radius: 6px; padding: 4px 8px; }
+  #follow[hidden] { display: none; }
+  #followText { flex: 1; font: 12px ui-monospace, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #busy { display: none; align-items: center; gap: 6px; color: var(--accent); }
   #busy.on { display: flex; }
   .spinner { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -125,9 +128,10 @@
   </section>
   <section id="preview">
     <div id="tabs"><button class="on" data-tab="engine" title="The face as the AAPS watch app draws it (the AAPS Custom watch face, CWF)">AAPS CWF</button> <button data-tab="wff4" title="The face as a Watch Face Format 4 face (Wear OS 6), drawn by the player of this tool">WFF 4</button> <button data-tab="wff2" title="The face as a Watch Face Format 2 face (Wear OS 5), drawn by the player of this tool">WFF 2</button> <button data-tab="compare" title="The AAPS CWF face next to the WFF 4 and WFF 2 faces, with the pixels that differ in red">Side by side</button> <button data-tab="diff" title="The design as it was when you opened it, next to the design now">Diff</button> <button data-tab="parts" title="The pictures the WFF face is made of">Parts</button></div>
+    <div id="follow" hidden title="The AI (or another client) made this picture with its own values. Your own view comes back with the button, or with any click of yours."><b>AI</b> <span id="followText"></span> <button id="followBack" title="Show the project again with your own scene">Back to my view</button></div>
     <div id="stage"><img id="face" alt="the face" draggable="false" title="Drag here to move the selected layer or view. With &quot;Pick a layer&quot; on, click to find what draws a point."><canvas id="film"></canvas><svg id="dragLayer"><line id="dragLine" stroke="#4fb3ff" stroke-width="2" stroke-dasharray="5 4"/><circle id="dragFrom" r="4" fill="none" stroke="#4fb3ff" stroke-width="2"/><circle id="dragTo" r="5" fill="#4fb3ff"/></svg><div id="dragLabel"></div></div>
     <div id="wakeRow"><span class="label" title="The wake is the animation that plays when the watch wakes up">Wake</span> <input id="wake" type="range" min="0" max="6" step="0.1" value="0" title="Move to see one moment of the wake: the seconds since the watch woke up. On the WFF tabs: the seconds since the screen came on."> <span id="wakeValue" title="The moment shown: seconds into the wake, or at rest">at rest</span> <button id="play" title="Play the whole wake as a film">Play</button> <button id="rest" title="Show the face at rest, after the wake has ended">At rest</button></div>
-    <div id="tools"><button id="annotate" title="Draw a box with its number around each layer and view (AAPS CWF tab)">Show boxes</button> <button id="grid" title="Draw the grid of the design, 400 units wide, and the round edge of the watch (AAPS CWF tab)">Grid</button> <button id="pick" title="Then click a point of the face: the page says which layers and views draw there, and selects the top one">Pick a layer</button> <button id="sheet" title="One picture with small frames of the whole wake, each with its time (facetool wake --sheet)">Wake overview</button> <button id="ambient" title="Show the always-on face, the dim face of a watch that is not in use: on the AAPS CWF tab as the engine draws it, on the WFF tabs as the player draws it. Always-on has no wake animation.">Always-on</button></div>
+    <div id="tools"><button id="annotate" title="Draw a box with its number around each layer and view (AAPS CWF tab)">Show boxes</button> <button id="grid" title="Draw the grid of the design, 400 units wide, and the round edge of the watch (AAPS CWF tab)">Grid</button> <button id="pick" title="Then click a point of the face: the page says which layers and views draw there, and selects the top one">Pick a layer</button> <button id="sheet" title="One picture with small frames of the whole wake, each with its time (facetool wake --sheet)">Wake overview</button> <label title="Show each picture the AI (or another client) makes of this project, with its own values, as soon as it is made"><input type="checkbox" id="followOn" checked> Show the AI's pictures</label> <button id="ambient" title="Show the always-on face, the dim face of a watch that is not in use: on the AAPS CWF tab as the engine draws it, on the WFF tabs as the player draws it. Always-on has no wake animation.">Always-on</button></div>
     <div id="note"></div>
   </section>
   <section>
@@ -220,7 +224,7 @@ async function run(command, args = {}, inProject = true) {
   const entry = { command, since: Date.now() };
   waiting.add(entry); showBusy();
   try {
-    const response = await fetch('/api/run', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify(inProject ? { command, args, project } : { command, args }) });
+    const response = await fetch('/api/run', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify(inProject ? { command, args, project, from: 'page' } : { command, args, from: 'page' }) });
     const answer = await response.json();
     if (answer.error) note(answer.text || answer.error);
     return answer;
@@ -526,6 +530,7 @@ async function renderWff() {
 let renderBusy = null, renderAgain = false;
 function render() {
   stopFrames();
+  leaveFollow();
   if (renderBusy) { renderAgain = true; return renderBusy; }
   renderBusy = (async () => {
     try { do { renderAgain = false; await renderNow(); } while (renderAgain); } finally { renderBusy = null; }
@@ -533,6 +538,28 @@ function render() {
   return renderBusy;
 }
 // Sets the picture and waits until the browser shows it.
+// The pictures of the AI. A GIF or a PNG is shown as it is; the frames of a film are played in a loop.
+let followTimer = null;
+function showFollow(data) {
+  if (!$('followOn').checked || !data.files || !data.files.length) return;
+  if (film.playing) stopPlay();
+  clearInterval(followTimer); followTimer = null;
+  $('film').classList.remove('on');
+  $('followText').textContent = data.line; $('followText').title = data.line;
+  $('follow').hidden = false;
+  const urls = data.files.map(fileUrl);
+  $('face').src = urls[0];
+  if (urls.length > 1) {
+    urls.forEach(url => { new Image().src = url; });
+    let i = 0;
+    followTimer = setInterval(() => { i = (i + 1) % urls.length; $('face').src = urls[i]; }, data.frameMs || 125);
+  }
+  note('');
+}
+function leaveFollow() {
+  clearInterval(followTimer); followTimer = null;
+  $('follow').hidden = true;
+}
 function showPicture(file) {
   return new Promise(done => {
     const face = $('face');
@@ -769,6 +796,8 @@ async function exportWff(args, key, what, suffix) {
   if (answer.error || !answer[key]) return exportFailed(answer.text);
   exportDone(answer[key], (fileNameOf(info.filename || info.name || '') || 'Design') + suffix, answer.text);
 }
+$('followBack').onclick = () => { leaveFollow(); render(); };
+$('followOn').onchange = () => { if (!$('followOn').checked && !$('follow').hidden) { leaveFollow(); render(); } };
 $('exportClose').onclick = () => $('exportDialog').close();
 $('exportCopy').onclick = async () => {
   try { await navigator.clipboard.writeText($('exportPath').textContent); $('exportCopy').textContent = 'Copied'; }
@@ -950,6 +979,8 @@ function start() {
   events.addEventListener('log', event => { const data = JSON.parse(event.data); logLine(data.line, data.text, data.exitCode); });
   // The folder changed on disk (an agent edited it): show it again and mark the changed layers
   events.addEventListener('changed', () => { forgetFrames(); refresh(true); });
+  // A picture made by the AI (or another client): show it, with the command line that made it
+  events.addEventListener('picture', event => showFollow(JSON.parse(event.data)));
   // A frame of the wake is written: load it while the server makes the rest
   events.addEventListener('frame', event => {
     const data = JSON.parse(event.data);

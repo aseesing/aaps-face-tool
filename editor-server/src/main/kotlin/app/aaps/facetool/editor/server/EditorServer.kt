@@ -118,7 +118,7 @@ class EditorServer(
         }
     }
 
-    private val api = HttpApi(commands, table, token, facts, events, places, frameStops, ::guiFile, life::requestSeen)
+    private val api = HttpApi(commands, table, token, facts, events, places, frameStops, ::guiFile, life::requestSeen, FollowPictures { name, data, dir -> events.send(name, data, dir) })
 
     /**
      * The two help pages of the page's Help menu, and no other file: the page of this checkout about

@@ -58,7 +58,10 @@ base line.
 7. Export, only when asked: `facetool wff apk --zip` makes the WFF face zip (needs Pack, `docs/wff-apk.md`).
 
 The owner may have the browser page open on the same folder (`facetool gui`). It follows the folder:
-each change shows there at once, with a mark on the changed layers. The page has no AI of its own.
+each change shows there at once, with a mark on the changed layers. Every picture you make (`render`,
+`wake`, `snapshot`, `options`, `looks`, WFF pictures) also shows there, with your values and command
+line. So when you want the owner to look at a state (high glucose, the wake), make that picture: do not
+only describe it. The page has no AI of its own.
 Say in your answer what you changed.
 
 ## Rules

@@ -1,6 +1,7 @@
 package app.aaps.facetool.editor.server
 
 import app.aaps.facetool.editor.model.AndroidJson
+import app.aaps.facetool.editor.model.CommandLines
 import app.aaps.facetool.editor.model.CommandTable
 import app.aaps.facetool.editor.model.FacetoolException
 import app.aaps.facetool.editor.model.wrongUse
@@ -28,7 +29,8 @@ import java.util.concurrent.Executors
  */
 class HttpApi(
     private val commands: ServerCommands, private val table: CommandTable, private val token: String, private val facts: ServerFacts,
-    private val events: Events, private val places: ProjectPlaces, private val frameStops: FrameStops, private val gui: (String) -> ByteArray?, private val onRequest: () -> Unit
+    private val events: Events, private val places: ProjectPlaces, private val frameStops: FrameStops, private val gui: (String) -> ByteArray?, private val onRequest: () -> Unit,
+    private val follow: FollowPictures? = null
 ) {
 
     private var server: HttpServer? = null
@@ -92,6 +94,11 @@ class HttpApi(
         val args = body["args"] as? JsonObject ?: JsonObject(emptyMap())
         val project = (body["project"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.let { File(it) }
         val answer = commands.run(command, args, project)
+        // A picture made by another client than the page (an AI agent with the CLI): the page shows it too
+        if ((body["from"] as? JsonPrimitive)?.content != "page") follow?.let { pictures ->
+            val line = table.find(command)?.let { spec -> runCatching { CommandLines.format(spec, args) }.getOrNull() } ?: "facetool $command"
+            runCatching { pictures.seen(command, line, project, answer.json) }
+        }
         val result = if (answer.exitCode != 0 && "exitCode" !in answer.json) JsonObject(answer.json + ("exitCode" to JsonPrimitive(answer.exitCode))) else answer.json
         json(exchange, 200, result)
     }

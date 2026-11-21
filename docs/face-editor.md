@@ -156,6 +156,13 @@ with the wake slider, "Show boxes", "Grid" and "Pick a layer", the JSON of the s
 the scene, the check and a log of every command as its command line. When an agent changes the
 folder, the page shows the change and marks the changed layers.
 
+The page also shows every picture an agent makes of the project: `render`, `wake`, `snapshot`,
+`options`, `looks` and the WFF pictures, with the agent's own values (`--set sgv=250`). A GIF plays, the
+frames of a wake play as a film, and a bar above the face shows the command line. "Back to my view", or
+any click of yours, shows the project with your own scene again. "Show the AI's pictures" turns this
+off. The server copies such a picture to `.facetool/out/follow/` of the project, because the page may
+read files only there; it keeps only the newest one.
+
 ## Working with an AI
 
 The page has no chat box. AI help stays outside the editor (design decision 9): you run an agent
