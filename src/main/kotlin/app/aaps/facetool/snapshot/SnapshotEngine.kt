@@ -119,37 +119,49 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
          */
         fun frame(size: Int, nowMs: Long): Bitmap = renderer.frame(size, nowMs).copy(Bitmap.Config.ARGB_8888, false)
 
+        /**
+         * Writes the watch settings [values] (stored name -> value), as the phone sends them: the choice
+         * of an option of the design, a colour, a show or hide setting. Unknown names and values are left out.
+         */
+        fun applyWatchSettings(values: Map<String, String>) {
+            renderer.applyWatchSettings(values)
+        }
+
         fun release() = renderer.release()
     }
 
     /** The messages the phone sends to the watch for [data] at [now]. */
-    private fun messages(data: SnapshotData, now: Long): List<EventData> = listOf(
+    private fun messages(data: SnapshotData, now: Long): List<EventData> = listOfNotNull(
         EventData.Preferences(
-            timeStamp = now, wearControl = false, unitsMgdl = false, bolusPercentage = 100, maxCarbs = 100, maxBolus = 10.0,
+            timeStamp = now, wearControl = false, unitsMgdl = data.unitsMgdl, bolusPercentage = 100, maxCarbs = 100, maxBolus = 10.0,
             insulinButtonIncrement1 = 0.5, insulinButtonIncrement2 = 1.0, carbsButtonIncrement1 = 5, carbsButtonIncrement2 = 10
         ),
         // The place of the phone, as the watch gets it: as the rule for when it is day
         EventData.ActionSetDayNightRule(DayNightRule.Place(data.latitude, data.longitude)),
-        EventData.SingleBg(
-            // The texts as the phone writes them, with the decimal sign of its language
-            dataset = 0, timeStamp = now - 2 * MINUTE, sgvString = "6${data.decimalSign}7", glucoseUnits = "mmol", slopeArrow = "→",
-            delta = "+0${data.decimalSign}1", deltaDetailed = "+0${data.decimalSign}12", avgDelta = "+0${data.decimalSign}1", avgDeltaDetailed = "+0${data.decimalSign}08", sgvLevel = 0, sgv = 121.0,
-            high = 180.0, low = 70.0, color = 0, deltaMgdl = 1.8, avgDeltaMgdl = 1.4
-        ),
+        data.sgv?.let { sgv ->
+            EventData.SingleBg(
+                // The texts as the phone writes them, with the decimal sign of its language
+                dataset = 0, timeStamp = now - data.readingAgeMs, sgvString = signed(data.sgvText, data), glucoseUnits = data.glucoseUnits, slopeArrow = data.direction,
+                delta = signed(data.deltaText, data), deltaDetailed = signed(data.deltaDetailedText, data), avgDelta = signed(data.avgDeltaText, data), avgDeltaDetailed = signed(data.avgDeltaDetailedText, data),
+                sgvLevel = data.sgvLevel, sgv = sgv, high = data.high, low = data.low, color = 0, deltaMgdl = data.deltaMgdl, avgDeltaMgdl = data.avgDeltaMgdl
+            )
+        },
         EventData.Status(
-            dataset = 0, externalStatus = "", iobSum = "1.25", iobDetail = "(0.90|0.35)", cob = "12g", currentBasal = "0.85U/h",
-            battery = data.phoneBattery.toString(), rigBattery = "--", openApsStatus = now - 3 * MINUTE, bgi = "-0.4", batteryLevel = 1,
-            tempTarget = "100", tempTargetLevel = 0, reservoirString = "120U", reservoir = 120.0, reservoirLevel = 0,
+            dataset = 0, externalStatus = "", iobSum = data.iobText, iobDetail = data.iobDetailText, cob = data.cobText, currentBasal = data.basalText,
+            battery = data.phoneBattery.toString(), rigBattery = data.rigBattery, openApsStatus = now - 3 * MINUTE, bgi = data.bgiText, batteryLevel = 1,
+            tempTarget = data.tempTargetText, tempTargetLevel = 0, reservoirString = data.reservoirText, reservoir = data.reservoir, reservoirLevel = 0,
             sensorEndsAt = now + data.sensorHoursLeft * HOUR, pumpEndsAt = now + data.pumpHoursLeft * HOUR,
             // The same values as numbers, for v_iob, v_cob, v_basalRate and the others, as the phone sends them
-            cobValue = 12.0, iobValue = 1.25, iobBolusValue = 0.90, iobBasalValue = 0.35, basalRateValue = 0.85, bgiMgdl = -7.2
+            cobValue = data.cob, iobValue = data.iob, iobBolusValue = data.iobBolus, iobBasalValue = data.iobBasal, basalRateValue = data.basalRate, bgiMgdl = data.bgiMgdl
         ),
-        EventData.GraphData(ArrayList(graphAges().map { age ->
-            val hours = age / 3_600_000.0
-            EventData.SingleBg(
-                dataset = 0, timeStamp = now - age, sgv = 125.0 + 40.0 * sin(hours * PI / 4.0) + 15.0 * exp(-hours / 2.0) * sin(hours * PI / 0.8),
-                high = 180.0, low = 70.0
-            )
+        EventData.GraphData(ArrayList(graphAges().let { ages ->
+            ages.mapIndexed { index, age ->
+                val hours = age / 3_600_000.0
+                val wave = 125.0 + 40.0 * sin(hours * PI / 4.0) + 15.0 * exp(-hours / 2.0) * sin(hours * PI / 0.8)
+                // Own values lie evenly over the points, oldest first
+                val sgv = data.graph?.let { values -> if (values.isEmpty()) null else values[(index * values.size / ages.size).coerceAtMost(values.size - 1)] } ?: wave
+                EventData.SingleBg(dataset = 0, timeStamp = now - age, sgv = sgv, high = data.high, low = data.low)
+            }.filter { data.graph?.isEmpty() != true }
         })),
         EventData.TreatmentData(
             temps = arrayListOf(EventData.TreatmentData.TempBasal(now - 90 * MINUTE, 0.85, now - 60 * MINUTE, 0.85, 1.2)),
@@ -160,11 +172,14 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
                 EventData.TreatmentData.Treatment(now - 20 * MINUTE, 0.2, 0.0, isSMB = true, isValid = true)
             ),
             predictions = ArrayList((1..12).map { i ->
-                EventData.SingleBg(dataset = 0, timeStamp = now + i * 5 * MINUTE, sgv = 121.0 + 2.0 * i, high = 180.0, low = 70.0, color = 0)
+                EventData.SingleBg(dataset = 0, timeStamp = now + i * 5 * MINUTE, sgv = (data.sgv ?: 121.0) + 2.0 * i, high = data.high, low = data.low, color = 0)
             })
         ),
         EventData.Weather(now - 10 * MINUTE, data.weather, data.temperature)
     )
+
+    /** [text] with the decimal sign of the phone's language. The texts of [SnapshotData] are written with a point. */
+    private fun signed(text: String, data: SnapshotData): String = text.replace('.', data.decimalSign)
 
     /** The ages of the graph points, oldest first: every 5 minutes for the last 6 hours, then thinner, as the phone sends them. */
     private fun graphAges(): List<Long> = ((0L until 6 * 12L).map { it * 5 * MINUTE } + (12L..48L).map { it * 30 * MINUTE }).sortedDescending()
@@ -181,6 +196,12 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
  * phone sends it. [watchBattery] is the battery of the watch in percent; null leaves it as it is.
  * [decimalSign] is the decimal sign of the phone's language, in the glucose and delta texts the
  * phone writes (`sgvString`, `delta`).
+ *
+ * The glucose, the status and the graph are the values and the texts of the phone's messages. The
+ * texts are written with a point; the face gets them with [decimalSign]. Every default is the value
+ * the harness always showed, so a face made with the defaults does not change. [sgv] null is a phone
+ * that never sent a reading. [graph] null is the wave the harness always showed; a list gives the
+ * glucose of the graph in mg/dl, oldest first (an empty list: no graph points).
  */
 data class SnapshotData(
     val weather: String,
@@ -193,5 +214,36 @@ data class SnapshotData(
     val sensorHoursLeft: Long = 60,
     val pumpHoursLeft: Long = 10,
     val watchBattery: Int? = null,
-    val decimalSign: Char = ','
+    val decimalSign: Char = ',',
+    val unitsMgdl: Boolean = false,
+    val glucoseUnits: String = "mmol",
+    val sgv: Double? = 121.0,
+    val sgvText: String = "6.7",
+    val sgvLevel: Long = 0,
+    val high: Double = 180.0,
+    val low: Double = 70.0,
+    val direction: String = "→",
+    val readingAgeMs: Long = 120_000L,
+    val deltaMgdl: Double = 1.8,
+    val deltaText: String = "+0.1",
+    val deltaDetailedText: String = "+0.12",
+    val avgDeltaMgdl: Double = 1.4,
+    val avgDeltaText: String = "+0.1",
+    val avgDeltaDetailedText: String = "+0.08",
+    val iob: Double = 1.25,
+    val iobBolus: Double = 0.90,
+    val iobBasal: Double = 0.35,
+    val iobText: String = "1.25",
+    val iobDetailText: String = "(0.90|0.35)",
+    val cob: Double = 12.0,
+    val cobText: String = "12g",
+    val basalRate: Double = 0.85,
+    val basalText: String = "0.85U/h",
+    val bgiMgdl: Double = -7.2,
+    val bgiText: String = "-0.4",
+    val tempTargetText: String = "100",
+    val reservoir: Double = 120.0,
+    val reservoirText: String = "120U",
+    val rigBattery: String = "--",
+    val graph: List<Double>? = null
 )

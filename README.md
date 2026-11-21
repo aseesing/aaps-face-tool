@@ -39,8 +39,12 @@ designsDir=/Users/you/Projects/aaps-watchfaces
 | `src/test/kotlin/app/aaps/facetool/golden`, `src/test/golden` | the golden hash lists of the face folders: a change of the harness must not change them |
 | `src/test/kotlin/app/aaps/facetool/wffparity` | the parity suite: one small design per engine feature, compared with the WFF face |
 | `src/main/kotlin/app/aaps/facetool/snapshot` | draws a design with our engine at a frozen clock |
-| `tools/` | Pack build, emulator scripts |
-| `docs/` | `wff-converter-design.md` (the design), `wff-apk.md` (make a face), `wff-parity.md` (the suite), `wff-motion-model.md` (motion on WFF), `face-editor-design.md` (the editor, not built yet) |
+| `src/main/kotlin/app/aaps/facetool/player` | the WFF player: draws a converted face on the JVM, for the editor and the parity suite |
+| `editor-model/` | the face editor's model: project folders, the JSON form, edits, history, diff, the command table (plain Kotlin) |
+| `editor-cli/` | `facetool`, the command line of the face editor |
+| `editor-server/` | the render server of the face editor: the AAPS engine under Robolectric behind HTTP on 127.0.0.1, and the browser page |
+| `tools/` | Pack build, emulator scripts, `facetool` |
+| `docs/` | `wff-converter-design.md` (the design), `wff-apk.md` (make a face), `wff-parity.md` (the suite), `wff-motion-model.md` (motion on WFF), `face-editor.md` (how to use the editor `facetool`), `face-editor-design.md` (its design) |
 
 ## Commands
 
@@ -53,5 +57,20 @@ designsDir=/Users/you/Projects/aaps-watchfaces
 ```
 
 Pack must be built once first: `sh tools/build-pack.sh`.
+
+## The face editor
+
+`facetool` opens a design zip as a folder, changes it, and shows it as the AAPS engine draws it and
+as a WFF face (`docs/face-editor.md`):
+
+```
+./gradlew :editor-cli:installDist :editor-server:editorClasspath     build it
+tools/facetool open <zip> --dir <folder>                             a project folder of a design
+tools/facetool render --project <folder>                             the face at rest, as a PNG
+tools/facetool wake --sheet --project <folder>                       the wake as one contact sheet
+tools/facetool lint --project <folder>                               errors and warnings, also of WFF
+tools/facetool wff compare --project <folder>                        the engine next to WFF 4 and 2
+./gradlew :editor-model:test :editor-cli:test :editor-server:testDebugUnitTest     its tests
+```
 
 Faces made from other people's designs are only for checking the converter. Do not share them.

@@ -1,0 +1,33 @@
+wake sheet 706b80d24b40ae1497427c448135f53511cd06186daeec4c79ff84b02e2b6163
+wake frame 0 e2e8790a05a9e9266d5f306da7a284d3b0c800c66276ed4c4746800d432fa28d
+wake frame 1 f813ce068430629dfda878177852446d171a2c7e7e98cbeda29365db727ebc21
+wake frame 2 a9e80d266ca7f7f58bb10ce8ff877f12f7e2b1bc6b1dc2e5f30c54fba749cb1e
+wake frame 3 e50fa2faaf034107e7a199dec28f826ecb6f8dc7b4e42bdcc293cb26fc1d496e
+wake frame 4 c0d19eefc751684e474e63cba8b59738a53c63be6396f4759055836cc36542d7
+wake frame 5 1215cdce4613a6de053c34038f3d4d23c8472e7b717a188e06a96fa869e52c22
+wake frame 6 bee847ef9cbde576c32f91519d52a338dfe47a4035d91dec6ab421fbc468217c
+options 691dfc0232a205cd7cb96a51f6eaf53040abfc7a6926e0a191575c9c538c50cb
+Wrote the sheet <temp>/projects/D2/.facetool/out/options/options.png: 22 pictures (colour1 design; colour1 #00E5FF; colour1 #3D8BFF; colour1 #2EE66B; colour1 #B6FF1A; colour1 #FFE11A; colour1 #FF9A1A; colour1 #FF3B3B; colour1 #FF5FB4; colour1 #B57BFF; colour1 #F2F2F2; colour2 design; colour2 #00E5FF; colour2 #3D8BFF; colour2 #2EE66B; colour2 #B6FF1A; colour2 #FFE11A; colour2 #FF9A1A; colour2 #FF3B3B; colour2 #FF5FB4; colour2 #B57BFF; colour2 #F2F2F2)
+looks 6f27a4df2098aa5b5bde5a9ec414ea0a45a4c787a7a71450e920ebea4c92e899
+look 0 when v_weather_kind == 0: on in the scene
+look 1 when v_weather_kind == 1: off in the scene; on with weather partly
+look 2 when v_weather_kind == 2: off in the scene; on with weather cloudy
+look 3 when v_weather_kind == 3: off in the scene; on with weather rain
+look 4 when v_sensor_left < 4.0: off in the scene; none of the ready scenes turns it on (or it changes nothing that shows)
+look 5 when v_pump_left < 4.0: off in the scene; none of the ready scenes turns it on (or it changes nothing that shows)
+look 6 when v_sensor_left < 4.0 && v_pump_left < 4.0: off in the scene; none of the ready scenes turns it on (or it changes nothing that shows)
+Wrote the sheet <temp>/projects/D2/.facetool/out/looks/looks.png
+pick 200 100
+Nothing but the background draws at 200.0, 100.0.
+pick 200 200
+Nothing but the background draws at 200.0, 200.0.
+pick 5 5
+Nothing but the background draws at 5.0, 5.0.
+snapshot rest df3237aceb49274108c90a2ae9c4ed113f8b86b880562587691c4150149c833b
+snapshot wake-1 ed53cc03c42db4a8c9befafb9c0e2dd3b7ba5048b3d4a8e9e3c1e85a71e4cf23
+snapshot wake-2 c7785c3067e04729c90e005794b79cfe1cbcc9fb69f13912bf8a4bd9633a70a2
+snapshot wake-3 0314f02e5f74c9dd0a9a449200156861f3912383be43c1cd8e2d20610ab41222
+snapshot night 85bbe6c609641c9e0587c596e66177cfba7486472e69ade913d79915c2d5753e
+diff 40fbb1cab7bd2d7cb32b633471fcf907b8ee23cfb3db3e5ebe60e3c82c1279ac
+~ midColor: "#A3C4A8" -> "#FF00FF"
+Pictures: 0.42 % of the pixels differ. Side by side in <temp>/projects/D2/.facetool/out/diff/diff.png

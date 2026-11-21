@@ -13,8 +13,14 @@ import java.io.File
  * Draws designs with the watch's own engine for the WFF harness: the face at rest and frames of the
  * wake-up animation, at [size] pixels. The clock is frozen and only goes forward, so each picture is
  * drawn a little later than the one before.
+ *
+ * @param facePrefix the start of the names of the faces this baker makes. Two bakers in one process
+ *   (the editor's server) need different ones: the engine allows one face per name.
  */
-class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotClock, val size: Int, private val data: SnapshotData = SnapshotData(weather = "clear")) {
+class WffBaker(
+    private val engine: SnapshotEngine, private val clock: SnapshotClock, val size: Int, private val data: SnapshotData = SnapshotData(weather = "clear"),
+    private val facePrefix: String = "wff"
+) {
 
     private var faces = 0
 
@@ -26,7 +32,7 @@ class WffBaker(private val engine: SnapshotEngine, private val clock: SnapshotCl
         if (epochMs > clock.now) clock.setTo(epochMs)
     }
 
-    private fun newFace(): SnapshotEngine.Face = engine.Face("wff${faces++}").apply {
+    private fun newFace(): SnapshotEngine.Face = engine.Face("$facePrefix${faces++}").apply {
         settingsAtDefaults()
         feed(data, clock.now)
     }

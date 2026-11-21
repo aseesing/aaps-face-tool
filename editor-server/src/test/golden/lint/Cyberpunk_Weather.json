@@ -1,0 +1,146 @@
+[
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "complication1          live         complication1 user slot 1; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "complication2          live         complication2 user slot 2; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "hour                   live                       DigitalClock; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "minute                 live                       DigitalClock; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "day_name               live                       date text; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "day                    live                       date text; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "month                  live                       date text; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "timestamp              complication age           minutes that keep counting; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L5",
+        "text": "L5 LogoPulse           bake         loop          moves in the wake: frames when it only shows in the wake, else its rest pose; the heart rate is 60 bpm"
+    },
+    {
+        "severity": "info",
+        "source": "wff4",
+        "path": "L0",
+        "text": "L0: it never shows in the wake, so it has no frames"
+    },
+    {
+        "severity": "info",
+        "source": "wff4",
+        "path": "",
+        "text": "the layers [5] fade in and out with the wake: 9 frames each"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "complication1          live         complication1 user slot 1; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "complication2          live         complication2 user slot 2; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "hour                   live                       DigitalClock; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "minute                 live                       DigitalClock; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "day_name               live                       date text; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "day                    live                       date text; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "month                  live                       date text; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "timestamp              complication age           minutes that keep counting; a look of the design does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L5",
+        "text": "L5 LogoPulse           bake         loop          moves in the wake: frames when it only shows in the wake, else its rest pose; the heart rate is 60 bpm"
+    },
+    {
+        "severity": "info",
+        "source": "wff2",
+        "path": "L0",
+        "text": "L0: it never shows in the wake, so it has no frames"
+    },
+    {
+        "severity": "info",
+        "source": "wff2",
+        "path": "",
+        "text": "the layers [5] fade in and out with the wake: 9 frames each"
+    },
+    {
+        "severity": "info",
+        "source": "player",
+        "path": "",
+        "text": "WFF 4: the slots of the wearer show sample values, not the providers of the watch"
+    },
+    {
+        "severity": "info",
+        "source": "player",
+        "path": "",
+        "text": "WFF 2: the slots of the wearer show sample values, not the providers of the watch"
+    }
+]

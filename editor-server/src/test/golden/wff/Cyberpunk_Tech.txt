@@ -1,0 +1,11 @@
+xml 4 0c72f87c4d259399f48c667b960f5441b114dea49e952e20b1ff2c857a89a6f7
+xml 2 523bb89991fbece7cecec38609ca06f8e1dfbba3688912f393ff45078d877861
+render 4 e35ecfc4500e2d801b07f56d92e3bb813982f16e5144e577ab899ba70f326020
+  player: the slots of the wearer show sample values, not the providers of the watch
+render 2 e35ecfc4500e2d801b07f56d92e3bb813982f16e5144e577ab899ba70f326020
+  player: the slots of the wearer show sample values, not the providers of the watch
+render 4 ambient e75cb76276b34f904f141ef0e5f0f45ba706e0f1d0e50b992823adee65e9e3b9
+wake sheet be3669fb0b7155e07a94bf5a8e33c0152eb88b7239ea30c894aed86ed84d39f6
+compare be1ae938fc8d53b09c916d498ea142336b1cf8cfb77a92b4e61dc14c090b314c
+compare wff4 0.16 % of the pixels differ from the engine
+compare wff2 0.16 % of the pixels differ from the engine

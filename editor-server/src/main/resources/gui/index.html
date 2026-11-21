@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>facetool</title>
+<style>
+  :root { --bg: #16181c; --panel: #1f2228; --line: #343a45; --text: #e6e8ec; --dim: #98a0ad; --accent: #4fb3ff; --warn: #ffb347; --error: #ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.4 -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: grid; grid-template-rows: auto 1fr 220px; }
+  header { display: flex; gap: 10px; align-items: center; padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; margin: 0 10px 0 0; }
+  #server { margin-left: auto; color: var(--dim); }
+  #generated { color: var(--warn); }
+  button, select, input, textarea { font: inherit; color: var(--text); background: #2a2e36; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; }
+  button { cursor: pointer; }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  main { display: grid; grid-template-columns: 290px 1fr 340px; min-height: 0; }
+  section { min-height: 0; overflow: auto; border-right: 1px solid var(--line); padding: 8px; }
+  h2 { font-size: 12px; text-transform: uppercase; color: var(--dim); margin: 4px 0 6px; }
+  #layers div.row { display: flex; gap: 6px; padding: 2px 4px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+  #layers div.row:hover { background: #2a2e36; }
+  #layers div.row.selected { background: #2d4460; }
+  #layers div.row.changed { box-shadow: inset 3px 0 0 var(--warn); }
+  #layers .eye { width: 16px; color: var(--dim); }
+  #layers .hidden { opacity: 0.45; }
+  #layers .id { width: 34px; color: var(--accent); }
+  #preview { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #tabs, #tools { display: flex; gap: 6px; flex-wrap: wrap; }
+  #face { max-width: 100%; max-height: calc(100vh - 420px); min-height: 200px; image-rendering: auto; background: #000; border-radius: 6px; }
+  #face.pick { cursor: crosshair; }
+  #wakeRow { display: flex; gap: 8px; align-items: center; width: 100%; max-width: 560px; }
+  #wakeRow input[type=range] { flex: 1; }
+  #note { color: var(--warn); min-height: 1.4em; text-align: center; white-space: pre-wrap; }
+  textarea { width: 100%; height: 190px; font: 12px/1.35 ui-monospace, Menlo, monospace; }
+  #scene label { display: grid; grid-template-columns: 110px 1fr; gap: 6px; margin: 2px 0; align-items: center; color: var(--dim); }
+  footer { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); min-height: 0; }
+  footer > div { overflow: auto; padding: 6px 8px; border-right: 1px solid var(--line); }
+  #lint div, #log div { font: 12px/1.35 ui-monospace, Menlo, monospace; white-space: pre-wrap; padding: 1px 0; }
+  #lint div { cursor: pointer; }
+  .error { color: var(--error); } .warning { color: var(--warn); } .info { color: var(--dim); }
+  #log .cmd { color: var(--accent); }
+  #projectAsk { padding: 30px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="name">facetool</h1>
+  <button id="save" title="facetool save">Save</button>
+  <button id="undo" title="facetool undo">Undo</button>
+  <button id="redo" title="facetool redo">Redo</button>
+  <span id="generated"></span>
+  <span id="server"></span>
+</header>
+<main>
+  <section>
+    <h2>Layers and views</h2>
+    <div id="layers"></div>
+  </section>
+  <section id="preview">
+    <div id="tabs"><button class="on" data-tab="engine">Engine</button> <button data-tab="wff4">WFF 4</button> <button data-tab="wff2">WFF 2</button> <button data-tab="compare">Side by side</button> <button data-tab="diff">Diff</button> <button data-tab="parts">Parts</button></div>
+    <img id="face" alt="the face">
+    <div id="wakeRow">wake <input id="wake" type="range" min="0" max="6" step="0.1" value="0"> <span id="wakeValue">rest</span> <button id="play">Play</button> <button id="rest">Rest</button></div>
+    <div id="tools"><button id="annotate">annotate</button> <button id="grid">grid</button> <button id="pick">pick</button> <button id="sheet" title="facetool wake --sheet">wake sheet</button> <button id="ambient" title="WFF tabs only">always-on</button></div>
+    <div id="note"></div>
+  </section>
+  <section>
+    <h2>Inspector <span id="path"></span></h2>
+    <textarea id="json" spellcheck="false"></textarea>
+    <div style="margin: 6px 0"><button id="apply">Apply</button> <button id="expanded">Expanded</button></div>
+    <h2>Scene</h2>
+    <div id="scene"></div>
+  </section>
+</main>
+<footer>
+  <div><h2>Lint <button id="lintRun">Run</button> <select id="lintSource"><option value="">all</option><option>engine</option><option>editor</option><option>wff4</option><option>wff2</option><option>player</option></select></h2><div id="lint"></div></div>
+  <div><h2>Command log</h2><div id="log"></div></div>
+</footer>
+<script>
+// The page of the face editor (design section 10). Every action is one command of the command table,
+// sent to POST /api/run. The page holds no design of its own: it always shows the project folder.
+const query = new URLSearchParams(location.search);
+const token = query.get('token');
+let project = query.get('project');
+const state = { selected: null, hidden: new Set(), annotate: false, grid: false, pick: false, ambient: false, wake: null, summaries: {}, findings: [], tab: 'engine', playing: null };
+const $ = id => document.getElementById(id);
+
+async function run(command, args = {}) {
+  const response = await fetch('/api/run', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify({ command, args, project }) });
+  const answer = await response.json();
+  if (answer.error) note(answer.text || answer.error);
+  return answer;
+}
+function note(text) { $('note').textContent = text || ''; }
+function fileUrl(path) { return '/api/file?path=' + encodeURIComponent(path) + '&token=' + token + '&t=' + Date.now(); }
+function logLine(line, text, exitCode) {
+  const row = document.createElement('div');
+  row.innerHTML = '<span class="cmd"></span>';
+  row.firstChild.textContent = line;
+  if (exitCode) row.append(' (exit ' + exitCode + ')');
+  $('log').prepend(row);
+}
+
+async function loadInfo() {
+  const info = await run('info');
+  if (info.error) return;
+  $('name').textContent = info.name || info.dir;
+  $('generated').textContent = info.generated ? '! generated: a new build of the designs overwrites this zip' : '';
+  if (info.wakeMs) $('wake').max = info.wakeMs / 1000;
+  const status = await run('status');
+  $('server').textContent = 'server: AAPS ' + String(status.aapsCommit || '').slice(0, 10) + (status.pinned ? ' (pinned)' : ' (NOT the tested commit)') + (status.restartNeeded ? ' restart needed' : '');
+}
+
+async function loadLayers(mark) {
+  const layers = (await run('list', { kind: 'layers' })).items || [];
+  const views = (await run('list', { kind: 'views' })).items || [];
+  const box = $('layers');
+  box.textContent = '';
+  const before = state.summaries;
+  state.summaries = {};
+  const add = (id, path, summary, hideName) => {
+    state.summaries[path] = summary;
+    const row = document.createElement('div');
+    row.className = 'row' + (state.selected === path ? ' selected' : '') + (state.hidden.has(hideName) ? ' hidden' : '') + (mark && before[path] !== undefined && before[path] !== summary ? ' changed' : '');
+    const eye = document.createElement('span'); eye.className = 'eye'; eye.textContent = state.hidden.has(hideName) ? '-' : 'o'; eye.title = 'hide in the preview only';
+    eye.onclick = event => { event.stopPropagation(); state.hidden.has(hideName) ? state.hidden.delete(hideName) : state.hidden.add(hideName); loadLayers(); render(); };
+    const name = document.createElement('span'); name.className = 'id'; name.textContent = id;
+    const text = document.createElement('span'); text.textContent = summary;
+    row.append(eye, name, text);
+    row.onclick = () => select(path);
+    box.append(row);
+  };
+  for (const layer of layers) add('L' + layer.index, layer.path, layer.summary, String(layer.index));
+  for (const view of views) add('view', view.path || view.name, (view.name || view.path) + ' ' + (view.summary || ''), view.name || view.path);
+}
+
+async function select(path) {
+  state.selected = path;
+  $('path').textContent = path;
+  const shown = await run('show', { path });
+  $('json').value = shown.error ? '' : shown.text;
+  $('json').readOnly = false;
+  document.querySelectorAll('#layers .row').forEach(row => row.classList.remove('selected'));
+  loadLayers();
+}
+
+// The WFF tabs: the player's face. The slider is then the seconds since the screen came on.
+async function renderWff() {
+  note('building the WFF face ...');
+  let answer;
+  if (state.tab === 'compare') answer = await run('wff compare');
+  else if (state.tab === 'diff') answer = await run('diff', { a: 'history:0', b: project, render: true });
+  else if (state.tab === 'parts') answer = await run('wff parts');
+  else answer = await run('wff render', { version: state.tab === 'wff2' ? '2' : '4', set: ['visibleSec=' + (state.wake === null ? 3600 : state.wake), 'ambient=' + state.ambient] });
+  if (answer.error) return;
+  const file = answer.file || (answer.statics || [])[0];
+  if (file) $('face').src = fileUrl(file);
+  note(state.tab === 'compare' || state.tab === 'parts' || state.tab === 'diff' ? answer.text : (answer.problems || []).join('\n'));
+}
+
+async function render() {
+  if (state.tab !== 'engine') return renderWff();
+  const args = {};
+  if (state.wake !== null) args.wake = state.wake;
+  if (state.hidden.size) args.hide = [...state.hidden].join(',');
+  if (state.annotate) args.annotate = true;
+  if (state.grid) args.grid = true;
+  const answer = await run('render', args);
+  if (answer.file) { $('face').src = fileUrl(answer.file); note((answer.warnings || []).join('\n')); }
+}
+
+async function loadScene() {
+  const scene = (await run('scene')).scene || {};
+  const options = (await run('list', { kind: 'options' })).items || [];
+  const box = $('scene');
+  box.textContent = '';
+  const field = (label, key, value) => {
+    const row = document.createElement('label');
+    const input = document.createElement('input');
+    input.value = value === null || value === undefined ? '' : (typeof value === 'object' ? JSON.stringify(value) : value);
+    input.onchange = async () => { await run('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
+    row.append(label, input);
+    box.append(row);
+  };
+  for (const key of ['time', 'sgv', 'delta', 'direction', 'readingAgeMin', 'units', 'iob', 'cob', 'weather', 'temperature', 'phoneBattery', 'watchBattery', 'heartRate', 'steps', 'graph', 'size']) field(key, key, scene[key]);
+  for (const option of options) field('option ' + option.name, 'options.' + option.name, (scene.options || {})[option.name]);
+  field('colour 1', 'colours.colour1', (scene.colours || {}).colour1);
+  field('colour 2', 'colours.colour2', (scene.colours || {}).colour2);
+  const hint = document.createElement('div'); hint.className = 'info';
+  hint.textContent = 'always-on is for the WFF tabs: the engine preview has no always-on picture. Tilt, tap and the glide wait for the motion model of the converter.';
+  box.append(hint);
+}
+
+async function lint() {
+  $('lint').textContent = 'running the lint ...';
+  const answer = await run('lint');
+  state.findings = answer.findings || [];
+  showLint();
+}
+function showLint() {
+  const source = $('lintSource').value;
+  const box = $('lint');
+  box.textContent = '';
+  const shown = state.findings.filter(f => !source || f.source === source);
+  if (!shown.length) box.textContent = 'No findings.';
+  for (const finding of shown) {
+    const row = document.createElement('div');
+    row.className = finding.severity;
+    row.textContent = (finding.severity === 'error' ? '!! ' : finding.severity === 'warning' ? '! ' : '') + '[' + finding.source + '] ' + (finding.path || '-') + ': ' + finding.text;
+    const layer = /^(animation\.layers\[\d+\])/.exec(finding.path || '');
+    row.onclick = () => { if (layer) select(layer[1]); else if (finding.path && state.summaries[finding.path] !== undefined) select(finding.path); };
+    box.append(row);
+  }
+}
+
+async function refresh(mark) { await loadInfo(); await loadLayers(mark); await loadScene(); await render(); }
+
+$('save').onclick = async () => { const answer = await run('save'); note(answer.text); };
+$('undo').onclick = async () => { await run('undo'); refresh(true); };
+$('redo').onclick = async () => { await run('redo'); refresh(true); };
+$('apply').onclick = async () => {
+  if (!state.selected) return note('Select a layer or a view first.');
+  let value;
+  try { value = JSON.parse($('json').value); } catch (error) { return note('The inspector does not hold JSON: ' + error.message); }
+  const answer = await run('set', { path: state.selected, value });
+  if (!answer.error) { note(''); await loadLayers(true); render(); }
+};
+$('expanded').onclick = async () => {
+  if (!state.selected || !state.selected.startsWith('animation.layers[')) return note('Expanded works on a layer of animation.layers.');
+  const answer = await run('expand', { path: state.selected });
+  if (!answer.error) { $('json').value = answer.text; $('json').readOnly = true; note('The expanded form is read only. Select the layer again to edit it.'); }
+};
+document.querySelectorAll('#tabs button').forEach(button => button.onclick = () => {
+  state.tab = button.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(other => other.classList.toggle('on', other === button));
+  render();
+});
+$('ambient').onclick = () => { state.ambient = !state.ambient; $('ambient').classList.toggle('on', state.ambient); render(); };
+for (const key of ['annotate', 'grid', 'pick']) $(key).onclick = () => { state[key] = !state[key]; $(key).classList.toggle('on', state[key]); if (key === 'pick') $('face').classList.toggle('pick', state.pick); else render(); };
+$('face').onclick = async event => {
+  if (!state.pick) return;
+  const box = $('face').getBoundingClientRect();
+  const x = Math.round((event.clientX - box.left) / box.width * 400), y = Math.round((event.clientY - box.top) / box.height * 400);
+  const args = { x, y };
+  if (state.wake !== null) args.wake = state.wake;
+  const answer = await run('pick', args);
+  note('pick ' + x + ', ' + y + ':\n' + (answer.text || ''));
+  const top = (answer.hits || [])[0];
+  if (top) select(top.path);
+};
+let wakeTimer = null;
+$('wake').oninput = () => {
+  state.wake = Number($('wake').value);
+  $('wakeValue').textContent = state.wake.toFixed(1) + ' s';
+  clearTimeout(wakeTimer);
+  wakeTimer = setTimeout(render, 80);
+};
+$('rest').onclick = () => { state.wake = null; $('wakeValue').textContent = 'rest'; render(); };
+$('play').onclick = async () => {
+  if (state.playing) { state.playing = null; $('play').textContent = 'Play'; return; }
+  const run_ = state.playing = {};
+  $('play').textContent = 'Stop';
+  const end = Number($('wake').max);
+  for (let t = 0; t <= end && state.playing === run_; t += 0.25) {
+    state.wake = t; $('wake').value = t; $('wakeValue').textContent = t.toFixed(1) + ' s';
+    await render();
+  }
+  state.playing = null; $('play').textContent = 'Play';
+};
+$('sheet').onclick = async () => { const answer = await run('wake', { sheet: true, fps: 4 }); if (answer.file) { $('face').src = fileUrl(answer.file); note(answer.text); } };
+$('lintRun').onclick = lint;
+$('lintSource').onchange = showLint;
+
+function start() {
+  if (!token) { document.body.innerHTML = '<div id="projectAsk">Open this page with <code>facetool gui</code>: it needs the token of the server.</div>'; return; }
+  if (!project) {
+    document.body.innerHTML = '<div id="projectAsk">Which project folder? <input id="dir" size="80" placeholder="/path/to/project"> <button id="go">Open</button><p>Or run <code>facetool gui</code> inside a project folder.</p></div>';
+    document.getElementById('go').onclick = () => { location.search = '?token=' + encodeURIComponent(token) + '&project=' + encodeURIComponent(document.getElementById('dir').value); };
+    return;
+  }
+  const events = new EventSource('/api/events?token=' + encodeURIComponent(token) + '&project=' + encodeURIComponent(project));
+  events.addEventListener('log', event => { const data = JSON.parse(event.data); logLine(data.line, data.text, data.exitCode); });
+  // The folder changed on disk (an agent edited it): show it again and mark the changed layers
+  events.addEventListener('changed', () => refresh(true));
+  refresh(false).then(lint);
+}
+start();
+</script>
+</body>
+</html>

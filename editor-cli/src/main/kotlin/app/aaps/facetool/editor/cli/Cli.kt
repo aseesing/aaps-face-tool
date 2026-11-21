@@ -1,5 +1,6 @@
 package app.aaps.facetool.editor.cli
 
+import java.net.URLEncoder
 import app.aaps.facetool.editor.model.ArgParser
 import app.aaps.facetool.editor.model.CommandAnswer
 import app.aaps.facetool.editor.model.CommandTable
@@ -113,7 +114,8 @@ class Cli(
             }
 
             "gui"    -> {
-                val url = manager.ensure(parsed.noStart).guiUrl
+                // The page shows the project of the working folder
+                val url = manager.ensure(parsed.noStart).guiUrl + ((parsed.project ?: ProjectFolder.find(environment.cwd)?.dir)?.let { "&project=" + URLEncoder.encode(it.canonicalPath, "UTF-8") } ?: "")
                 val opened = parsed.args["print"] == null && openBrowser(url)
                 CommandAnswer(buildJsonObject {
                     put("url", url)

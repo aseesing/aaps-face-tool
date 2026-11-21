@@ -1,8 +1,9 @@
 # Design: the face editor (`facetool`)
 
-Status: design only, 2026-11-21. Nothing here is built. The owner answered the main choices in the
-design session (section 1). A separate build session builds it from this document, step by step
-(section 14).
+Status: 2026-11-21. The owner answered the main choices in the design session (section 1). A build
+session built steps 0 to 10 and parts of 11, 12 and 15 from this document (section 14 says what is
+done per step, and "As built" notes say where the build differs from the first design). The owner
+has not tried the result yet.
 
 The editor is a tool to make and change AAPS watch face designs (the design zips of the Custom watch
 face, with layers, templates, options, looks, text layers and the wake animation). It shows the face
@@ -334,8 +335,13 @@ sgv.fontColor                   a classic view
 ```
 
 `list layers` gives each layer's index and a short summary (its source: `image Aurora`, `shape
-circle x120`, `text clock()`, `use rain`, `view sgv`), so an agent can find a layer. The lint and the
-planner use the same numbers (`L24`).
+circle x120`, `text clock()`, `use rain`, `view sgv`), so an agent can find a layer.
+
+As built: the index of a path counts the entries of `animation.layers` in the JSON. The engine, the
+planner and the WFF lint count the plain layers after the templates are expanded (`L24`), and one
+`use` entry can make several plain layers. So the two numbers differ in a design with templates.
+`facetool expand` shows for each entry of the JSON which plain layers it makes. `render --only`,
+`--hide`, `--annotate` and `pick` use the index of the JSON, as the paths do.
 
 ### 6.4 History
 
@@ -401,6 +407,20 @@ single keys (`--set sgv=180`).
 | `tapSec` | `null` | WFF player: seconds since the last tap. |
 | `sgvBefore` | `null` | WFF player: the glucose before the last reading, to show an `animation` that glides to the new value. |
 | `transition` | `null` | WFF player, WFF 4: 0 to 1, how far the change out of always-on is (`Variant` with `duration`). |
+
+As built:
+
+- `zone` must be `Europe/Amsterdam`: the frozen clock of the engine runs in one zone for the whole
+  server (`SnapshotClock`). Another zone is refused.
+- `time` is the moment of the picture. With `wake`, the wake began `wake` seconds before `time`. The
+  command `wake` is the other way round: its frames begin at `time`.
+- The texts the phone sends (the glucose, the deltas, the insulin, the carbs) are worked out from the
+  numbers of the scene. `SnapshotData` keeps the fixed texts the harness always had as its defaults,
+  and one of them does not fit its number (the detailed delta is "+0,12" for 1.8 mg/dl). So the
+  default scene of the editor writes "+0,10" there. No design of the 12 shows that text.
+- `ambient` and the keys of the WFF player change nothing in the engine preview.
+- `colours` takes a colour value of the watch setting (`#B6FF1A`, ...), `watch` the stored names
+  and values of the watch settings. A wrong name or value is refused with the list of names.
 
 `SnapshotData` and `SnapshotEngine.messages` today fix most values in code. The build makes them
 fields of `SnapshotData` with today's values as defaults (step 5), so the parity suite gives the same
@@ -472,9 +492,9 @@ Picture (server):
 | `render [scene keys] [--out f.png]` | The engine face for the scene. `--wake 2.5` a moment of the wake. `--only 3,5` or `--hide 7` draws only some layers or views (as `WffDesignParts` does for the converter: the others `gone` or `visible` 0). `--annotate` draws each layer's box and number on top. `--grid` draws the 400 grid and the round edge. `--zoom x,y,w,h` crops. |
 | `wake [--fps 8] [--from s] [--to s]` | The wake as frames: `--sheet` one contact sheet PNG with the time under each frame (the best input for an AI), `--frames dir` the single PNGs, `--gif f.gif` an animation. |
 | `options` | One picture per choice of each option (a sheet), and per colour slot. |
-| `looks` | Which looks are active in the scene, and a sheet of the looks with a scene for each that turns it on, when the editor can find one (`when` on values, time or day). |
-| `pick <x> <y>` | Which layers and views draw the pixel at x, y (in 400 design units), top first. Works by drawing each one alone (cached per design hash). |
-| `snapshot [--set name]` | Pictures at a fixed set of moments (rest, 3 wake moments, night, ambient when possible), for a before and after diff. |
+| `looks` | Which looks are active in the scene, and a sheet of the looks with a scene for each that turns it on, when the editor can find one (`when` on values, time or day). As built: the harness cannot ask the engine which looks are on, so a look counts as on when the design without it draws another picture. The scenes tried are the scene of the command, the presets, and the weather `rain`, `cloudy` and `partly`. |
+| `pick <x> <y>` | Which layers and views draw the pixel at x, y (in 400 design units), top first. Works by drawing each one alone (cached per design hash). As built: "top first" is the layers from the last to the first, then the views; the editor does not know where the engine paints a view between the layers. |
+| `snapshot [--name name]` | Pictures at a fixed set of moments (rest, 3 wake moments, night, ambient when possible), for a before and after diff. |
 
 Check (server):
 
@@ -514,6 +534,21 @@ The engine side, by the engine's own readers (so the message is the engine's):
 The WFF side: the lint of the planner and the converter, as `lint.txt` has it today, per version,
 plus the player's own lines (11.5).
 
+As built (step 7):
+
+- The engine side is what `WakeAnimationJson` says (templates, layer sources, own functions) and
+  what `LayerAnimator` says (formulas, `let`, the limits of layers and copies), as errors.
+- Unknown keys are found with the key tables of the manual's chapter "Key reference" (the manual of
+  the AAPS checkout the server runs), `LayerProp`, `JsonKeys`, `ViewKeys` and `CwfMetadataKey`. The
+  keys of a `use` entry must be parameters of its template. A `wff` key on a `use` entry is an error
+  of the engine today ("'rain' has no parameter 'wff'"): the motion doc 4.1 needs a change of the
+  engine for it (section 15).
+- By drawing: a part that draws only outside the round screen, and a layer that never shows (at rest
+  and at 3 moments of the wake). "A text cut by its box" is not built: the pictures do not show it.
+- The 12 designs have no finding of the engine or the editor.
+- The planner lists what a part reads in an order that changes from run to run; the editor sorts
+  that list, so the lint is the same text each time.
+
 `lint --json` gives `[{"severity": "error|warning|info", "source": "engine|editor|wff4|wff2|player",
 "path": "animation.layers[24]", "text": "..."}]`.
 
@@ -526,8 +561,12 @@ plus the player's own lines (11.5).
 - `GET /api/commands`: the command table.
 - `GET /api/file?path=...`: a file under a project's `.facetool/out/` (the GUI shows pictures this
   way). No other paths.
-- `GET /api/events?project=...`: server-sent events: `changed` (the folder changed on disk),
-  `rendered` (a picture is ready), `lint` (new lint), `log` (a command ran, with its CLI line).
+- `GET /api/events?project=...`: server-sent events: `changed` (the folder changed on disk) and
+  `log` (a command ran, with its CLI line and its text). As built there are no `rendered` and `lint`
+  events: the page asks for a picture and the lint itself and gets them as the answer.
+- `GET /api/ping`: `{"ok": true}` and the AAPS commit, for the CLI to see that the server is up.
+- `GET /`: the GUI page. It needs no token: it holds no data. A request a browser makes by itself
+  (a picture, the events) gives the token as `token=` in the query.
 - Only `127.0.0.1`. A random token in `server.json` must be in each request (header
   `X-Facetool-Token`), so another local web page cannot drive the server. The GUI page gets it in
   its URL from `facetool gui`.
@@ -581,6 +620,16 @@ Screens and what they call:
 
 When the folder changes on disk (an agent edited it), the page renders again and marks the changed
 layers in the list. The page never holds a design of its own: it always shows the folder.
+
+As built (step 8): the page is `editor-server/src/main/resources/gui/index.html`, with the engine
+tab, the layer list with the eye, the wake slider with play, annotate, grid, pick, the wake sheet,
+the inspector with apply and the expanded form, the scene fields, the lint and the command log. The
+tabs WFF 4, WFF 2, Side by side, Diff (against the design at open) and Parts call `wff render`,
+`wff compare`, `diff --render` and `wff parts`; in the WFF tabs the slider is the seconds since the
+screen came on, and a button shows always-on. `facetool gui` gives the page the project of the working folder.
+The server looks at a project folder every 0.4 s instead of using `WatchService`, which only polls
+on macOS too, and more slowly. The tests check that the page is served and that it sends only
+commands of the table; the build session looked at it once in a browser (section 14, step 8).
 
 ---
 
@@ -646,6 +695,26 @@ Level 2, the motion model (section 4 and 4.9 of the motion doc), as the converte
   `fract(T * s / H)`, the cover picture after the sheet): these are level 1 and 2 elements, so they
   need nothing more than the list above.
 
+As built (step 10): the player is `WffPlayer` in the root project (`src/main/.../facetool/player/`),
+not in `:editor-server`, so that the parity suite can draw `player.png` (the server depends on the
+root, not the other way round). It knows every element and attribute that the converter writes for
+the 12 designs and the 102 parity faces: `WatchFace`, `Metadata`, `Scene`, `PartImage` (`tintColor`),
+`Image`, `PartAnimatedImage` with `AnimationController` (`ON_VISIBLE`, `HIDE`) and `SequenceImages`,
+`PartText`, `Text`, `Font` (`weight`), `Template`, `Parameter`, `Upper`, `DigitalClock`, `TimeText`,
+`AnalogClock` with its hands, `ComplicationSlot`, `DefaultProviderPolicy`, `BoundingBox`,
+`BoundingOval`, `Complication`, `PartDraw` with `RoundRectangle`, `Arc`, `Fill`, `Stroke` and a
+`Transform` of an `Arc`, `Condition`, `Expressions`, `Expression`, `Compare`, `Default`, and
+`Variant` for always-on on `alpha`. `Group`, `Rectangle`, `Ellipse`, `Line` and `Launch` are not
+written by the converter today and not known to the player: they would get the red box. `TAP` is not
+written either, so the scene key `tapSec` does nothing yet, and so do `tilt`, `sgvBefore` and
+`transition` (level 2).
+
+The slots: the glucose slot and the age slot get the values of the scene as the two providers of the
+wear app send them (the age text is written as "2m"; the real text comes from the watch). The data
+slot gets the engine's picture of the data parts (`WffDesignParts.dataOf`). A slot of the wearer
+shows the heart rate or the steps of the scene as plain text when the face asks for that source by
+default; else it is empty.
+
 ### 11.3 Version rules
 
 The player gets the version the face was written for (4 or 2) and refuses what that version lacks,
@@ -690,10 +759,10 @@ The editor is useful only when its pictures are what the watch shows. These test
 |---|---|---|---|
 | 12.1 | Harness move | The face folders of all 12 designs and all parity faces are byte for byte the same before and after the harness moves (step 2), and after any harness option is added. A list of file hashes per face is the golden file (`src/test/golden/faces/`); `-PwffGoldenWrite` writes the lists new. | `wffGoldenTest` (the 12 designs at the parity moment, one JVM per design) and `wffParityTest` (each parity face) of the root. Not `testDebugUnitTest`: they take minutes. |
 | 12.2 | JSON round trip | `open` then `save` of each of the 12 zips without an edit: the JSON bytes are the same, every resource is the same, and the engine draws the same pixels (rest and 3 wake moments). | `:editor-model` tests (bytes), `:editor-server` tests (pixels) |
-| 12.3 | Engine preview identity | `render` through the server gives the same PNG bytes as `SnapshotEngine` with the same scene, for all 12 designs: rest, 3 wake moments, each option choice, a second colour. This guards the editor's own setup (settings, values, clock), since the engine is the same. | `:editor-server` tests |
+| 12.3 | Engine preview identity | `render` through the server gives the same PNG bytes as `SnapshotEngine` with the same scene, for all 12 designs: rest, 3 wake moments, each option choice, a second colour. This guards the editor's own setup (settings, values, clock), since the engine is the same. As built: 55 pictures (`RenderIdentity*Test`). And one more test: the 12 designs drawn in their order and in the reverse order, each in a JVM of its own, give the same hashes (`RenderGolden*Test`), so a design never draws with what another design left behind. | `:editor-server` tests |
 | 12.4 | Edits and diff | Each edit operation and `apply` on small designs; undo and redo give the same bytes back; `diff` of known pairs gives a golden text. | `:editor-model` tests |
-| 12.5 | Player against the engine | For parity faces that are only baked pictures (all parts in `static_0`), the player's picture and `reference.png` differ in 0 % of the pixels. For all parity faces, the player and `reference.png` are compared by region with the limits of the parity suite. | `:editor-server` tests |
-| 12.6 | Player coverage | Every element and attribute in every `watchface.xml` of the test set (12 designs and all parity faces, WFF 4 and 2) is known to the player: no `player: cannot show` line. When the converter writes a new element, this test fails until the player draws it. | `:editor-server` tests |
+| 12.5 | Player against the engine | For parity faces that are only baked pictures (all parts in `static_0`), the player's picture and `reference.png` differ in 0 % of the pixels. For all parity faces, the player and `reference.png` are compared by region with the limits of the parity suite. As built: each parity test writes `player.png` and `player_diff.png`. The rule for a face of one baked picture is "at most 1 %", not 0 %: the static picture is a lossy WebP, and up to 0.65 % of its pixels differ from the engine's own picture by more than the pixel limit (the emulator shows the same WebP, and the suite gives it the same 1 %); for the other faces the share of changed pixels of the whole face is written into `result.txt` and not limited yet (the limits of a test are per region for the emulator). | `wffParityTest` of the root |
+| 12.6 | Player coverage | Every element and attribute in every `watchface.xml` of the test set (12 designs and all parity faces, WFF 4 and 2) is known to the player: no `player: cannot show` line. When the converter writes a new element, this test fails until the player draws it. As built: the parity faces (WFF 4) in `wffParityTest`, the 12 designs (WFF 4 and 2) in the lint goldens of `:editor-server`. | `wffParityTest` of the root, `:editor-server` tests |
 | 12.7 | Player against the emulator | The parity suite with the emulator also writes `player.png` per face (and `player_wake_*.png` at the times of `wake_*.png`). `ParityEmulatorCheck` compares the player with the emulator, region by region, with the same limits as engine against emulator. `summary.html` gets a third column. A face where the player differs from the emulator is a player bug or a known limit with a comment (11.4). | `wffParityTest -PwffParityEmulator` |
 | 12.8 | Lint goldens | `lint --json` of each of the 12 designs as a golden file. A change of the engine or the converter that changes the lint shows as a diff. | `:editor-server` tests |
 | 12.9 | One command table | Every route of the API and every command the GUI page sends is in the command table; every command has help and at least one test; `facetool help --json` matches the table. | `:editor-model`, `:editor-server` tests |
@@ -775,6 +844,9 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - The Gradle subproject; `open`, `save` (without the engine check), `info`, the JSON form (6.2),
   paths (6.3), `generated.json` (6.6), the lock file.
 - Done when: 12.2 (bytes) green for all 12 zips.
+- Done on 2026-11-21 (`RoundTripTest`). The four Grand Complication zips hold compact JSON, and
+  they are made by a generator too. So `save` writes the form the source zip had (4 spaces or
+  compact), and all 12 zips come back with the same bytes. The folder always has the 4 space form.
 
 ### Step 4: `:editor-cli`, the local commands
 
@@ -784,6 +856,8 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - `installDist` gives `editor-cli/build/install/facetool/bin/facetool`. A short `tools/facetool`
   script calls it, so the path is short.
 - Done when: 12.4 green, and the parts of 12.9 that need no server.
+- Done on 2026-11-21 (`EditsTest`, `DiffTest`, `CommandTableTest`, `CliTest`). `snapshot` takes
+  `--name` for its set of pictures, because `--set` is the scene key of every picture command.
 
 ### Step 5: `:editor-server`, the engine preview
 
@@ -793,34 +867,46 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - `render` with the scene, `--wake`, `--only`, `--hide`, `--annotate`, `--grid`, `--zoom`; `scene`.
 - The CLI starts the server when needed.
 - Done when: 12.3 green; `facetool render` in a project folder writes a PNG.
+- Done on 2026-11-21 (`RenderIdentity*Test`, `RenderGolden*Test`, `HttpApiTest`; `facetool render`
+  tried by hand with a server started by the CLI). 12.1 was run again after `SnapshotData` got its
+  fields.
 
 ### Step 6: the wake and the other pictures
 
 - `wake --sheet/--frames/--gif`, `options`, `looks`, `pick`, `snapshot`, `diff --render`.
 - Done when: tests for each, with golden PNG hashes on two designs.
+- Done on 2026-11-21 (`SheetCommands*Test` on Aurora Town and D2).
 
 ### Step 7: lint
 
 - The checks of 8.3 that need no WFF; `lint --json`; `save` uses the engine check when the server
   runs; `keys`, `manual`, `expand`.
 - Done when: 12.8 green for the engine part; 12.10 green.
+- Done on 2026-11-21 (`LintGolden*Test`, `LintChecksTest`). Not built: "a text cut by its box".
 
 ### Step 8: GUI, engine part
 
 - The page of section 10 without the WFF tabs: layers, preview, wake timeline, inspector, scene,
   lint, command log; live reload on folder changes (`WatchService` and server-sent events).
 - Done when: 12.9 green; the owner tries it (the build session asks).
+- Built on 2026-11-21; 12.9 green (`HttpApiTest`). The build session opened the page once in a
+  browser on Aurora Town: the layer list, a selection in the inspector, the scene, the lint and the
+  command log showed, with no error in the browser console. **The owner has not tried it.**
 
 ### Step 9: WFF build, plan and lint
 
 - `wff build` with the cache, `wff plan`, `wff xml`, the WFF lint in `lint` per version.
 - Done when: the WFF part of 12.8 green.
+- Done on 2026-11-21 (`LintGolden*Test`, `WffCommands*Test`). The face folders are in
+  `.facetool/out/wff/build` (`face` for WFF 4, `face-wff2`, `data.zip`, `lint.txt`, `lint-wff2.txt`).
 
 ### Step 10: the player, level 1
 
 - The elements of 11.2 level 1, the slots of 11.1, the version rules of 11.3, the red box of 11.5.
 - `wff render`, `wff wake`, `wff parts`, `wff compare`.
 - Done when: 12.5 and 12.6 green.
+- Done on 2026-11-21 for the elements the converter writes today (11.2, "As built"). 12.5: the 0 %
+  rule is checked in `wffParityTest`; the share of the other faces is only written down. 12.6 green.
 
 ### Step 11: the player in the parity suite
 
@@ -828,18 +914,32 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - Run the suite on the emulator.
 - Done when: 12.7 runs; every face where the player differs from the emulator is fixed or has a
   comment. Report the list to the owner.
+- Partly done on 2026-11-21: every parity test writes `player.png`, `ParityEmulatorCheck` compares
+  it with `emulator.png` by the regions of the test and writes the result into `result.txt`, and
+  `summary.html` has the third column. **The suite was not run on the emulator by the build
+  session**, so the list of faces where the player differs from the emulator does not exist yet.
 
 ### Step 12: GUI, WFF part
 
 - The tabs WFF 4, WFF 2, Side by side, Diff, Parts; the scene keys of the player (visible seconds,
   tap, ambient, transition, tilt, heart rate, glucose before).
 - Done when: 12.9 green; the owner tries it.
+- Built on 2026-11-21: the tabs, always-on and the seconds since the screen came on. Tilt, tap,
+  the glide and the transition are not there: the player does not have them yet (level 2). 12.9
+  green. The build session saw the WFF 4 tab draw Aurora Town in a browser. **The owner has not
+  tried it.**
 
 ### Step 13: APK and emulator commands
 
 - `wff apk`, `wff emulator` (section 13); the GUI button.
 - Done when: a face of Aurora Town is shown on the Wear OS 6 emulator through `facetool`, and
   `compare.png` matches what `tools/wff-emulator.sh` gives by hand.
+- Partly done on 2026-11-21: `wff apk` is built (`WffCommands*Test` makes a valid face APK of D2
+  and Cyberpunk Tech with Pack and the validator; `--zip` makes the face zip). `wff emulator` and the
+  GUI button are not built: the command answers "not built yet". The scripts need the stores of the
+  scene (`WffBaker.scene`), and that code makes a face with a fixed name, which works only once in
+  the server's process. Until then: `sh tools/wff-emulator.sh` on the folder of a face made as
+  `docs/wff-apk.md` says.
 
 ### Step 14: the player, level 2
 
@@ -848,6 +948,7 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - Order of the motion doc: `Transform` and clock motion, moving sheets and covers, `Animation`,
   `Variant` transitions, `Gyro`, `Reference`, masks.
 - Done when: per element, 12.5 to 12.7 green.
+- Not started: the converter writes no element of the motion model yet.
 
 ### Step 15: docs and skill
 
@@ -858,6 +959,8 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - README: a short section and the commands.
 - Done when: an agent session that has only the skill makes a small new design (a background, a
   clock text layer, a glucose text, snow) and checks it on WFF 4 without help. The owner judges.
+- Partly done on 2026-11-21: `docs/face-editor.md` (with the reference from `facetool help
+  --markdown`), the skill and the README section are written. No agent session has tried the skill.
 
 ---
 
@@ -870,6 +973,9 @@ None is needed to start. Each needs the owner's yes, in its own session:
 | AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | A way to draw the always-on frame (`compose(..., ambient = true)` exists inside, the renderer always passes `false`) | Engine preview of always-on | The engine preview has no always-on; the scene key `ambient` works only in the player, and the GUI says so |
 | AAPS engine | Skip a layer with `"wff": {"only": true}` (motion doc 8.1, already decided) | `only` layers must not show in the engine preview | The editor's `render` hides `only` layers itself (as `--hide`), and says so |
 | `aaps-watchfaces` | `editing/` in `.gitignore` | The default place of project folders (6.1) | `--dir` elsewhere |
+| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | Give its `WakeAnimator` the texts and the frame layers of the face (`texts = faceTexts`, `layers = frameLayers`), as `CustomWatchface` does on the watch | Found in step 6: in a wake frame of the preview a text layer is drawn with the default font and without the watch's units (Aurora Town shows a plain "121" in the wake and its own "6.7" at rest). This is also so in the AAPS phone app | `render --wake` and `wake` warn when the design has text layers. The rest picture is right |
+| AAPS engine, `Templates` | Let a `use` entry carry a `wff` key (and hand it to the layers it makes) | The motion doc 4.1 wants `wff` on any layer; today the engine says "'rain' has no parameter 'wff'" and leaves the layers out | `wff` only on plain layers and inside a template's own layers |
+| AAPS `:wear:cwfrender` | Let the harness ask the face which looks are on, and the values it reads (`designValue` is internal) | `looks` could say which looks are on without drawing each one | `looks` compares pictures (8.2) |
 | AAPS `wear`, `ComplicationDataRepository` | A way for `CwfPreviewRenderer` to turn off the 500 ms wait before a write (`batchWindowMs` is `internal`) | A picture with new scene values in 0.3 s instead of 2.3 s (section 16) | The server keeps a face and feeds it only when the scene changed |
 
 The editor never needs AAPS to depend on it. It needs no change of the converter: the harness move
@@ -895,7 +1001,7 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   | one wake frame, kept face | 0.10 to 0.28 s for the first frame asked for; 9 ms for each next frame of the same wake |
   | 100 wake frames of one wake | 0.9 s (Aurora Town), 0.17 s (Cyberpunk Tech) |
   | memory | 130 MB of Java heap in use after 60 pictures, 1.0 GB resident for the process |
-  | `wff build` of Aurora Town | to measure in step 9 |
+  | `wff build` of Aurora Town (WFF 4 and 2, no Pack) | 82 s the first time (it bakes 3 runs of frames with the engine); after that a `wff render` takes 0.3 s in the server, 0.8 s with the start of the CLI |
 
   Why a new scene costs 2 s: the engine keeps its values in the data store of the watch
   (`ComplicationDataRepository`), and that store waits 500 ms after each change to write changes

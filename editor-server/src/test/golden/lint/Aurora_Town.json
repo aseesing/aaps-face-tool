@@ -1,0 +1,134 @@
+[
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L2",
+        "text": "L2 MoonHalo            complication data          reads clock, option, sky, wff_value: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L3",
+        "text": "L3 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L4",
+        "text": "L4 moon                complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L5",
+        "text": "L5 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L6",
+        "text": "L6 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L7",
+        "text": "L7 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L8",
+        "text": "L8 moon                complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L23",
+        "text": "L23 rect               complication data          a mark of an old reading, in the data picture: it shows when the watch makes the picture again, at least every 5 minutes"
+    },
+    {
+        "severity": "info",
+        "source": "wff4",
+        "path": "",
+        "text": "picture 0 moves in the wake: 60 frames at 4 a second"
+    },
+    {
+        "severity": "info",
+        "source": "wff4",
+        "path": "",
+        "text": "the layers [24, 25, 26] fade in and out with the wake: 23 frames each"
+    },
+    {
+        "severity": "info",
+        "source": "wff4",
+        "path": "L11",
+        "text": "L11: shows only on 2 days of the year: its frames play only then"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L2",
+        "text": "L2 MoonHalo            complication data          reads clock, option, sky, wff_value: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L3",
+        "text": "L3 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L4",
+        "text": "L4 moon                complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L5",
+        "text": "L5 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L6",
+        "text": "L6 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L7",
+        "text": "L7 circle              complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L8",
+        "text": "L8 moon                complication data          reads clock, option, sky: in the data picture; it reads the clock, but the picture changes only with the data, at least every 5 minutes"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L23",
+        "text": "L23 rect               complication data          a mark of an old reading, in the data picture: it shows when the watch makes the picture again, at least every 5 minutes"
+    },
+    {
+        "severity": "info",
+        "source": "wff2",
+        "path": "",
+        "text": "picture 0 moves in the wake: 60 frames at 4 a second"
+    },
+    {
+        "severity": "info",
+        "source": "wff2",
+        "path": "",
+        "text": "the layers [24, 25, 26] fade in and out with the wake: 23 frames each"
+    },
+    {
+        "severity": "info",
+        "source": "wff2",
+        "path": "L11",
+        "text": "L11: shows only on 2 days of the year: its frames play only then"
+    }
+]

@@ -1,0 +1,62 @@
+[
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "hour                   live                       DigitalClock; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "minute                 live                       DigitalClock; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "day                    live                       date text; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "",
+        "text": "second_hand            live                       AnalogClock hand; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "hour                   live                       DigitalClock; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "minute                 live                       DigitalClock; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "day                    live                       date text; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "",
+        "text": "second_hand            live                       AnalogClock hand; the colour the wearer picks does not reach it"
+    },
+    {
+        "severity": "info",
+        "source": "player",
+        "path": "",
+        "text": "WFF 4: the slots of the wearer show sample values, not the providers of the watch"
+    },
+    {
+        "severity": "info",
+        "source": "player",
+        "path": "",
+        "text": "WFF 2: the slots of the wearer show sample values, not the providers of the watch"
+    }
+]

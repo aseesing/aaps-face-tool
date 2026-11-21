@@ -23,6 +23,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.json.JSONObject
 import java.io.File
 import java.time.LocalDateTime
+import java.util.Locale
 
 /**
  * The base of the parity tests: each test is a small design with one feature of the layer engine or
@@ -93,7 +94,9 @@ abstract class WffParityBase {
         // The phone writes its texts in the language of the watch (US English, see SnapshotClock), as a
         // Wear OS watch takes the language of its phone. A phone in another language would make the
         // glucose text of the slot ("6,7") differ from what glucose() writes on the watch ("6.7").
-        val baker = WffBaker(SnapshotEngine(app, mock<AAPSLogger>()), clock, ParityCompare.SIZE, SnapshotData(weather = "clear", watchBattery = WATCH_BATTERY, decimalSign = '.'))
+        val engine = SnapshotEngine(app, mock<AAPSLogger>())
+        val data = SnapshotData(weather = "clear", watchBattery = WATCH_BATTERY, decimalSign = '.')
+        val baker = WffBaker(engine, clock, ParityCompare.SIZE, data)
         val cwf = design.cwf()
         // The values and our picture first, at the fixed moment; baking then moves the clock on
         val scene = File(app.cacheDir, "scene").apply { deleteRecursively() }
@@ -109,6 +112,17 @@ abstract class WffParityBase {
             assertWithMessage("no valid face, see %s", File(dir, "lint.txt")).that(result.token).isNotNull()
             // The harness must make the same face folder as before (docs/face-editor-design.md, 12.1)
             FaceFolderGolden.ofRepository().check("parity/${javaClass.simpleName}.${testName.methodName}", File(dir, "face"))
+            // The WFF player draws the face too (docs/face-editor-design.md, 12.5 and 12.6): it must know
+            // every part of the face, and a face that is one picture of our engine must come out the same
+            val problems = ParityPlayer(app, engine, clock).draw(dir, cwf, data, SnapshotClock.epochMs(MOMENT))
+            val played = ParityCompare.compare(File(dir, "reference.png"), File(dir, "player.png"), listOf(PLAYER), File(dir, "player_diff.png")).first()
+            report.append("player: ").append(String.format(Locale.ROOT, "%.2f %% changed against our engine, largest difference %d", played.changedPercent, played.maxDiff)).append('\n')
+            problems.forEach { report.append(it).append('\n') }
+            assertWithMessage("the player cannot show a part of the face").that(problems.filter { "cannot show" in it }).isEmpty()
+            // Not 0: the static picture is a lossy WebP, so a few pixels at sharp edges differ from the
+            // engine's own picture by more than the pixel limit (0.65 % at most in this suite). The
+            // emulator shows the same WebP, and its limit for such a face is the same 1 %.
+            if (onlyOneBakedPicture(result.lint)) assertWithMessage("the face is one picture of our engine, but the player's picture differs, see %s", File(dir, "player_diff.png")).that(played.changedPercent).isAtMost(WHOLE.maxChangedPercent)
             for (text in lint) assertWithMessage("the lint should say %s:\n%s", text, result.lint).that(result.lint).contains(text)
             val queue = System.getProperty("wff.parity.queue")
             when {
@@ -157,6 +171,9 @@ abstract class WffParityBase {
 
         /** The battery of the watch in percent, in our engine and on the emulator (`tools/wff-parity-emulator.sh`). */
         const val WATCH_BATTERY = 64
+
+        /** The whole face for the player's picture: its share of changed pixels is written down, not limited here. */
+        val PLAYER = ParityCompare.Region("player, whole face", 100.0)
 
         /** The whole face, for a design whose parts are all baked or drawn the same way. */
         val WHOLE = ParityCompare.Region("whole face", 1.0)

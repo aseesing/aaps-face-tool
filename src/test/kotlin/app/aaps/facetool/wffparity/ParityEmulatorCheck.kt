@@ -32,6 +32,13 @@ class ParityEmulatorCheck(private val name: String, private val dir: File) {
             results.forEach { report.append("compare ").append(it).append('\n') }
             val failed = results.filter { !it.passed }.map { it.toString() }.toMutableList()
             if (job.wake) failed += wake(job, picture, report)
+            // The player against the emulator (docs/face-editor-design.md, 12.7), with the same limits.
+            // Written down and shown in the summary; a difference is a player bug or a known limit
+            // (design 11.4: text, the wearer's slots), so it does not fail the face.
+            val player = File(dir, "player.png")
+            if (player.isFile) ParityCompare.compare(player, picture, job.regions, File(dir, "player_emulator_diff.png")).forEach {
+                report.append("player against the emulator: ").append(it).append(if (it.passed) "" else "  (over the limit)").append('\n')
+            }
             assertWithMessage("the WFF face differs from ours, see %s:\n%s", File(dir, "diff.png"), failed.joinToString("\n")).that(failed).isEmpty()
             verdict = "same"
         } catch (e: AssertionError) {
@@ -90,7 +97,10 @@ class ParityEmulatorCheck(private val name: String, private val dir: File) {
                 for (row in sorted) {
                     val diff = File(row.dir, "diff.png").relativeTo(root).path
                     append("<tr><td><b>${row.name}</b><br><span class=\"${row.verdict}\">${row.verdict}</span><pre>${row.report.replace("<", "&lt;")}</pre></td>")
-                    append("<td><img src=\"$diff\"></td></tr>")
+                    append("<td><img src=\"$diff\"></td>")
+                    // The third column: the player (left) against the emulator (middle)
+                    val player = File(row.dir, "player_emulator_diff.png")
+                    append(if (player.isFile) "<td><img src=\"${player.relativeTo(root).path}\"></td></tr>" else "<td>no player picture</td></tr>")
                 }
                 append("</table>")
             }

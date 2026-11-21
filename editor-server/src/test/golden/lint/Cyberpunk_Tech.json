@@ -1,0 +1,50 @@
+[
+    {
+        "severity": "warning",
+        "source": "wff4",
+        "path": "L5",
+        "text": "L5 LogoPulse           bake         loop          moves in the wake: frames when it only shows in the wake, else its rest pose; the heart rate is 60 bpm"
+    },
+    {
+        "severity": "info",
+        "source": "wff4",
+        "path": "",
+        "text": "the layers [0] fade in and out with the wake: 9 frames each"
+    },
+    {
+        "severity": "info",
+        "source": "wff4",
+        "path": "",
+        "text": "the layers [5] fade in and out with the wake: 9 frames each"
+    },
+    {
+        "severity": "warning",
+        "source": "wff2",
+        "path": "L5",
+        "text": "L5 LogoPulse           bake         loop          moves in the wake: frames when it only shows in the wake, else its rest pose; the heart rate is 60 bpm"
+    },
+    {
+        "severity": "info",
+        "source": "wff2",
+        "path": "",
+        "text": "the layers [0] fade in and out with the wake: 9 frames each"
+    },
+    {
+        "severity": "info",
+        "source": "wff2",
+        "path": "",
+        "text": "the layers [5] fade in and out with the wake: 9 frames each"
+    },
+    {
+        "severity": "info",
+        "source": "player",
+        "path": "",
+        "text": "WFF 4: the slots of the wearer show sample values, not the providers of the watch"
+    },
+    {
+        "severity": "info",
+        "source": "player",
+        "path": "",
+        "text": "WFF 2: the slots of the wearer show sample values, not the providers of the watch"
+    }
+]
