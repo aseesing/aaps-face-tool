@@ -169,7 +169,9 @@ class SnapshotEngine(private val app: Application, private val logger: AAPSLogge
             tempTarget = data.tempTargetText, tempTargetLevel = 0, reservoirString = data.reservoirText, reservoir = data.reservoir, reservoirLevel = 0,
             sensorEndsAt = now + data.sensorHoursLeft * HOUR, pumpEndsAt = now + data.pumpHoursLeft * HOUR,
             // The same values as numbers, for v_iob, v_cob, v_basalRate and the others, as the phone sends them
-            cobValue = data.cob, iobValue = data.iob, iobBolusValue = data.iobBolus, iobBasalValue = data.iobBasal, basalRateValue = data.basalRate, bgiMgdl = data.bgiMgdl
+            cobValue = data.cob, iobValue = data.iob, iobBolusValue = data.iobBolus, iobBasalValue = data.iobBasal, basalRateValue = data.basalRate, bgiMgdl = data.bgiMgdl,
+            // The ratios and limits of the wearer, for v_ic, v_isf, v_max_iob and v_max_carbs. null: the phone does not know it
+            icValue = data.ic, isfMgdlValue = data.isfMgdl, maxIobValue = data.maxIob, maxCarbsValue = data.maxCarbs
         ),
         EventData.GraphData(ArrayList(graphAges().let { ages ->
             ages.mapIndexed { index, age ->
@@ -265,6 +267,11 @@ data class SnapshotData(
     val tempTargetText: String = "100",
     val reservoir: Double = 120.0,
     val reservoirText: String = "120U",
+    /** The carb ratio in g/U, the ISF in mg/dl per U, the max IOB in U and the max carbs in g. null is missing, as from a phone that does not know it. */
+    val ic: Double? = 10.0,
+    val isfMgdl: Double? = 50.0,
+    val maxIob: Double? = 7.0,
+    val maxCarbs: Double? = 70.0,
     val rigBattery: String = "--",
     val graph: List<Double>? = null,
     val slotSources: Map<Int, PreviewSlotSource> = emptyMap()

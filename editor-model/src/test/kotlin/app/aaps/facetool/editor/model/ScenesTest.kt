@@ -19,7 +19,7 @@ class ScenesTest {
         assertThat(scene["sgv"]).isEqualTo(JsonPrimitive(121))
         assertThat(scene["wake"]).isEqualTo(JsonNull)
         assertThat(scene["tilt"]!!.compact()).isEqualTo("[0,0]")
-        assertThat(scene.keys).containsAtLeast("zone", "delta", "avgDelta", "direction", "units", "readingAgeMin", "iob", "cob", "phoneBattery", "heartRate", "weather", "latitude", "decimalSign", "graph", "options", "colours", "watch", "ambient", "visibleSec", "tapSec", "sgvBefore", "transition")
+        assertThat(scene.keys).containsAtLeast("zone", "delta", "avgDelta", "direction", "units", "readingAgeMin", "iob", "cob", "ic", "isf", "max_iob", "max_carbs", "phoneBattery", "heartRate", "weather", "latitude", "decimalSign", "graph", "options", "colours", "watch", "ambient", "visibleSec", "tapSec", "sgvBefore", "transition")
     }
 
     @Test

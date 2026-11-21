@@ -97,6 +97,8 @@ class SceneReader {
             tempTargetText = fixed(number(scene, "tempTarget") ?: 100.0, 0),
             reservoir = reservoir, reservoirText = "${fixed(reservoir, 0)}U",
             rigBattery = text(scene, "rigBattery") ?: "--",
+            // null stays null: the face then sees the value as missing
+            ic = number(scene, "ic"), isfMgdl = number(scene, "isf"), maxIob = number(scene, "max_iob"), maxCarbs = number(scene, "max_carbs"),
             graph = graph(scene["graph"]),
             slotSources = slots(scene["slots"])
         )

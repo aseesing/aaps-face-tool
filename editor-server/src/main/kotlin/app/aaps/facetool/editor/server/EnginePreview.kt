@@ -135,6 +135,9 @@ class EnginePreview(private val app: Application, private val engine: SnapshotEn
         const val REST_LEAD_MS = 31_000L
 
         /** The watch settings of the options of a design, one per place in its list (as `DesignOptions`). */
-        val OPTION_KEYS = listOf(R.string.key_cwf_option_1, R.string.key_cwf_option_2, R.string.key_cwf_option_3, R.string.key_cwf_option_4)
+        val OPTION_KEYS = listOf(
+            R.string.key_cwf_option_1, R.string.key_cwf_option_2, R.string.key_cwf_option_3, R.string.key_cwf_option_4,
+            R.string.key_cwf_option_5, R.string.key_cwf_option_6, R.string.key_cwf_option_7, R.string.key_cwf_option_8
+        )
     }
 }

@@ -70,7 +70,10 @@ abstract class RenderIdentityBase(private val designs: List<String>) : ServerTes
             face.feed(values.data, values.timeMs)
             face.show(design)
             val settings = LinkedHashMap<String, String>()
-            val keys = listOf(R.string.key_cwf_option_1, R.string.key_cwf_option_2, R.string.key_cwf_option_3, R.string.key_cwf_option_4)
+            val keys = listOf(
+                R.string.key_cwf_option_1, R.string.key_cwf_option_2, R.string.key_cwf_option_3, R.string.key_cwf_option_4,
+                R.string.key_cwf_option_5, R.string.key_cwf_option_6, R.string.key_cwf_option_7, R.string.key_cwf_option_8
+            )
             val all = DesignOptions.read(JSONObject(designJson(design)))
             values.options.forEach { (name, choice) -> settings[app.getString(keys[all.indexOfFirst { it?.name == name }])] = choice.toString() }
             values.colours["colour1"]?.let { settings[app.getString(R.string.key_cwf_colour_1)] = it }

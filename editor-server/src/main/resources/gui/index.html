@@ -618,6 +618,10 @@ const SCENE_HELP = {
   units: 'The units the face shows: mmol or mgdl',
   iob: 'Insulin on board, in units',
   cob: 'Carbs on board, in grams',
+  ic: 'The carb ratio of the profile now, in grams per unit (the value v_ic). Empty: missing, as with no profile or an older AAPS.',
+  isf: 'The ISF of the profile now, in mg/dl per unit, also for mmol users (the value v_isf). Empty: missing.',
+  max_iob: 'The max IOB setting of the loop, in units (the value v_max_iob). Empty: missing, as when it is not set or on an AAPSClient phone.',
+  max_carbs: 'The max carbs safety limit, in grams (the value v_max_carbs). Empty: missing, as with an older AAPS.',
   weather: 'The weather: clear, cloudy, partly, rain, ...',
   temperature: 'The temperature outside, in degrees Celsius',
   phoneBattery: 'The battery of the phone, in percent',
@@ -632,7 +636,8 @@ const SCENE_HELP = {
 // The labels of the scene keys in the page; the key itself is in the tooltip.
 const SCENE_LABELS = {
   time: 'Time', sgv: 'Glucose (mg/dL)', delta: 'Delta (mg/dL)', direction: 'Arrow', readingAgeMin: 'Age (minutes)', units: 'Units',
-  iob: 'IOB (U)', cob: 'COB (g)', weather: 'Weather', temperature: 'Temperature (°C)', phoneBattery: 'Phone battery (%)',
+  iob: 'IOB (U)', cob: 'COB (g)', ic: 'Carb ratio (g/U)', isf: 'ISF (mg/dL per U)', max_iob: 'Max IOB (U)', max_carbs: 'Max carbs (g)',
+  weather: 'Weather', temperature: 'Temperature (°C)', phoneBattery: 'Phone battery (%)',
   watchBattery: 'Watch battery (%)', heartRate: 'Heart rate (bpm)', steps: 'Steps', graph: 'Graph shape', size: 'Picture size (px)'
 };
 // One row of the scene or the watch settings: a box or a drop-down for one scene key.
@@ -735,7 +740,7 @@ async function loadScene() {
   // The scene: the values the watch receives
   const box = $('scene');
   box.textContent = '';
-  for (const key of ['time', 'sgv', 'delta', 'direction', 'readingAgeMin', 'units', 'iob', 'cob', 'weather', 'temperature', 'phoneBattery', 'watchBattery', 'heartRate', 'steps', 'graph', 'size'])
+  for (const key of ['time', 'sgv', 'delta', 'direction', 'readingAgeMin', 'units', 'iob', 'cob', 'ic', 'isf', 'max_iob', 'max_carbs', 'weather', 'temperature', 'phoneBattery', 'watchBattery', 'heartRate', 'steps', 'graph', 'size'])
     sceneField(box, SCENE_LABELS[key] || key, key, scene[key]);
   const hint = document.createElement('div'); hint.className = 'info';
   hint.textContent = 'Tilt, tap and the glide are not built yet.';

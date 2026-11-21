@@ -50,6 +50,9 @@ base line.
    `facetool render --batch scenes.json --out <folder>` for many scenes in one call (a JSON list such as
    `[{"out": "rest.png"}, {"sgv": 250, "out": "high.png"}, {"wake": 2}, {"options.stars": 2}, {"ambient": true}]`),
    `facetool wake --sheet` (the wake as one picture), `facetool options`, `facetool looks`.
+   The scene keys `ic`, `isf`, `max_iob` and `max_carbs` feed `v_ic`, `v_isf`, `v_max_iob` and `v_max_carbs`;
+   a phone does not always send them, so also look at `--set ic=null` (then `missing(v_ic)` is true).
+   A design can offer up to 8 options (`--set options.<name>=<choice>`).
    Open each PNG the answer names and look at it. `--json` gives the paths as `file` or `files`.
    A complication slot shows what the scene key `slots` says, by slot number: `--set slots.1=heartRate`
    (`none`, `cob`, `iob`, `bg`, `basal`, `phoneBattery`, `heartRate`, `steps`; in a batch entry

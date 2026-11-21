@@ -280,6 +280,11 @@ example <code>--set sgv=250</code>, <code>--set options.stars=2</code>, <code>--
 <code>facetool scene --presets</code> the ready scenes (<code>high</code>, <code>low</code>, <code>no-data</code>,
 <code>old-reading</code>, <code>night</code>, <code>christmas</code>, <code>low-battery</code>). The glucose of a scene
 is in mg/dl; the default scene shows it in mmol/l (<code>--set units=mgdl</code> changes that).</p>
+<p>The scene also holds the ratios and limits of the wearer: <code>ic</code> (carb ratio in g/U, 10), <code>isf</code>
+(mg/dl per U, 50), <code>max_iob</code> (U, 7) and <code>max_carbs</code> (g, 70). A design reads them as
+<code>v_ic</code>, <code>v_isf</code>, <code>v_max_iob</code> and <code>v_max_carbs</code>, for example for a bar of COB
+as insulin (<code>v_cob / v_ic</code>). A phone does not always know them, so check the face without them too:
+<code>--set ic=null</code> makes <code>missing(v_ic)</code> true. A design can offer up to 8 options.</p>
 <p>A design can show up to five <strong>complication slots</strong>, but it cannot say what is in them: the wearer picks
 a source for each slot on the watch. In the preview the scene key <code>slots</code> picks it, by the number of the slot:
 <code>--set slots.1=heartRate</code>. The sources are <code>none</code>, <code>cob</code>, <code>iob</code>,

@@ -95,6 +95,13 @@ Good to know:
   before the wearer picks: the watch's own heart rate and steps in slots 1 and 2 (as stand-ins), COB
   in slot 3, IOB in slot 4, nothing in slot 5 (the answer of `facetool scene` names them in
   `slotDefaults`). Only a slot the design shows is drawn.
+- The ratios and limits of the wearer are scene keys too: `ic` (carb ratio, g/U, default 10), `isf`
+  (mg/dl per U, also for mmol users, default 50), `max_iob` (U, default 7) and `max_carbs` (g, default 70).
+  A design reads them as `v_ic`, `v_isf`, `v_max_iob` and `v_max_carbs`. `--set ic=null` (or 0) leaves
+  one out, as a phone without a profile or with an older AAPS does: `missing(v_ic)` is then true. The
+  scene has one set of values, so the `_Ext1` and `_Ext2` forms of every value are always missing.
+- A design can offer up to 8 options. The scene key `options` holds the choice of each by its name
+  (`--set options.stars=2`); a choice that is left out is the default of the design.
 - A WFF face starts its slots with the same sources, so the pictures our engine draws of a WFF face
   (its preview picture, the reference of the parity suite) need no feed of their own.
 - The WFF pictures are drawn by the **player**: our reading of the WFF runtime. The parity suite
@@ -185,9 +192,10 @@ The right column has three boxes, by where a value lives:
 
 - **Design settings** (saved in the design zip): the switches "Show on the face" (`metadata.key_show_...`).
 - **Watch settings** (chosen by the wearer on the watch, not saved in the design): what each
-  complication slot shows, the choice of each design option (by its titles), and the two colours.
+  complication slot shows, the choice of each design option (by its titles, up to 8 options), and the two colours.
 - **Scene** (the values the watch receives, not saved in the design): time, glucose, arrow, IOB, COB,
-  weather, batteries, heart rate, steps and the others.
+  carb ratio, ISF, max IOB, max carbs, weather, batteries, heart rate, steps and the others. An empty
+  box is a missing value.
 
 Watch settings and scene are both kept in the scene of the project (`facetool scene`), only for the
 preview.

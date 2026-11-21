@@ -412,13 +412,14 @@ single keys (`--set sgv=180`).
 | `sgv`, `delta`, `avgDelta`, `direction`, `units` | 121 mg/dl, +1.8, +1.4, `→`, mmol | The glucose. |
 | `readingAgeMin` | 2 | Minutes since the reading. |
 | `iob`, `iobBolus`, `iobBasal`, `cob`, `basalRate`, `bgi`, `reservoir`, `tempTarget` | as `SnapshotEngine` today | |
+| `ic`, `isf`, `max_iob`, `max_carbs` | 10 g/U, 50 mg/dl per U, 7 U, 70 g | The ratios and limits of the wearer (`v_ic`, `v_isf`, `v_max_iob`, `v_max_carbs`). `null` or 0 is missing. |
 | `phoneBattery`, `watchBattery`, `rigBattery` | 78, 64, `--` | |
 | `heartRate`, `steps` | 72, 6482 | |
 | `weather`, `temperature` | `clear`, 7.5 | |
 | `latitude`, `longitude` | 52.1, 5.1 | The place (sky, moon). |
 | `decimalSign` | `,` | |
 | `graph` | `wave` | The shape of the graph history (`wave`, `flat`, `high`, `low`, or a list of values). |
-| `options` | the design's defaults | Choice per option name, for example `{"moon": 1}`. |
+| `options` | the design's defaults | Choice per option name, for example `{"moon": 1}`. A design has up to 8 options. |
 | `colours` | the design's own | `colour1`, `colour2` (the watch settings "Main colour", "Second colour"). |
 | `watch` | the defaults of a new watch | Other watch settings by name (show seconds, show date, wake length, ...). |
 | `wake` | `null` | Seconds since the wake began; `null` is the rest picture. |
