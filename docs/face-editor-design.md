@@ -914,10 +914,19 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 - Run the suite on the emulator.
 - Done when: 12.7 runs; every face where the player differs from the emulator is fixed or has a
   comment. Report the list to the owner.
-- Partly done on 2026-11-21: every parity test writes `player.png`, `ParityEmulatorCheck` compares
-  it with `emulator.png` by the regions of the test and writes the result into `result.txt`, and
-  `summary.html` has the third column. **The suite was not run on the emulator by the build
-  session**, so the list of faces where the player differs from the emulator does not exist yet.
+- Done on 2026-11-21: every parity test writes `player.png`, `ParityEmulatorCheck` compares it
+  with `emulator.png` by the regions of the test and writes the result into `result.txt`, and
+  `summary.html` has the third column. A difference of the player does not fail a face; it is
+  written down with "(over the limit)".
+- The suite ran on two Wear OS 6 emulators (57 faces, 11 minutes). The player is over the limit of
+  the test in 4 faces:
+
+  | Face | Player against the emulator | Why |
+  |---|---|---|
+  | `ParityClassicFaceDataTest.complicationRoundRing` | whole face 2.03 % (limit 1 %), the icon 22.22 % | A slot of the wearer: the player shows a sample text, the emulator the real provider with its icon and ring (11.4). Known limit. |
+  | `ParityClassicFaceDataTest.complicationStyleSection` | whole face 1.06 % (limit 1 %) | The same: a sample in a slot of the wearer. Known limit. |
+  | `ParityCopiesFormulasTextsTest.textClock` | `clock()` 2.30 % (limit 2 %) | Live text: the player places it with Android's text code, WFF a little differently (11.4). The engine against the emulator is at 1.48 % here. Known limit. |
+  | `ParityClassicFaceGlucoseTest.sgvColourByLevel` | whole face 1.87 % (limit 1 %) | In this run the emulator showed no glucose text at all (the slot was empty). The player and the engine agree (0.00 %). The suite's own check of this face (engine against emulator) failed for the same reason. It is not a difference of the player; it needs one more run to see whether it comes back. |
 
 ### Step 12: GUI, WFF part
 

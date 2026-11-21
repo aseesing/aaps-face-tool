@@ -1,5 +1,7 @@
 package app.aaps.facetool.editor.model
 
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -34,6 +36,13 @@ class SaveResult(val zip: File, val written: Boolean, val size: Int, val finding
 
 /** Makes, opens and saves project folders (design sections 6.1, 6.5 and 6.6). */
 class Projects(private val config: EditorConfig, private val clock: Clock) {
+
+    private companion object {
+
+        /** The preview picture of a new design. */
+        const val PREVIEW_FILE = "CustomWatchface.png"
+        const val PREVIEW_SIZE = 200
+    }
 
     /** The lock of a project folder. */
     fun lock(project: ProjectFolder): FolderLock = FolderLock(File(project.toolDir, "lock"), clock, config.lockLimitMs)
@@ -121,12 +130,15 @@ class Projects(private val config: EditorConfig, private val clock: Clock) {
                 put("layers", buildJsonArray { })
             }
         })
+        // The engine reads a zip as a design only when it has the preview picture `CustomWatchface`: a
+        // plain black one to start with. Put a render of the design in its place before the zip is shared.
+        ImageIO.write(BufferedImage(PREVIEW_SIZE, PREVIEW_SIZE, BufferedImage.TYPE_INT_RGB), "png", File(target, PREVIEW_FILE))
         project.writeMeta(buildJsonObject {
             put("openedAt", clock.instant().toString())
             put("openHash", project.hash())
             put("generated", false)
             put("jsonForm", ProjectFolder.JSON_FORM_INDENT)
-            put("order", buildJsonArray { add(JsonPrimitive(ResourceNames.DESIGN_JSON)) })
+            put("order", buildJsonArray { add(JsonPrimitive(ResourceNames.DESIGN_JSON)); add(JsonPrimitive(PREVIEW_FILE)) })
             putJsonObject("entryTimes") {}
             putJsonObject("scene") {}
         })

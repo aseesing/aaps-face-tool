@@ -75,6 +75,24 @@ class LintChecksTest : ServerTestBase() {
     }
 
     @Test
+    fun aNewDesignReadsInTheEngine() {
+        // The loop of step 15: a new design with a clock text, a glucose text and snow draws and has no error
+        val project = File(temp, "projects/Probe")
+        run("new", mapOf("name" to JsonPrimitive("Probe"), "size" to JsonPrimitive(400), "dir" to JsonPrimitive(project.path)), null)
+        for (layer in listOf(
+            """{"text": "clock()", "x": "200", "y": "120", "fontSize": 60, "align": "center", "color": "#FFFFFF", "rest": 1}""",
+            """{"text": "glucose(v_sgv)", "x": "200", "y": "220", "fontSize": 80, "align": "center", "color": "#40E060", "rest": 1}""",
+            """{"shape": "circle", "count": 60, "x": "hash(i) * 400", "y": "fract(hash(i + 7) + t * 0.2) * 400", "radius": 2, "color": "#FFFFFF"}"""
+        )) run("layer add", mapOf("json" to AndroidJson.parseObject(layer, "the layer")), project)
+        assertThat(File(text(run("render", emptyMap(), project), "file")).length()).isGreaterThan(1000L)
+        val lint = answer("lint", mapOf("no-wff" to JsonPrimitive(true)), project)
+        assertThat(findings(lint.json).filter { it.startsWith("error") }).isEmpty()
+        val saved = File(temp, "Probe.zip")
+        run("save", mapOf("out" to JsonPrimitive(saved.path)), project)
+        assertThat(saved.length()).isGreaterThan(500L)
+    }
+
+    @Test
     fun expandKeysAndManual() {
         val project = open("Aurora_Town")
         val expand = run("expand", emptyMap(), project)

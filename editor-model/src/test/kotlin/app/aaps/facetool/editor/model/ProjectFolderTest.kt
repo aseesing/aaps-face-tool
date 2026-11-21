@@ -154,7 +154,7 @@ class ProjectFolderTest {
         assertThat(test.run(dir, "save").exitCode).isEqualTo(ExitCodes.WRONG_USE)
         val out = File(test.root, "My_Face.zip")
         test.ok(dir, "save", "--out", out.path)
-        assertThat(DesignZip.read(out.readBytes()).map { it.name }).containsExactly("CustomWatchface.json")
+        assertThat(DesignZip.read(out.readBytes()).map { it.name }).containsExactly("CustomWatchface.json", "CustomWatchface.png").inOrder()
         test.ok(dir, "save")
     }
 
