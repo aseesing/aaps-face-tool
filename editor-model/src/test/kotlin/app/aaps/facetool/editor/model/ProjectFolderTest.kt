@@ -103,6 +103,30 @@ class ProjectFolderTest {
     }
 
     @Test
+    fun `save as writes the new zip and later saves go there, it does not write over another zip`() {
+        val zip = test.zip()
+        val old = zip.readBytes()
+        val dir = test.open(zip)
+        val other = File(test.root, "Other.zip").apply { writeBytes(old) }
+        val refused = test.run(dir, "save", "--as", other.path)
+        assertThat(refused.exitCode).isEqualTo(ExitCodes.WRONG_USE)
+        assertThat(refused.text).contains("is there already")
+        assertThat(test.run(dir, "save", "--as", other.path, "--out", other.path).exitCode).isEqualTo(ExitCodes.WRONG_USE)
+
+        val renamed = File(test.root, "Renamed.zip")
+        test.ok(dir, "set", "metadata.name", "\"Renamed\"")
+        val saved = test.ok(dir, "save", "--as", renamed.path)
+        assertThat(saved.text("text")).contains("From now on Save writes to")
+        assertThat(DesignZip.read(renamed.readBytes())[0].bytes.decodeToString()).contains("\"name\": \"Renamed\"")
+        // A plain save now writes the new zip; the old one stays as it was
+        test.ok(dir, "set", "animation.durationMs", "9000")
+        test.ok(dir, "save")
+        assertThat(DesignZip.read(renamed.readBytes())[0].bytes.decodeToString()).contains("9000")
+        assertThat(zip.readBytes().contentEquals(old)).isTrue()
+        assertThat(test.ok(dir, "info").text("sourceZip")).isEqualTo(renamed.canonicalPath)
+    }
+
+    @Test
     fun `save uses the engine check when there is one`() {
         val dir = test.open()
         val withEngine = LocalCommands(test.config, test.clock, engineCheck = { listOf("the engine says no") })

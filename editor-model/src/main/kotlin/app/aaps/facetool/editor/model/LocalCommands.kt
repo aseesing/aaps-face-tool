@@ -107,12 +107,15 @@ class LocalCommands(
     }
 
     private fun save(project: ProjectFolder, args: JsonObject, line: String): CommandAnswer = projects.lock(project).with(line, flag(args, "force")) {
-        val result = projects.save(project, textOrNull(args, "out")?.let { File(it) }, flag(args, "force"), line, engineCheck)
+        val saveAs = textOrNull(args, "as")
+        if (saveAs != null && textOrNull(args, "out") != null) wrongUse("Give --out or --as, not both")
+        val result = projects.save(project, (saveAs ?: textOrNull(args, "out"))?.let { File(it) }, flag(args, "force"), line, engineCheck, asSource = saveAs != null)
         val lines = mutableListOf<String>()
         lines += if (result.written) "Saved ${result.zip.path} (${result.size} bytes, ${result.size * 100L / config.zipLimitBytes} % of the limit of the watch)" else "Not saved: a check has errors. Give --force to write the zip anyway."
         result.findings.forEach { lines += "${it.severity}: ${it.path?.let { path -> "$path: " } ?: ""}${it.text}" }
         if (!result.engineChecked) lines += "info: the engine check was skipped (the server does not run)"
         result.keptOld?.let { lines += "The old zip is kept as ${it.path}" }
+        if (saveAs != null && result.written) lines += "From now on Save writes to ${result.zip.path}"
         if (result.generated) lines += GeneratedDesigns.WARNING
         answer(if (result.findings.any { it.severity == "error" }) ExitCodes.CHECK_ERRORS else ExitCodes.OK) {
             put("zip", result.zip.path)

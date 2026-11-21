@@ -65,9 +65,12 @@ object StandardCommands {
             "save", PROJECT,
             "Packs the folder into a zip. Checks first: the JSON reads (in the engine when the server runs), the zip is under the size limit of the watch, every resource the JSON names is there. " +
                 "An error stops the save (exit code 1); --force writes anyway. The old zip is kept in .facetool/history/<n>.zip.",
-            listOf(opt("out", FILE, "The zip to write. Default: the zip the project came from.")),
+            listOf(
+                opt("out", FILE, "The zip to write. Default: the zip the project came from."),
+                opt("as", FILE, "Save as: write this zip and make it the zip of the project, so a later save writes there. It does not write over another zip without --force.")
+            ),
             server = false, serverWhenRunning = true,
-            examples = listOf("facetool save", "facetool save --out /tmp/Aurora_Town_test.zip"),
+            examples = listOf("facetool save", "facetool save --out /tmp/Aurora_Town_test.zip", "facetool save --as ~/Projects/aaps-face-editing/My_Town.zip"),
             answer = "{\"zip\": path, \"written\": bool, \"bytes\": zip size, \"limit\": bytes, \"engineCheck\": \"done\"|\"skipped\", \"generated\": bool, \"findings\": [{\"severity\", \"text\", \"path\"?}], \"text\": text}"
         ),
         CommandSpec(

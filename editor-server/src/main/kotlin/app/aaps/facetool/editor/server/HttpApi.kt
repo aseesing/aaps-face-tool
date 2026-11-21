@@ -146,6 +146,8 @@ class HttpApi(
         "gif"  -> "image/gif"
         "json" -> "application/json; charset=utf-8"
         "xml"  -> "text/xml; charset=utf-8"
+        "zip"  -> "application/zip"
+        "apk"  -> "application/vnd.android.package-archive"
         else   -> "text/plain; charset=utf-8"
     }
 

@@ -100,11 +100,27 @@ Good to know:
 
 ## The browser page
 
-`facetool gui` opens the page; in a project folder it shows that project. **Open** at the top lists
-the design zips of `designsDir` and the projects you opened before. You can also drop a design zip
-on the page. **New** makes an empty design. The page unpacks into `~/Projects/aaps-face-editing/<name>`.
+`facetool gui` opens the page; in a project folder it shows that project. The **File** menu at the
+top has Open, New, Save and Save as. **Open** lists the design zips of `designsDir` and the projects
+you opened before. You can also drop a design zip on the page. **New** makes an empty design. The page unpacks into `~/Projects/aaps-face-editing/<name>`.
 It never unpacks over a folder that is there: "Continue" shows the folder with your edits, "New
 copy" unpacks the zip again as `<name>_2`.
+
+**Save as** gives the design a new name (`metadata.name` and `metadata.filename`) and writes a new
+zip. Save writes there from then on (`facetool save --as`). It does not write over another zip unless
+you tick the box. For a design of a generator it suggests a zip in `~/Projects/aaps-face-editing`,
+not in the designs repository. The project folder keeps its name.
+
+The **Export** menu makes a file and lets the browser download it. The zip of the project does not
+change.
+
+- **AAPS CWF zip**: the design zip, after the same check as Save.
+- **WFF face zip for the AAPS phone app**: the faces in WFF 4 and WFF 2 for each wear app, and the
+  parts of the data picture (`facetool wff apk --zip`).
+- **WFF 4 APK** (Wear OS 6) and **WFF 2 APK** (Wear OS 5): one face APK, checked by the validator
+  (`facetool wff apk --version 4|2`). Only to check the converter on an emulator, never for a watch.
+
+The first WFF build of a design takes about a minute.
 
 While the page starts, a cover says what it waits for. Later the top bar shows "Working" while the
 server is busy. You can go on clicking: a change waits for its turn, and the picture always ends at
@@ -114,13 +130,13 @@ the newest state. When the server has stopped, the page says so; run `facetool g
 starts with the first frame. A second Play of the same design and scene starts at once. The check of
 the design runs when you press "Check" (or "Check with WFF"), not by itself.
 
-To move a layer or a view, select it and **drag** it on the engine picture. This works when its
+To move a layer or a view, select it and **drag** it on the AAPS CWF picture. This works when its
 place is a plain number; when it is a formula the page tells you which one. To change a colour, select
 the layer or view and use the **colour box** under its JSON. Both are plain `set` commands: Undo
 takes them back (a drag that changed two numbers needs Undo twice) and the command log shows them.
 Hold the mouse over a button to read what it does.
 
-The page shows the layers and views (the eye hides one in the preview only), the engine picture
+The page shows the layers and views (the eye hides one in the preview only), the AAPS CWF picture
 with the wake slider, "Show boxes", "Grid" and "Pick a layer", the JSON of the selection with Apply,
 the scene, the check and a log of every command as its command line. When an agent changes the
 folder, the page shows the change and marks the changed layers.
@@ -217,7 +233,7 @@ facetool new Test --dir /tmp/test
 
 #### `save`
 
-`facetool save [--out <file>]`
+`facetool save [--out <file>] [--as <file>]`
 
 Packs the folder into a zip. Checks first: the JSON reads (in the engine when the server runs), the zip is under the size limit of the watch, every resource the JSON names is there. An error stops the save (exit code 1); --force writes anyway. The old zip is kept in .facetool/history/<n>.zip.
 
@@ -226,12 +242,14 @@ Runs: local; in the server when one runs
 | Argument | Type | Meaning |
 |---|---|---|
 | `--out <file>` | file | The zip to write. Default: the zip the project came from. |
+| `--as <file>` | file | Save as: write this zip and make it the zip of the project, so a later save writes there. It does not write over another zip without --force. |
 
 Answer with `--json`: `{"zip": path, "written": bool, "bytes": zip size, "limit": bytes, "engineCheck": "done"|"skipped", "generated": bool, "findings": [{"severity", "text", "path"?}], "text": text}`
 
 ```
 facetool save
 facetool save --out /tmp/Aurora_Town_test.zip
+facetool save --as ~/Projects/aaps-face-editing/My_Town.zip
 ```
 
 #### `info`

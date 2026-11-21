@@ -165,12 +165,15 @@ class Projects(private val config: EditorConfig, private val clock: Clock) {
      * project came from, after it keeps the old one as `.facetool/history/<n>.zip`.
      * [engineCheck] gives the errors of the engine for the design, or is null when no engine runs.
      * An error stops the save, but not with [force].
+     * [asSource] (Save as): [out] becomes the zip of the project, so a later save writes there. It does
+     * not write over another zip that is there already, unless [force].
      */
-    fun save(project: ProjectFolder, out: File?, force: Boolean, command: String, engineCheck: ((ProjectFolder) -> List<String>)?): SaveResult {
+    fun save(project: ProjectFolder, out: File?, force: Boolean, command: String, engineCheck: ((ProjectFolder) -> List<String>)?, asSource: Boolean = false): SaveResult {
         val meta = project.meta()
         val source = text(meta, "sourceZip")?.let { File(it) }
         val target = (out ?: source ?: wrongUse("This project came from no zip: give the zip to write with --out")).absoluteFile
         if (target.isDirectory) wrongUse("${target.path} is a folder: --out names the zip file")
+        if (asSource && target.isFile && target.canonicalFile != source?.canonicalFile && !force) wrongUse("${target.path} is there already. Choose another name, or give --force to write over it.")
         val design = project.design()
         val zip = project.zipBytes(now())
         val findings = check(project, design, zip.size).toMutableList()
@@ -185,7 +188,7 @@ class Projects(private val config: EditorConfig, private val clock: Clock) {
         val kept = if (target.isFile) history.zipFile(entry.n).also { target.copyTo(it, overwrite = true) } else null
         target.parentFile?.mkdirs()
         target.writeBytes(zip)
-        if (source == null || target == source.absoluteFile) project.updateMeta(mapOf("sourceZip" to JsonPrimitive(target.canonicalPath), "sourceHash" to JsonPrimitive(Hashes.sha256(zip))))
+        if (source == null || target == source.absoluteFile || asSource) project.updateMeta(mapOf("sourceZip" to JsonPrimitive(target.canonicalPath), "sourceHash" to JsonPrimitive(Hashes.sha256(zip))))
         return SaveResult(target, true, zip.size, findings, engineCheck != null, generated, kept)
     }
 
