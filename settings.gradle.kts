@@ -68,6 +68,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "aaps-face-tool"
 
+// The face editor (docs/face-editor-design.md): the model
+include(":editor-model")
+
 // The AAPS projects this build uses. Gradle builds only these (and what they need) from AAPS.
 // Gradle still configures every project of an included build (configure on demand works only for
 // the main build), so AAPS leaves out its `:app` when another build includes it: see its settings.gradle.

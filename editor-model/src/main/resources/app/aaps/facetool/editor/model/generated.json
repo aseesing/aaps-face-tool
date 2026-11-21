@@ -1,0 +1,17 @@
+{
+    "comment": "Designs that the Kotlin generators of aaps-watchfaces make (design section 6.6). A design is matched by its metadata.filename.",
+    "designs": [
+        "Aurora_Town",
+        "Aurora_Town_mgdl_AAPS4",
+        "Aurora_Town_mmol_AAPS4",
+        "Cyberpunk_Tech",
+        "Cyberpunk_Weather",
+        "Cyberpunk_Yellow",
+        "D2",
+        "Grand_Complication_Day",
+        "Grand_Complication_Day_AAPS4",
+        "Grand_Complication_Night",
+        "Grand_Complication_Night_AAPS4",
+        "Wilds_Weather"
+    ]
+}
