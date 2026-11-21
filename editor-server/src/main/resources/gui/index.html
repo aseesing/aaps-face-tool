@@ -48,6 +48,16 @@
   dialog .place .where { color: var(--dim); font-size: 12px; }
   dialog .message { color: var(--warn); min-height: 1.4em; white-space: pre-wrap; margin-top: 8px; }
   dialog .bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  #busy { display: none; align-items: center; gap: 6px; color: var(--accent); }
+  #busy.on { display: flex; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #cover { position: fixed; inset: 0; background: rgba(22, 24, 28, 0.88); z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-size: 18px; text-align: center; padding: 30px; }
+  #cover.on { display: flex; }
+  #cover .spinner { width: 34px; height: 34px; border-width: 4px; }
+  #cover.gone { color: var(--error); }
+  #cover.gone .spinner { display: none; }
+  #coverMore { font-size: 13px; color: var(--dim); white-space: pre-wrap; max-width: 640px; }
   #toast { position: fixed; right: 14px; bottom: 14px; max-width: 520px; background: #2d4460; border: 1px solid var(--accent); border-radius: 6px; padding: 8px 12px; white-space: pre-wrap; z-index: 25; display: none; }
   body.dropping::after { content: "Drop the design zip to open it"; position: fixed; inset: 12px; border: 3px dashed var(--accent); border-radius: 12px; background: rgba(22, 24, 28, 0.85); display: flex; align-items: center; justify-content: center; font-size: 22px; z-index: 30; pointer-events: none; }
 </style>
@@ -60,6 +70,7 @@
   <button id="save" title="facetool save">Save</button>
   <button id="undo" title="facetool undo">Undo</button>
   <button id="redo" title="facetool redo">Redo</button>
+  <span id="busy" title="The server is working. You can go on: a change waits for its turn, and the picture shows the newest state."><span class="spinner"></span><span id="busyText"></span></span>
   <span id="generated"></span>
   <span id="server"></span>
 </header>
@@ -87,6 +98,7 @@
   <div><h2>Lint <button id="lintRun">Run</button> <select id="lintSource"><option value="">all</option><option>engine</option><option>editor</option><option>wff4</option><option>wff2</option><option>player</option></select></h2><div id="lint"></div></div>
   <div><h2>Command log</h2><div id="log"></div></div>
 </footer>
+<div id="cover"><div class="spinner"></div><div id="coverText"></div><div id="coverMore"></div></div>
 <div id="toast" title="Click to hide this message"></div>
 <dialog id="openDialog">
   <div class="bar"><b>Open a design</b> <button id="openClose">Close</button></div>
@@ -113,12 +125,59 @@ let project = query.get('project');
 const state = { selected: null, hidden: new Set(), annotate: false, grid: false, pick: false, ambient: false, wake: null, summaries: {}, findings: [], tab: 'engine', playing: null };
 const $ = id => document.getElementById(id);
 
+// The busy sign: every request that waits for the server is listed in the top bar.
+const waiting = new Set();
+let waitingEdits = 0;
+function showBusy() {
+  const now = Date.now();
+  const names = [...waiting].map(entry => entry.command + (now - entry.since > 1500 ? ' ' + Math.round((now - entry.since) / 1000) + ' s' : ''));
+  $('busy').classList.toggle('on', waiting.size + waitingEdits > 0);
+  $('busyText').textContent = 'Working' + (names.length ? ': ' + names.join(', ') : '') + (waitingEdits > 0 ? ' (' + waitingEdits + ' waiting)' : '');
+}
+setInterval(showBusy, 500);
+
+// The cover over the page: while the first picture is made, and when the server is gone. The controls are off under it.
+let serverIsGone = false;
+function cover(text, more = '', gone = false) {
+  $('coverText').textContent = text; $('coverMore').textContent = more;
+  $('cover').classList.add('on'); $('cover').classList.toggle('gone', gone);
+  document.querySelectorAll('header, main, footer').forEach(part => { part.inert = true; });
+}
+function uncover() {
+  if (serverIsGone) return;
+  $('cover').classList.remove('on');
+  document.querySelectorAll('header, main, footer').forEach(part => { part.inert = false; });
+}
+function serverGone() {
+  serverIsGone = true;
+  document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+  cover('The editor server has stopped.', 'Start it again in a terminal with:  facetool gui\nThat opens a new page. This page cannot go on: a new server has a new address.', true);
+}
+
 // Runs one command of the command table in the server. A command without a project (open, new) gives inProject false.
 async function run(command, args = {}, inProject = true) {
-  const response = await fetch('/api/run', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify(inProject ? { command, args, project } : { command, args }) });
-  const answer = await response.json();
-  if (answer.error) note(answer.text || answer.error);
-  return answer;
+  const entry = { command, since: Date.now() };
+  waiting.add(entry); showBusy();
+  try {
+    const response = await fetch('/api/run', { method: 'POST', headers: { 'X-Facetool-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify(inProject ? { command, args, project } : { command, args }) });
+    const answer = await response.json();
+    if (answer.error) note(answer.text || answer.error);
+    return answer;
+  } catch (error) {
+    // No answer at all: the server is gone (a server that works always answers, also with an error)
+    serverGone();
+    return { error: 'no server', text: 'The editor server has stopped.' };
+  } finally {
+    waiting.delete(entry); showBusy();
+  }
+}
+// A change of the project (set, undo, save, the scene): one at a time, in the order of the clicks. None is lost.
+let editChain = Promise.resolve();
+function edit(command, args = {}) {
+  waitingEdits++; showBusy();
+  const result = editChain.then(() => { waitingEdits--; return run(command, args); });
+  editChain = result.catch(() => {});
+  return result;
 }
 function note(text) { $('note').textContent = text || ''; }
 // A message that stays for some seconds, also when the next picture changes the note under the face.
@@ -264,11 +323,29 @@ async function renderWff() {
   else answer = await run('wff render', { version: state.tab === 'wff2' ? '2' : '4', set: ['visibleSec=' + (state.wake === null ? 3600 : state.wake), 'ambient=' + state.ambient] });
   if (answer.error) return;
   const file = answer.file || (answer.statics || [])[0];
-  if (file) $('face').src = fileUrl(file);
+  if (file) await showPicture(file);
   note(state.tab === 'compare' || state.tab === 'parts' || state.tab === 'diff' ? answer.text : (answer.problems || []).join('\n'));
 }
 
-async function render() {
+// A picture: only one is made at a time. A request that comes while one is made does not start a second
+// one on top; when the first is done, one more picture is made for the newest state. The latest scene wins.
+let renderBusy = null, renderAgain = false;
+function render() {
+  if (renderBusy) { renderAgain = true; return renderBusy; }
+  renderBusy = (async () => {
+    try { do { renderAgain = false; await renderNow(); } while (renderAgain); } finally { renderBusy = null; }
+  })();
+  return renderBusy;
+}
+// Sets the picture and waits until the browser shows it.
+function showPicture(file) {
+  return new Promise(done => {
+    const face = $('face');
+    face.onload = face.onerror = () => { face.onload = face.onerror = null; done(); };
+    face.src = fileUrl(file);
+  });
+}
+async function renderNow() {
   if (state.tab !== 'engine') return renderWff();
   const args = {};
   if (state.wake !== null) args.wake = state.wake;
@@ -276,7 +353,7 @@ async function render() {
   if (state.annotate) args.annotate = true;
   if (state.grid) args.grid = true;
   const answer = await run('render', args);
-  if (answer.file) { $('face').src = fileUrl(answer.file); note((answer.warnings || []).join('\n')); }
+  if (answer.file) { await showPicture(answer.file); note((answer.warnings || []).join('\n')); }
 }
 
 async function loadScene() {
@@ -288,7 +365,7 @@ async function loadScene() {
     const row = document.createElement('label');
     const input = document.createElement('input');
     input.value = value === null || value === undefined ? '' : (typeof value === 'object' ? JSON.stringify(value) : value);
-    input.onchange = async () => { await run('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
+    input.onchange = async () => { await edit('scene', { set: [key + '=' + (input.value === '' ? 'null' : input.value)] }); render(); };
     row.append(label, input);
     box.append(row);
   };
@@ -323,7 +400,18 @@ function showLint() {
   }
 }
 
-async function refresh(mark) { await loadInfo(); await loadLayers(mark); await loadScene(); await render(); }
+// Reads the project again and draws it. One at a time, as render(): the newest state wins.
+let refreshBusy = null, refreshAgain = false, refreshMark = false;
+function refresh(mark) {
+  refreshMark = refreshMark || mark;
+  if (refreshBusy) { refreshAgain = true; return refreshBusy; }
+  refreshBusy = (async () => {
+    try {
+      do { refreshAgain = false; const marked = refreshMark; refreshMark = false; await loadInfo(); await loadLayers(marked); await loadScene(); await render(); } while (refreshAgain);
+    } finally { refreshBusy = null; }
+  })();
+  return refreshBusy;
+}
 
 $('toast').onclick = () => { $('toast').style.display = 'none'; };
 $('open').onclick = showOpen;
@@ -345,14 +433,14 @@ document.addEventListener('drop', event => {
   const file = event.dataTransfer.files[0];
   if (file) openDropped(file);
 });
-$('save').onclick = async () => { const answer = await run('save'); note(answer.text); };
-$('undo').onclick = async () => { await run('undo'); refresh(true); };
-$('redo').onclick = async () => { await run('redo'); refresh(true); };
+$('save').onclick = async () => { const answer = await edit('save'); note(answer.text); };
+$('undo').onclick = async () => { await edit('undo'); refresh(true); };
+$('redo').onclick = async () => { await edit('redo'); refresh(true); };
 $('apply').onclick = async () => {
   if (!state.selected) return note('Select a layer or a view first.');
   let value;
   try { value = JSON.parse($('json').value); } catch (error) { return note('The inspector does not hold JSON: ' + error.message); }
-  const answer = await run('set', { path: state.selected, value });
+  const answer = await edit('set', { path: state.selected, value });
   if (!answer.error) { note(''); await loadLayers(true); render(); }
 };
 $('expanded').onclick = async () => {
@@ -411,11 +499,23 @@ function start() {
     return;
   }
   try { const message = sessionStorage.getItem('facetoolNote'); sessionStorage.removeItem('facetoolNote'); if (message) toast(message); } catch (error) { /* no storage */ }
+  cover('Starting the engine…', 'Reading ' + project);
   const events = new EventSource('/api/events?token=' + encodeURIComponent(token) + '&project=' + encodeURIComponent(project));
+  // The stream broke: ask the server whether it is still there
+  events.onerror = () => { fetch('/api/ping', { headers: { 'X-Facetool-Token': token } }).then(response => { if (!response.ok) serverGone(); }, serverGone); };
   events.addEventListener('log', event => { const data = JSON.parse(event.data); logLine(data.line, data.text, data.exitCode); });
   // The folder changed on disk (an agent edited it): show it again and mark the changed layers
   events.addEventListener('changed', () => refresh(true));
-  refresh(false).then(lint);
+  first().then(lint);
+}
+// The start: the controls stay off until the first picture is there.
+async function first() {
+  const began = Date.now();
+  await loadInfo(); await loadLayers(false); await loadScene();
+  cover('Drawing the first picture…', 'The first picture of a design takes a few seconds. The next ones come much faster.');
+  await render();
+  uncover();
+  logLine('(the first picture was there after ' + ((Date.now() - began) / 1000).toFixed(1) + ' s)');
 }
 start();
 </script>

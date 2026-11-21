@@ -80,13 +80,13 @@ class HttpApiTest : ServerTestBase() {
     fun theGuiSendsOnlyCommandsOfTheTable() {
         val page = javaClass.classLoader!!.getResourceAsStream("gui/index.html")!!.use { it.readBytes().toString(Charsets.UTF_8) }
         val table = CommandTable.standard()
-        val commands = Regex("run\\('([^']+)'").findAll(page).map { it.groupValues[1] }.toSet()
+        val commands = Regex("(?:run|edit)\\('([^']+)'").findAll(page).map { it.groupValues[1] }.toSet()
         assertThat(commands).containsAtLeast("render", "list", "show", "set", "lint", "scene", "save", "undo", "redo", "pick", "expand", "status", "info", "wake", "wff render", "wff compare", "wff parts", "diff", "open", "new")
         for (command in commands) assertWithMessage("the page sends '%s', which is not in the command table", command).that(table.find(command)).isNotNull()
         // Every command goes through the one function run(): no other request to /api/run
         assertThat(Regex("fetch\\('/api/run'").findAll(page).count()).isEqualTo(1)
         val routes = Regex("'/api/([a-z]+)").findAll(page).map { it.groupValues[1] }.toSet()
-        assertThat(routes).containsExactly("run", "file", "events", "projects", "upload")
+        assertThat(routes).containsExactly("run", "file", "events", "projects", "upload", "ping")
     }
 
     @Test

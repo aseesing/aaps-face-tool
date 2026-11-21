@@ -101,6 +101,10 @@ on the page. **New** makes an empty design. The page unpacks into `~/Projects/aa
 It never unpacks over a folder that is there: "Continue" shows the folder with your edits, "New
 copy" unpacks the zip again as `<name>_2`.
 
+While the page starts, a cover says what it waits for. Later the top bar shows "Working" while the
+server is busy. You can go on clicking: a change waits for its turn, and the picture always ends at
+the newest state. When the server has stopped, the page says so; run `facetool gui` again.
+
 The page shows the layers and views (the eye hides one
 in the preview only), the engine picture with the wake slider, annotate, grid and pick, the JSON of
 the selection with Apply, the scene, the lint and a log of every command as its command line. When

@@ -648,6 +648,23 @@ Open and New (built on 2026-11-21, after the owner tried the page):
   another name".
 - Without a project in its address the page shows the Open list at once.
 
+Feedback while the page waits (built on 2026-11-21):
+
+- **At the start** a cover lies over the page: "Starting the engine…" while the page reads the
+  project, then "Drawing the first picture…". The controls are off under it (`inert`) until the
+  first picture shows.
+- **Later** the top bar shows "Working: render" with the names of the requests that wait for the
+  server, and the seconds when one takes long.
+- **A click while the page is busy is never lost.** The rule of the build session, by kind:
+  a change (`set`, `undo`, `redo`, `save`, a scene field) waits in a queue and runs in the order of
+  the clicks, one at a time. A picture is never made twice at once: a request that comes while a
+  picture is made is remembered, and when that picture is done one more is made for the newest
+  state. Requests in between are dropped: the latest scene wins. (Tried: 10 requests in a row gave
+  2 pictures, the first and the last.)
+- **When the server is gone** (a request gets no answer, or the event stream breaks and the ping
+  fails) the cover says "The editor server has stopped." and how to start it again. The page cannot
+  connect again by itself: a new server has a new port and a new token.
+
 As built (step 8): the page is `editor-server/src/main/resources/gui/index.html`, with the engine
 tab, the layer list with the eye, the wake slider with play, annotate, grid, pick, the wake sheet,
 the inspector with apply and the expanded form, the scene fields, the lint and the command log. The
