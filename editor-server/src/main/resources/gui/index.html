@@ -46,6 +46,8 @@
   #wakeRow input[type=range] { flex: 1; }
   #note { color: var(--warn); min-height: 1.4em; text-align: center; white-space: pre-wrap; }
   textarea { width: 100%; height: 190px; font: 12px/1.35 ui-monospace, Menlo, monospace; }
+  #switches label { display: flex; gap: 6px; align-items: center; margin: 1px 0; }
+  #switches .where { color: var(--dim); font-size: 12px; }
   #scene label { display: grid; grid-template-columns: 110px 1fr; gap: 6px; margin: 2px 0; align-items: center; color: var(--dim); }
   footer { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); min-height: 0; }
   footer > div { overflow: auto; padding: 6px 8px; border-right: 1px solid var(--line); }
@@ -139,6 +141,8 @@
     <textarea id="json" spellcheck="false"></textarea>
     <div style="margin: 6px 0"><button id="apply" title="Write the JSON above into the design (facetool set)">Apply</button> <button id="expanded" title="Show the plain layers the engine makes of this layer, after templates and own functions. Read only.">Show expanded</button></div>
     <div id="colours"></div>
+    <h2 title="The switches of the design: what the face shows when a wearer first gets it. They are part of the design (metadata.key_show_...).">Show on the face</h2>
+    <div id="switches"></div>
     <h2 title="The values the preview shows: the time, the glucose, the weather, the choices of the options. They are not part of the design.">Scene</h2>
     <div id="scene"></div>
   </section>
@@ -599,6 +603,52 @@ const SCENE_HELP = {
   'colours.colour1': 'The watch setting "Main colour", like #B6FF1A. Empty: the colour of the design.',
   'colours.colour2': 'The watch setting "Second colour". Empty: the colour of the design.'
 };
+// The switches of the design (metadata.key_show_...): the complication slots first, then the others.
+// A switch keeps the form it has in the JSON: the text "true"/"false" of most designs, or true/false.
+const SWITCH_NAMES = {
+  date: 'Date', seconds: 'Seconds', delta: 'Delta', avg_delta: 'Average delta', uploader_battery: 'Phone battery',
+  rig_battery: 'Rig battery', iob: 'IOB', detailed_iob: 'Detailed IOB', cob: 'COB', temp_basal: 'Temp basal',
+  reservoir_level: 'Reservoir', week_number: 'Week number', bgi: 'BGI', direction: 'Arrow', ago: 'Age of the reading',
+  bg: 'Glucose', loop_status: 'Loop status', avatar: 'Avatar'
+};
+async function loadSwitches() {
+  const box = $('switches');
+  const metadata = (await run('show', { path: 'metadata' })).value || {};
+  const slots = new Set(Object.keys(state.summaries).filter(path => /^complication[1-5]$/.test(path)));
+  const keys = Object.keys(metadata).filter(key => key.startsWith('key_show_'));
+  // A slot of the design without its switch still gets one: off is what the engine assumes
+  for (const slot of slots) if (!keys.includes('key_show_' + slot)) keys.push('key_show_' + slot);
+  const rank = key => key.startsWith('key_show_complication') ? 0 : 1;
+  keys.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  box.textContent = '';
+  if (!keys.length) { box.textContent = 'This design has no switches.'; box.className = 'info'; return; }
+  box.className = '';
+  for (const key of keys) {
+    const name = key.substring('key_show_'.length);
+    const slot = /^complication([1-5])$/.exec(name);
+    const value = metadata[key];
+    const row = document.createElement('label');
+    const box1 = document.createElement('input'); box1.type = 'checkbox';
+    box1.checked = value === true || value === 'true';
+    row.title = slot
+      ? 'Complication slot ' + slot[1] + ': shown or not. The wearer picks what it shows on the watch. (metadata.' + key + ')'
+      : 'Show this part of the face (metadata.' + key + ')';
+    const text = document.createElement('span');
+    text.textContent = slot ? 'Complication ' + slot[1] : (SWITCH_NAMES[name] || name.replace(/_/g, ' '));
+    row.append(box1, text);
+    if (slot && !slots.has(name)) { const where = document.createElement('span'); where.className = 'where'; where.textContent = '(no place in the design)'; row.append(where); }
+    box1.onchange = async () => {
+      const on = box1.checked;
+      // The form of the JSON stays: text for a design that has text, else a JSON boolean
+      const asText = typeof value === 'string' || value === undefined;
+      const answer = await edit('set', { path: 'metadata.' + key, value: asText ? String(on) : on });
+      if (answer.error) { box1.checked = !on; return; }
+      forgetFrames(); await loadLayers(true); render();
+    };
+    box.append(row);
+  }
+}
+
 // Scene keys with fixed values get a drop-down: the arrows cannot be typed on most keyboards.
 // The arrows are the symbols the phone sends (TrendArrow of AAPS); "??" is the phone's "no direction".
 const SCENE_CHOICES = {
@@ -666,7 +716,7 @@ function refresh(mark) {
   if (refreshBusy) { refreshAgain = true; return refreshBusy; }
   refreshBusy = (async () => {
     try {
-      do { refreshAgain = false; const marked = refreshMark; refreshMark = false; await loadInfo(); await loadLayers(marked); await loadScene(); await render(); } while (refreshAgain);
+      do { refreshAgain = false; const marked = refreshMark; refreshMark = false; await loadInfo(); await loadLayers(marked); await loadSwitches(); await loadScene(); await render(); } while (refreshAgain);
     } finally { refreshBusy = null; }
   })();
   return refreshBusy;
@@ -994,7 +1044,7 @@ function start() {
 // The start: the controls stay off until the first picture is there.
 async function first() {
   const began = Date.now();
-  await loadInfo(); await loadLayers(false); await loadScene();
+  await loadInfo(); await loadLayers(false); await loadSwitches(); await loadScene();
   cover('Drawing the first picture…', 'The first picture of a design takes a few seconds. The next ones come much faster.');
   await render();
   uncover();
