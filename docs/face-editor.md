@@ -181,6 +181,17 @@ with the wake slider, "Show boxes", "Grid" and "Pick a layer", the JSON of the s
 the scene, the check and a log of every command as its command line. When an agent changes the
 folder, the page shows the change and marks the changed layers.
 
+The right column has three boxes, by where a value lives:
+
+- **Design settings** (saved in the design zip): the switches "Show on the face" (`metadata.key_show_...`).
+- **Watch settings** (chosen by the wearer on the watch, not saved in the design): what each
+  complication slot shows, the choice of each design option (by its titles), and the two colours.
+- **Scene** (the values the watch receives, not saved in the design): time, glucose, arrow, IOB, COB,
+  weather, batteries, heart rate, steps and the others.
+
+Watch settings and scene are both kept in the scene of the project (`facetool scene`), only for the
+preview.
+
 The page also shows every picture an agent makes of the project: `render`, `wake`, `snapshot`,
 `options`, `looks` and the WFF pictures, with the agent's own values (`--set sgv=250`). A GIF plays, the
 frames of a wake play as a film, and a bar above the face shows the command line. "Back to my view", or
