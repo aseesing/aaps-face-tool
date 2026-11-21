@@ -2,6 +2,8 @@ package app.aaps.facetool.editor.server
 
 import android.graphics.Bitmap
 import app.aaps.core.interfaces.rx.weardata.CwfData
+import app.aaps.facetool.editor.model.AndroidJson
+import app.aaps.facetool.editor.model.JsonPaths
 import app.aaps.facetool.editor.model.ProjectFolder
 import app.aaps.facetool.editor.model.SceneStore
 import app.aaps.facetool.editor.model.Scenes
@@ -14,6 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
 import java.util.BitSet
+import java.util.Locale
 
 /**
  * What one layer or view draws alone in a scene.
@@ -69,9 +72,77 @@ class PictureCommands(
     }
 
     fun render(project: ProjectFolder, args: Args): JsonObject {
+        args.file("batch")?.let { return batch(project, args, it) }
         val scene = sceneOf(project, args)
-        val values = scenes.read(scene)
+        val file = args.file("out") ?: File(project.outDir("render"), "render.png")
+        val drawn = draw(project, loader.load(project), scene, args, file)
+        return picture(file, scene, drawn.text(file), extraWarnings = listOfNotNull(drawn.warning))
+    }
+
+    /** What [draw] made: the size of the picture, the moment of the wake, and the warning for a wake frame with text layers. */
+    private class Drawn(val size: String, val wakeMs: Long?, val warning: String?) {
+
+        fun text(file: File): String = "Wrote ${file.path} ($size, ${if (wakeMs == null) "at rest" else "${wakeMs / 1000.0} s into the wake"})"
+    }
+
+    /**
+     * `render --batch <file>`: many pictures in one call, from the one kept face of the project. The
+     * file is a JSON list; each entry holds scene keys (as `--set`; they go over the scene of the
+     * command) and may name its picture with `out`. Each picture is made exactly as a single
+     * `render` with that scene makes it.
+     */
+    private fun batch(project: ProjectFolder, args: Args, batchFile: File): JsonObject {
+        if (!batchFile.isFile) wrongUse("The batch file ${batchFile.path} is missing")
+        val list = runCatching { AndroidJson.parse(batchFile.readText()) }.getOrNull() as? JsonArray
+            ?: wrongUse("The batch file is a JSON list of scenes, for example [{\"sgv\": 250}, {\"wake\": 2.5, \"out\": \"wake.png\"}]")
+        if (list.isEmpty()) wrongUse("The batch file holds no scene")
+        val dir = args.file("out") ?: File(project.outDir("render"), "batch")
+        if (dir.isFile) wrongUse("With --batch, --out names a folder; ${dir.path} is a file")
+        val base = sceneOf(project, args)
+        val known = Scenes.KEYS.map { it.name }.toSet()
+        // Read every entry before the first picture: a wrong entry stops the batch with nothing drawn
+        val jobs = list.mapIndexed { index, entry ->
+            entry as? JsonObject ?: wrongUse("Entry $index of the batch is not an object of scene keys")
+            var scene = base
+            for ((key, value) in entry) {
+                if (key == "out") continue
+                if (key.substringBefore('.') !in known) wrongUse("Entry $index of the batch: '$key' is no scene key. Scene keys: ${known.joinToString(", ")}")
+                scene = if ('.' in key) JsonPaths.set(scene, JsonPaths.parse(key), value) as JsonObject else Scenes.over(scene, JsonObject(mapOf(key to value)))
+            }
+            scenes.read(scene)
+            val name = (entry["out"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.let { if ('.' in File(it).name) it else "$it.png" } ?: "%03d.png".format(index)
+            Triple(File(name).let { if (it.isAbsolute) it else File(dir, name) }, scene, JsonObject(entry - "out"))
+        }
+        jobs.groupBy { it.first.absolutePath }.values.firstOrNull { it.size > 1 }?.let { wrongUse("Two entries of the batch write the same picture: ${it.first().first.path}") }
         val cwf = loader.load(project)
+        val began = System.nanoTime()
+        val warnings = LinkedHashSet(facts.warnings())
+        val lines = ArrayList<String>()
+        val files = jobs.map { (file, scene, keys) ->
+            val start = System.nanoTime()
+            val drawn = draw(project, cwf, scene, args, file)
+            drawn.warning?.let { warnings += it }
+            lines += drawn.text(file)
+            buildJsonObject {
+                put("file", file.absolutePath)
+                put("keys", keys)
+                put("seconds", (System.nanoTime() - start) / 1e9)
+            }
+        }
+        val seconds = (System.nanoTime() - began) / 1e9
+        return buildJsonObject {
+            put("dir", dir.absolutePath)
+            put("files", JsonArray(files))
+            put("seconds", seconds)
+            put("aapsCommit", facts.aapsCommit ?: "unknown")
+            put("warnings", JsonArray(warnings.map { JsonPrimitive(it) }))
+            put("text", (lines + String.format(Locale.ROOT, "%d pictures in %.2f s.", files.size, seconds) + warnings.map { "warning: $it" }).joinToString("\n"))
+        }
+    }
+
+    /** Draws the design [cwf] for [scene] into [file], with `--only`, `--hide`, `--annotate`, `--grid` and `--zoom` of [args]. */
+    private fun draw(project: ProjectFolder, cwf: CwfData, scene: JsonObject, args: Args, file: File): Drawn {
+        val values = scenes.read(scene)
         val parts = DesignParts(cwf)
         val shown = shown(parts, args)
         val layers = shown.layers
@@ -81,14 +152,10 @@ class PictureCommands(
         if (args.flag("grid")) pictures.grid(bitmap)
         if (args.flag("annotate")) pictures.annotate(bitmap, partBoxes(project, cwf, parts, values, layers, views))
         args.text("zoom")?.let { box -> bitmap = pictures.zoom(bitmap, box).also { if (it !== bitmap) bitmap.recycle() } }
-        val file = args.file("out") ?: File(project.outDir("render"), "render.png")
         pictures.save(bitmap, file)
         val size = "${bitmap.width} x ${bitmap.height}"
         bitmap.recycle()
-        return picture(
-            file, scene, "Wrote ${file.path} ($size, ${if (values.wakeMs == null) "at rest" else "${values.wakeMs / 1000.0} s into the wake"})",
-            extraWarnings = listOfNotNull(parts.wakeTextWarning.takeIf { values.wakeMs != null })
-        )
+        return Drawn(size, values.wakeMs, parts.wakeTextWarning.takeIf { values.wakeMs != null })
     }
 
     /** The answer of a picture command (design 5.4: every answer says which AAPS commit drew it). */

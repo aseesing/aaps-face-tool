@@ -194,6 +194,17 @@ Two things the spike of step 1 showed:
   again, and shows the design: the wake starts again and the picture is the same as from a new face
   (measured on 6 designs, rest and wake, one design after another in the same face). It feeds the
   values again only when the scene's values or time changed.
+- **Open fault, found on 2026-11-21: a face that is fed a second time keeps old values in its text
+  layers.** On Aurora Town the glucose text stays at 6.7 for `--set sgv=250` once the face has
+  shown the default scene (the classic views of D2 do change), and a picture for another time
+  differs from the picture of a new face. No test has another value than the default, so 12.3 did
+  not see it. A fix was tried: a new face for the project whenever the values or the time change
+  (0.37 s for such a picture of Aurora Town). With it `RenderIdentity*Test` also passes for other
+  values and another time, on all 12 designs. But it changes golden hashes of
+  `sheets/D2.txt` (the looks sheet, the five snapshot pictures, the diff picture) and
+  `sheets/Aurora_Town.txt` (the snapshot at night): those pictures are made after the scene changed
+  in a kept face. The rule of this work was that no golden hash changes, so the fix is not in. It
+  waits for the owner's word.
 
 ---
 
@@ -490,7 +501,7 @@ Picture (server):
 
 | Command | What it does |
 |---|---|
-| `render [scene keys] [--out f.png]` | The engine face for the scene. `--wake 2.5` a moment of the wake. `--only 3,5` or `--hide 7` draws only some layers or views (as `WffDesignParts` does for the converter: the others `gone` or `visible` 0). `--annotate` draws each layer's box and number on top. `--grid` draws the 400 grid and the round edge. `--zoom x,y,w,h` crops. |
+| `render [scene keys] [--out f.png]` | The engine face for the scene. `--wake 2.5` a moment of the wake. `--only 3,5` or `--hide 7` draws only some layers or views (as `WffDesignParts` does for the converter: the others `gone` or `visible` 0). `--annotate` draws each layer's box and number on top. `--grid` draws the 400 grid and the round edge. `--zoom x,y,w,h` crops. `--batch scenes.json` draws many pictures in one call from the one kept face: the file is a JSON list, each entry an object of scene keys (they go over the scene of the command) with the name of its picture as `out` when wanted. `--out` is then the folder. The answer lists the files and the time. Each picture has the bytes of a single `render` with that scene (`RenderBatchTest`). A wrong entry stops the batch before the first picture. |
 | `wake [--fps 8] [--from s] [--to s]` | The wake as frames: `--sheet` one contact sheet PNG with the time under each frame (the best input for an AI), `--frames dir` the single PNGs, `--gif f.gif` an animation. `--no-sheet` makes only the single frames: then no frame is kept in memory and up to 1800 frames fit (240 with a sheet), and the frames are packed fast (the same pixels, other bytes, see section 16). `--only` and `--hide` as `render`. |
 | `options` | One picture per choice of each option (a sheet), and per colour slot. |
 | `looks` | Which looks are active in the scene, and a sheet of the looks with a scene for each that turns it on, when the editor can find one (`when` on values, time or day). As built: the harness cannot ask the engine which looks are on, so a look counts as on when the design without it draws another picture. The scenes tried are the scene of the command, the presets, and the weather `rain`, `cloudy` and `partly`. |
@@ -1158,6 +1169,11 @@ The editor never needs AAPS to depend on it. It needs no change of the converter
   ms, and the server makes frames faster than the film shows them. The pixels are the same (a
   test compares them); a file is about 10 % larger. Only the frames of `--no-sheet` are written
   this way: every picture with a golden hash still comes from Android's writer.
+
+  Measured for `render --batch` (2026-11-21, Aurora Town, 450 px, 10 scenes: 3 glucose values, 2
+  wake moments, 2 option choices, 2 other times, rain): 2.9 to 3.4 s in the server for the 10 pictures, in
+  one call. Each call of the CLI
+  adds the start of its JVM (about 0.5 s), so 10 single calls take longer.
 
   Found on the way, not solved: the first `wake` of a kept face differs from every later `wake` of
   the same design and scene in some hundred pixels, in frames from 1 s on (D2: 576 pixels in the box

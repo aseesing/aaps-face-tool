@@ -27,7 +27,8 @@ through `~/.claude/bin/gradle-locked.sh`, in the background):
    `facetool res add <file>`, or edit `CustomWatchface.json` yourself. `facetool undo` takes a change back.
 4. Look: `facetool render` (the picture at rest), `facetool render --annotate --grid` (where each
    layer draws), `facetool wake --sheet` (the wake as one picture), `facetool options`,
-   `facetool looks`. Read the PNG the answer names.
+   `facetool looks`. Read the PNG the answer names. For many scenes at once write a JSON list of
+   scenes and run `facetool render --batch scenes.json --out <folder>`: one call, one picture each.
 5. Check: `facetool lint`. Fix every error. Read the warnings.
 6. WFF: `facetool wff plan` (what is live, baked, in the data picture, left out),
    `facetool wff compare` (the engine next to WFF 4 and WFF 2), `facetool wff xml`.

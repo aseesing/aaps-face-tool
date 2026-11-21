@@ -61,6 +61,9 @@ Good to know:
 
 - `facetool render --annotate --grid` draws the box and the number of each layer and view, and the
   grid of the 400 design units. `facetool pick 200 120` says which layers and views draw a point.
+- `facetool render --batch scenes.json --out <folder>` draws many scenes in one call, for example
+  `[{"sgv": 250, "direction": "↑", "out": "high.png"}, {"wake": 2.5}, {"options.moon": 1}]`. That
+  saves the start of the CLI for each picture, and the pictures are the same as from single calls.
 - `facetool keys layer` and `facetool manual <topic>` give the keys and the manual of the engine of
   the AAPS commit that draws. `facetool expand` shows the plain layers a `use` of a template makes.
 - A path counts the entries of `animation.layers` in the JSON. The engine and the WFF lint count the
@@ -622,9 +625,9 @@ facetool history
 
 #### `render`
 
-`facetool render [--scene <file>] [--set <string>] [--out <file>] [--wake <number>] [--only <string>] [--hide <string>] [--annotate] [--grid] [--zoom <string>]`
+`facetool render [--scene <file>] [--set <string>] [--out <file>] [--wake <number>] [--only <string>] [--hide <string>] [--annotate] [--grid] [--zoom <string>] [--batch <file>]`
 
-Draws the engine face for the scene into a PNG.
+Draws the engine face for the scene into a PNG. --batch draws many pictures in one call, from the one kept face: the file is a JSON list, each entry an object of scene keys (as --set; nested keys also as "options.moon") with its picture name as "out" when wanted: [{"sgv": 250, "direction": "↑", "out": "high.png"}, {"wake": 2.5}]. The keys go over the scene of the command. Each picture is the same as a single render with that scene. --out is then the folder (default .facetool/out/render/batch/), the names are 000.png, 001.png, ... or the out of the entry.
 
 Runs: in the server (started when needed)
 
@@ -639,13 +642,15 @@ Runs: in the server (started when needed)
 | `--annotate` | flag | Draw the box and the number of each layer on top. |
 | `--grid` | flag | Draw the 400 grid and the round edge. |
 | `--zoom <string>` | string | Crop to x,y,w,h in design units. |
+| `--batch <file>` | file | A JSON file with a list of scenes: one picture each, in one call. |
 
-Answer with `--json`: `{"file": path of the PNG, "scene": {...}, "aapsCommit": text, "warnings": [text], "text": text}`
+Answer with `--json`: `{"file": path of the PNG, "scene": {...}, "aapsCommit": text, "warnings": [text], "text": text}; with --batch: {"dir": folder, "files": [{"file": path of the PNG, "keys": the scene keys of the entry, "seconds": number}], "seconds": the whole time, "aapsCommit": text, "warnings": [text], "text": text}`
 
 ```
 facetool render
 facetool render --wake 2.5 --set sgv=180 --out /tmp/face.png
 facetool render --only 3,5 --annotate --grid
+facetool render --batch scenes.json --out /tmp/pictures
 ```
 
 #### `wake`

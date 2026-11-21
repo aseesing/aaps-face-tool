@@ -244,18 +244,23 @@ object StandardCommands {
 
     private fun pictures(): List<CommandSpec> = listOf(
         CommandSpec(
-            "render", PICTURE, "Draws the engine face for the scene into a PNG.",
+            "render", PICTURE,
+            "Draws the engine face for the scene into a PNG. --batch draws many pictures in one call, from the one kept face: " +
+                "the file is a JSON list, each entry an object of scene keys (as --set; nested keys also as \"options.moon\") with its picture name as \"out\" when wanted: " +
+                "[{\"sgv\": 250, \"direction\": \"↑\", \"out\": \"high.png\"}, {\"wake\": 2.5}]. The keys go over the scene of the command. " +
+                "Each picture is the same as a single render with that scene. --out is then the folder (default .facetool/out/render/batch/), the names are 000.png, 001.png, ... or the out of the entry.",
             picture() + listOf(
                 opt("wake", NUMBER, "A moment of the wake: seconds since it began."),
                 opt("only", STRING, "Draw only these layers or views: indexes and view names with commas, for example 3,5,sgv."),
                 opt("hide", STRING, "Do not draw these layers or views."),
                 opt("annotate", FLAG, "Draw the box and the number of each layer on top."),
                 opt("grid", FLAG, "Draw the 400 grid and the round edge."),
-                opt("zoom", STRING, "Crop to x,y,w,h in design units.")
+                opt("zoom", STRING, "Crop to x,y,w,h in design units."),
+                opt("batch", FILE, "A JSON file with a list of scenes: one picture each, in one call.")
             ),
             server = true,
-            examples = listOf("facetool render", "facetool render --wake 2.5 --set sgv=180 --out /tmp/face.png", "facetool render --only 3,5 --annotate --grid"),
-            answer = PICTURE_ANSWER
+            examples = listOf("facetool render", "facetool render --wake 2.5 --set sgv=180 --out /tmp/face.png", "facetool render --only 3,5 --annotate --grid", "facetool render --batch scenes.json --out /tmp/pictures"),
+            answer = "$PICTURE_ANSWER; with --batch: {\"dir\": folder, \"files\": [{\"file\": path of the PNG, \"keys\": the scene keys of the entry, \"seconds\": number}], \"seconds\": the whole time, \"aapsCommit\": text, \"warnings\": [text], \"text\": text}"
         ),
         CommandSpec(
             "wake", PICTURE, "The wake as frames. --sheet gives one contact sheet with the time under each frame (the best input for an AI).",

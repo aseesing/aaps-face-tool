@@ -96,7 +96,7 @@ class CommandTableTest {
         val commands = json["commands"] as JsonArray
         assertThat(commands.map { (it as JsonObject).text("name") }).isEqualTo(table.commands.map { it.name })
         val render = commands.first { (it as JsonObject).text("name") == "render" } as JsonObject
-        assertThat((render["args"] as JsonArray).map { (it as JsonObject).text("name") }).containsExactly("scene", "set", "out", "wake", "only", "hide", "annotate", "grid", "zoom").inOrder()
+        assertThat((render["args"] as JsonArray).map { (it as JsonObject).text("name") }).containsExactly("scene", "set", "out", "wake", "only", "hide", "annotate", "grid", "zoom", "batch").inOrder()
         assertThat(render["server"]).isEqualTo(JsonPrimitive(true))
 
         val markdown = test.ok(null, "help", "--markdown").text("text")
@@ -115,6 +115,7 @@ class CommandTableTest {
         assertThat(args("layer", "add", "{}", "--at=3")).isEqualTo("""{"json":{},"at":3}""")
         assertThat(args("render", "--set", "sgv=180", "--set", "options.moon=1", "--wake", "2.5", "--grid", "--out", "face.png", "--scene", "/s/scene.json"))
             .isEqualTo("""{"scene":"\/s\/scene.json","set":["sgv=180","options.moon=1"],"out":"\/work\/face.png","wake":2.5,"grid":true}""")
+        assertThat(args("render", "--batch", "scenes.json", "--out", "pictures")).isEqualTo("""{"out":"\/work\/pictures","batch":"\/work\/scenes.json"}""")
         assertThat(args("wake")).isEqualTo("""{"fps":8,"from":0}""")
         assertThat(args("wff", "plan", "--version", "2")).isEqualTo("""{"version":"2"}""")
         assertThat(args("diff", "history:3", "sub/dir", "--render")).isEqualTo("""{"a":"history:3","b":"\/work\/sub\/dir","render":true}""")
