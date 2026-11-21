@@ -101,10 +101,10 @@ class SheetCommands(
             put("times", JsonArray(atMs.map { JsonPrimitive(it / 1000.0) }))
             put("seconds", seconds)
             put("scene", scene)
-            val warning = PictureCommands.AMBIENT_WAKE_WARNING.takeIf { values.ambient }
-            put("warnings", JsonArray(listOfNotNull(warning).map { JsonPrimitive(it) }))
+            val warnings = listOfNotNull(PictureCommands.AMBIENT_WAKE_WARNING.takeIf { values.ambient }) + PictureCommands.designWins(cwf, scene)
+            put("warnings", JsonArray(warnings.map { JsonPrimitive(it) }))
             put("text", (file?.let { "Wrote the contact sheet ${it.path}: ${files.size} frames" } ?: "Wrote ${files.size} frames") +
-                " from $from s to $to s at $fps a second. Single frames in ${dir.path}" + (warning?.let { "\nwarning: $it" } ?: ""))
+                " from $from s to $to s at $fps a second. Single frames in ${dir.path}" + warnings.joinToString("") { "\nwarning: $it" })
         }
     }
 

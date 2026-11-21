@@ -76,8 +76,9 @@ class PictureCommands(
         args.file("batch")?.let { return batch(project, args, it) }
         val scene = sceneOf(project, args)
         val file = args.file("out") ?: File(project.outDir("render"), "render.png")
-        val drawn = draw(project, loader.load(project), scene, args, file)
-        return picture(file, scene, drawn.text(file), extraWarnings = listOfNotNull(drawn.warning))
+        val cwf = loader.load(project)
+        val drawn = draw(project, cwf, scene, args, file)
+        return picture(file, scene, drawn.text(file), extraWarnings = listOfNotNull(drawn.warning) + designWins(cwf, scene))
     }
 
     /**
@@ -143,6 +144,7 @@ class PictureCommands(
             val start = System.nanoTime()
             val drawn = draw(project, cwf, scene, args, file)
             drawn.warning?.let { warnings += it }
+            warnings += designWins(cwf, scene)
             lines += drawn.text(file)
             buildJsonObject {
                 put("file", file.absolutePath)
@@ -263,6 +265,27 @@ class PictureCommands(
 
         /** For a moment of the wake asked of a scene with `ambient`. */
         const val AMBIENT_WAKE_WARNING = "the scene has ambient=true: always-on has no wake animation, so this is the always-on face"
+
+        /**
+         * The scene keys `watch.X` that do nothing because the design sets the same switch in its metadata
+         * (`metadata.key_X`): the face writes the design's value into the watch setting each time it reads
+         * the design (`CustomWatchface.updatePref`), as on the watch. One warning per such key.
+         */
+        fun designWins(cwf: CwfData, scene: JsonObject): List<String> {
+            val watch = (scene["watch"] as? JsonObject)?.keys.orEmpty()
+            if (watch.isEmpty()) return emptyList()
+            val metadata = runCatching { AndroidJson.parseObject(cwf.json, "the design")["metadata"] as? JsonObject }.getOrNull() ?: return emptyList()
+            val byName = metadata.keys.filter { it.startsWith("key_") }.associateBy { plain(it.removePrefix("key_")) }
+            return watch.mapNotNull { key ->
+                byName[plain(key)]?.let { meta ->
+                    "watch.$key does nothing here: the design sets metadata.$meta, and the design's switch wins, as on the watch. " +
+                        "Change metadata.$meta to try another value, or remove it to let the wearer choose."
+                }
+            }
+        }
+
+        /** A setting name without `_` and in lower case: `show_complication_1` and `show_complication1` are the same. */
+        private fun plain(name: String): String = name.replace("_", "").lowercase(Locale.ROOT)
 
         /** The preview picture of a design, as the designs of AAPS have it: `CustomWatchface.jpg`, 400 x 400. */
         const val PREVIEW_NAME = "CustomWatchface"
