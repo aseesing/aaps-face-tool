@@ -12,6 +12,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowPausedSystemClock
+import java.time.ZoneId
 import java.io.File
 import java.lang.management.ManagementFactory
 
@@ -43,6 +44,8 @@ class EditorServerMain {
     fun serve() {
         assumeTrue("Runs only as the editor server, with -Deditor.serve=true", System.getProperty("editor.serve") == "true")
         val home = System.getProperty("user.home")
+        // The time zone of the computer, before the engine's clock sets its own: the saves record local time
+        val zone = ZoneId.systemDefault()
         val clock = SnapshotClock()
         clock.start()
         try {
@@ -53,7 +56,8 @@ class EditorServerMain {
                 cacheRoot = File(System.getProperty("editor.cache") ?: "$home/.cache/aaps-face-editor"),
                 designsDir = designsDir(),
                 guiDir = System.getProperty("editor.gui")?.let { File(it) },
-                driveDir = DriveExport.find(System.getProperty("editor.checkout")?.let { File(it, "local.properties") }, File(home))
+                driveDir = DriveExport.find(System.getProperty("editor.checkout")?.let { File(it, "local.properties") }, File(home)),
+                wallClock = EditorServer.realClock(zone)
             ).serve(ManagementFactory.getRuntimeMXBean().startTime)
         } finally {
             clock.stop()

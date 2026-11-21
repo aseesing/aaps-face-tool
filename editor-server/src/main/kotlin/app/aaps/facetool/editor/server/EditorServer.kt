@@ -15,6 +15,7 @@ import kotlinx.serialization.json.put
 import java.io.File
 import java.security.SecureRandom
 import java.time.Clock
+import java.time.ZoneId
 
 /**
  * The parts of the render server, put together (design section 5). `EditorServerMain` makes one inside
@@ -26,14 +27,15 @@ import java.time.Clock
  * @param designsDir the folder with the design zips the page offers to open, or null
  * @param guiDir a folder with the files of the page, to try a change of the page without a new build
  * @param renderThread in a test a direct one: a command draws on the calling thread, there is no render loop
+ * @param wallClock the real time of the computer, for the history, the saves and the locks. Never the
+ *   engine's frozen clock: see [realClock]
  */
 class EditorServer(
     app: Application, logger: AAPSLogger, clock: EngineClock, private val checkout: String?, private val aapsDir: File?, editingRoot: File, cacheRoot: File, designsDir: File?, private val guiDir: File? = null,
-    private val renderThread: RenderThread = RenderThread(), driveDir: File? = null
+    private val renderThread: RenderThread = RenderThread(), driveDir: File? = null, private val wallClock: Clock = realClock()
 ) {
 
     private val table = CommandTable.standard()
-    private val wallClock = Clock.systemUTC()
     private val facts = ServerFacts.of(checkout?.let { File(it) }, aapsDir, System.currentTimeMillis())
     private val token = ByteArray(24).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
     private val life = ServerLife(cacheRoot, checkout ?: "test", token, facts, { System.currentTimeMillis() })
@@ -161,5 +163,18 @@ class EditorServer(
             stop()
             println("facetool server stopped")
         }
+    }
+
+    companion object {
+
+        /**
+         * The clock of the computer, in the time zone [zone].
+         *
+         * Not `Clock.systemUTC()` and not `Clock.systemDefaultZone()`: while the engine's frozen clock
+         * runs (`SnapshotClock`), those two calls give the frozen clock on the thread that started it,
+         * and that is the thread that makes the server. A history entry and the file dates of a saved
+         * zip then had the time of the last picture (17 Nov 2026). `Clock.system` is not replaced.
+         */
+        fun realClock(zone: ZoneId = ZoneId.systemDefault()): Clock = Clock.system(zone)
     }
 }
