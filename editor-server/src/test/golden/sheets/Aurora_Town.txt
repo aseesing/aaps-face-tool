@@ -1,11 +1,11 @@
-wake sheet 566ca6a3835b2988518f4a81dff7e86b610c213a967cc5f4120c35a6df48ac18
-wake frame 0 cb8ff2583df8a7eb620d624c8621ca879e5ef397c56d040cb1be655dd1780a4b
-wake frame 1 d24a86300e4d0ff569ac88414409e225ec3650a5ee8c6de2cec155d03784f7dd
-wake frame 2 0c2b5e82812c7ab16c62f67e67ba65b973099f0a7ab0dfe97a07a737a23b0469
-wake frame 3 1b4170cf9004fab8339da7821cdcd72508f10af8cf1a0a34e9ab7466f22da45b
-wake frame 4 b0aa711ecf6ff67c1721503828d4b0b09b1e74b42671935748bb93458c2cdd84
-wake frame 5 e87e151b9169f6f923ab39771fe54a9a2e35132b441f09476cb7a14b0cdf431d
-wake frame 6 c105b3fe09bfbbf2026564edf29115b5e7e63314725604863fde7c600a922aba
+wake sheet 0168362d37fd05ba53347e32e3d309c7f1d283e62cd7eaa072ba5c29755ff8af
+wake frame 0 b684f6c327ea75371003b49dadde89c1a73f461b948ec21e893486bc4ca862f9
+wake frame 1 e28922bea8d687e8f78e37845dd027cc529c2808146e19ea48b330bbad0d2c39
+wake frame 2 a272703d76cd75f4c3437cc571beab8f6c09d612979cb78ada6f9d4a7e3d8276
+wake frame 3 45d4fcb8795335873395b35d666f92dddf0aa382c971f80cd9b6cdaad331e7a5
+wake frame 4 b29919ffe227ca7f2dd0d9b00f01dd23b4aab8f36255fbd342a040902eb0bb11
+wake frame 5 61edfa238def74b9bf5b1706d1dde98d107050323f2dc6a9323decc8ee88a0b5
+wake frame 6 3952171818952f8912d7645ff2ba1d2892626c4bb71bbfa184fedb8a39e7b4a0
 options 411fdf845c49841f2a6c83be228fc36abe1421bb8624d5a0efeceee966b7d708
 Wrote the sheet <temp>/projects/Aurora_Town/.facetool/out/options/options.png: 9 pictures (moon 0: Still; moon 1: Across the sky; moon 2: Real sky; aurora 0: Calm; aurora 1: Normal; aurora 2: Lively; santa 0: At Christmas; santa 1: Always; santa 2: Never)
 looks none
@@ -19,9 +19,9 @@ L18  animation.layers[18]  {"image":"StarGlow","rect":{"left":135.8,"top":127.2,
 pick 5 5
 Nothing but the background draws at 5.0, 5.0.
 snapshot rest b2a04b10da78dfb9bb5268b016dafef2ee04509cae16ceeeac73ef3294192592
-snapshot wake-1 eb503659eadad400a35b52264867693715c61615b59cb6759077d752ae9a538c
-snapshot wake-2 534a668e810dd9be417a61f3e648cee593e0d971bfe2ff15ff07d36474dbdb4a
-snapshot wake-3 dadb695b03423bcc28b2f0883e55911eaa38116604c92bee2ef7152c1dba4505
+snapshot wake-1 da426bdaf2d80c526df1b042cdee7e4aca7d88a0e8b2d434ca56b4cc082a31e8
+snapshot wake-2 30101597da7c107ac5f538a8eb5d992001336613c46582f7e18a2973fb9c7a47
+snapshot wake-3 afce4167a9b4cda6d06923377641d8cab6a563277f2b4a7c272e889c7532c331
 snapshot night 2d6714d2bd79c5ae2d920a205833280a710168d72848f547563fb0d1ada457ef
 diff 93a482d1237637034b774f9698a33b91ec35e6720b2b4411341642610020efaa
 - animation.layers[0]: {"shape":"circle","colors":["#E8EEFF"],"slot":"back","rest":0,"count":45,"seed":11,"x":"16 + r1 *...

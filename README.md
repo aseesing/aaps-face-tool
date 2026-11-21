@@ -14,7 +14,8 @@ the data picture (`docs/wff-apk.md`).
 ## How it is built
 
 - It uses the AAPS source code as an included Gradle build (a composite build). Set `aapsDir` in
-  `local.properties` to an AAPS checkout with the WFF complications (branch `local/wear-wff-slim`).
+  `local.properties` to an AAPS checkout with the WFF complications (branch `local/editor-engine`:
+  `local/wear-wff-slim` with four small changes for the editor).
   `aaps-commit.txt` names the AAPS commit this repo was last tested with; the build warns when the
   checkout is on another one.
 - AAPS never depends on this repo. AAPS keeps what the watch needs: the layer engine with the WFF

@@ -106,7 +106,8 @@ are decided.
 | The TS designer | `~/Projects/aaps-watchfaces/designer/` (untracked, about 13,000 lines) | Not used. See 4.2. |
 
 The AAPS checkout is an included build (`aapsDir`), pinned by `aaps-commit.txt` (today
-`380ea15181`, branch `local/wear-wff-slim`). The editor uses the same checkout and the same pin.
+`3b185386d4`, branch `local/editor-engine`: `local/wear-wff-slim` at `380ea15181` plus the four
+small changes of section 15). The editor uses the same checkout and the same pin.
 
 ---
 
@@ -986,24 +987,32 @@ Do not change the engine or the converter; section 15 lists what needs the owner
 
 ## 15. Changes outside this repository
 
-None is needed to start. Each needs the owner's yes, in its own session.
+On 2026-11-21 the owner allowed small AAPS changes. The permission system refused them to the build
+session twice (on the coordinator's word), so the coordinator session made them after the owner
+said so to it directly. They are on branch `local/editor-engine` (worktree
+`~/Projects/AndroidAPS-editor-aaps`, cut from `380ea15181`), one commit each, and `aaps-commit.txt`
+pins the last one:
 
-On 2026-11-21 the owner allowed small AAPS changes through the coordinator of the build, and the
-build prepared four of them in a worktree of its own (`~/Projects/AndroidAPS-editor-aaps`, branch
-`local/editor-engine`, cut from `380ea15181`). The permission system of the build session refused
-to commit into AAPS on a coordinator's word, so **no AAPS change was made**: the worktree is as it
-was cut. Later the same day the owner answered "Yes, all four" to the coordinator; the first edit in
-that worktree was refused again, and the build did not work around it. The changes wait for a
-session whose permissions allow edits in `~/Projects/AndroidAPS-editor-aaps`. The four changes, each small, ready to be made once the owner says so himself:
+1. `95741bc6c0` `CwfPreviewRenderer`: `texts = face.faceTexts` for its `WakeAnimator`. Text layers
+   in wake frames now have the design's fonts and the watch's units, also in the AAPS phone preview.
+   Changes the wake goldens of Aurora Town (`render/designs.txt`, `sheets/Aurora_Town.txt`).
+2. `f18261576e` `PreviewHost`: `batchWindowMs = 0L` on its `ComplicationDataRepository`. The watch
+   keeps its 500 ms.
+3. `7a0d9a9273` `CwfPreviewRenderer.ambient`: draws the always-on face; no wake animation and no
+   `wake()` while it is true.
+4. `3b185386d4` `Templates`: `wff` on a `use` entry is no parameter; each layer the template makes
+   gets it, unless it has its own. No picture changes.
 
-1. `CwfPreviewRenderer`: `texts = face.faceTexts` for its `WakeAnimator` (one line; `faceTexts` is
-   already `internal`). Fixes the text layers in wake frames, also in the AAPS phone preview.
-2. `PreviewHost`: `ComplicationDataRepository(...).apply { batchWindowMs = 0L }` (the field is
-   `internal` and in the same module). A picture with new scene values in 0.3 s instead of 2.3 s.
-3. `CwfPreviewRenderer`: a property `ambient` (default false) handed to the two `compose` calls,
-   and no wake animation while it is true. The engine preview of always-on.
-4. `Templates`: `wff` is no parameter of a `use`, and each layer the `use` makes gets the key when
-   it has none. The engine never reads `wff`, so no picture changes.
+Tested: `:wear:cwfrender` (23 tests, one new for always-on) and `:wear` (1095 tests, four new in
+`TemplatesWffTest`), then this repo's tests: root 95, `wffGoldenTest` 12, editor 80, all green;
+`wffParityTest` 101 of 102. The one failure, `ParityClassicFaceGlucoseTest.handsDefaultPictures`, is
+a flake that also happens on `380ea15181`: the default hand pictures (`R.drawable.hour_hand`, drawn
+by `WffApkBuilder`) come out with one of two hashes, depending on the run. Both show the same white
+hand at 12. A `mutate()` of the drawable did not make it stable. Not solved yet.
+
+Not yet used by the editor (next work): `render --wake` and `wake` still warn about text layers, the
+scene key `ambient` still works only in the player, and nothing has measured the new time for a
+picture with new scene values.
 
 Left out on purpose: the skip of `wff.only` layers (the planner and `WffDesignParts` count on the
 engine reading as many layers as the templates make, so it belongs in the same change as the
@@ -1012,13 +1021,13 @@ does not change how an animation looks).
 
 | Where | Change | Why | Until then |
 |---|---|---|---|
-| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | A way to draw the always-on frame (`compose(..., ambient = true)` exists inside, the renderer always passes `false`) | Engine preview of always-on | The engine preview has no always-on; the scene key `ambient` works only in the player, and the GUI says so |
+| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | A way to draw the always-on frame (`compose(..., ambient = true)` exists inside, the renderer always passes `false`) | Engine preview of always-on | Done (`7a0d9a9273`); the editor does not use it yet |
 | AAPS engine | Skip a layer with `"wff": {"only": true}` (motion doc 8.1, already decided) | `only` layers must not show in the engine preview | The editor's `render` hides `only` layers itself (as `--hide`), and says so |
 | `aaps-watchfaces` | `editing/` in `.gitignore` | The default place of project folders (6.1) | `--dir` elsewhere |
-| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | Give its `WakeAnimator` the texts and the frame layers of the face (`texts = faceTexts`, `layers = frameLayers`), as `CustomWatchface` does on the watch | Found in step 6: in a wake frame of the preview a text layer is drawn with the default font and without the watch's units (Aurora Town shows a plain "121" in the wake and its own "6.7" at rest). This is also so in the AAPS phone app | `render --wake` and `wake` warn when the design has text layers. The rest picture is right |
-| AAPS engine, `Templates` | Let a `use` entry carry a `wff` key (and hand it to the layers it makes) | The motion doc 4.1 wants `wff` on any layer; today the engine says "'rain' has no parameter 'wff'" and leaves the layers out | `wff` only on plain layers and inside a template's own layers |
+| AAPS `:wear:cwfrender`, `CwfPreviewRenderer` | Give its `WakeAnimator` the texts and the frame layers of the face (`texts = faceTexts`, `layers = frameLayers`), as `CustomWatchface` does on the watch | Found in step 6: in a wake frame of the preview a text layer is drawn with the default font and without the watch's units (Aurora Town shows a plain "121" in the wake and its own "6.7" at rest). This is also so in the AAPS phone app | Done (`95741bc6c0`, texts only); the editor still warns until its warning is removed |
+| AAPS engine, `Templates` | Let a `use` entry carry a `wff` key (and hand it to the layers it makes) | The motion doc 4.1 wants `wff` on any layer; today the engine says "'rain' has no parameter 'wff'" and leaves the layers out | Done (`3b185386d4`) |
 | AAPS `:wear:cwfrender` | Let the harness ask the face which looks are on, and the values it reads (`designValue` is internal) | `looks` could say which looks are on without drawing each one | `looks` compares pictures (8.2) |
-| AAPS `wear`, `ComplicationDataRepository` | A way for `CwfPreviewRenderer` to turn off the 500 ms wait before a write (`batchWindowMs` is `internal`) | A picture with new scene values in 0.3 s instead of 2.3 s (section 16) | The server keeps a face and feeds it only when the scene changed |
+| AAPS `wear`, `ComplicationDataRepository` | A way for `CwfPreviewRenderer` to turn off the 500 ms wait before a write (`batchWindowMs` is `internal`) | A picture with new scene values in 0.3 s instead of 2.3 s (section 16) | Done (`f18261576e`) |
 
 The editor never needs AAPS to depend on it. It needs no change of the converter: the harness move
 (step 2) is a move of test helpers, and the split of `WffApkBuilder.build` changes no output.
