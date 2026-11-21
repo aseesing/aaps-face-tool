@@ -17,7 +17,6 @@ import app.aaps.wear.watchfaces.settingsync.CwfSyncedSetting
 import app.aaps.wear.watchfaces.settingsync.CwfSyncedSettings
 import app.aaps.wear.watchfaces.utils.WatchFaceTime
 import org.json.JSONObject
-import org.mockito.kotlin.mock
 import java.io.File
 import kotlin.math.PI
 import kotlin.math.exp
@@ -32,8 +31,10 @@ import kotlin.math.sin
  * A design is drawn the way the phone preview of AAPS draws it ([CwfPreviewRenderer]): a still frame
  * goes through the watch's own frame pipeline, a frame of the wake-up animation through the watch's
  * own wake animator. The values come in as the same messages the phone sends to the watch.
+ *
+ * @param logger the log of the faces; the tests give a mock, as before the harness moved to `src/main`
  */
-class SnapshotEngine(private val app: Application) {
+class SnapshotEngine(private val app: Application, private val logger: AAPSLogger) {
 
     /** A design, read from its zip. */
     class Design(val name: String, internal val data: CwfData) {
@@ -63,7 +64,7 @@ class SnapshotEngine(private val app: Application) {
      */
     inner class Face(private val name: String) {
 
-        private val renderer = CwfPreviewRenderer(app, mock<AAPSLogger>(), name)
+        private val renderer = CwfPreviewRenderer(app, logger, name)
 
         /** True while the wake-up animation plays (the last frame was a frame of it). */
         val isAnimating: Boolean get() = renderer.isAnimating

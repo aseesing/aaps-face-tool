@@ -1,5 +1,7 @@
 package app.aaps.facetool.editor.server
 
+import app.aaps.core.interfaces.logging.AAPSLogger
+import org.mockito.kotlin.mock
 import android.app.Application
 import android.graphics.Bitmap
 import app.aaps.facetool.snapshot.SnapshotClock
@@ -55,7 +57,7 @@ class EditorServerMain {
         val out = File(System.getProperty("editor.out") ?: "build/editor/out").apply { mkdirs() }
         val app = RuntimeEnvironment.getApplication()
         clock.start()
-        val engine = SnapshotEngine(app)
+        val engine = SnapshotEngine(app, mock<AAPSLogger>())
         val server = HttpServer.create(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 0)
         server.executor = Executors.newCachedThreadPool()
         server.createContext("/render") { exchange ->

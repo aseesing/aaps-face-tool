@@ -1,5 +1,7 @@
 package app.aaps.facetool.wff
 
+import app.aaps.core.interfaces.logging.AAPSLogger
+import org.mockito.kotlin.mock
 import android.app.Application
 import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import app.aaps.facetool.snapshot.SnapshotClock
@@ -59,7 +61,7 @@ class WffApkTest {
         val cache = File(System.getProperty("user.home"), ".cache/aaps-wff")
         val pack = File(cache, "pack/target/release/pack-cli").takeIf { it.isFile } ?: File(cache, "pack/target/release/pack-cli.exe")
         check(pack.isFile) { "Pack is not built: run tools/build-pack.sh (docs/wff-apk.md)" }
-        val baker = WffBaker(SnapshotEngine(app), clock, SIZE)
+        val baker = WffBaker(SnapshotEngine(app, mock<AAPSLogger>()), clock, SIZE)
         val appIds = System.getProperty("wff.client")?.let { listOf(it) } ?: WffFaceZip.APP_IDS
         val builder = WffApkBuilder(app, baker, appIds.first(), pack, File(cache, "dev-key.pem"))
         // The scene first, while the clock is still at the real time: baking moves the clock on

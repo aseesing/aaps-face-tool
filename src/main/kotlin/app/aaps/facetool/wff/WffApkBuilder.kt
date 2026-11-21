@@ -51,6 +51,17 @@ class WffApkBuilder(
      */
     class FaceZip(val appIds: List<String>, val file: File)
 
+    /**
+     * A design as a face folder, before Pack: what [convert] made.
+     *
+     * @param face the face folder that Pack reads (WFF 4, for the wear app of the builder), or null when
+     *   the design cannot be a face (the lint says why)
+     */
+    class Converted internal constructor(
+        val lint: String, val face: File?, val design: CwfData,
+        internal val parts: WffDesignParts?, internal val written: WffFaceWriter.Face?, internal val writer: ((String, Int) -> WffFaceWriter.Face)?
+    )
+
     fun build(zip: File, dir: File, faceZip: FaceZip? = null): Result =
         build(ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)?.cwfData ?: error("${zip.name} is not a design zip"), dir, faceZip)
 
@@ -59,7 +70,13 @@ class WffApkBuilder(
      * the faces of its other wear apps and of WFF 2, and the face zip. [Result.faceZip] is null when a
      * face of the zip could not be made (the lint says why).
      */
-    fun build(cwf: CwfData, dir: File, faceZip: FaceZip? = null): Result {
+    fun build(cwf: CwfData, dir: File, faceZip: FaceZip? = null): Result = pack(convert(cwf, dir), dir, faceZip)
+
+    /**
+     * The first half of [build]: plans the design [cwf], bakes its pictures and writes the face folder
+     * `face` and `lint.txt` into [dir]. No Pack and no validator, so it needs neither of them.
+     */
+    fun convert(cwf: CwfData, dir: File): Converted {
         val design = JSONObject(cwf.json)
         val animation = WakeAnimationJson({ text, default -> runCatching { Color.parseColor(text) }.getOrDefault(default) }) { null }.read(design)
         val planner = WffPlanner()
@@ -70,7 +87,7 @@ class WffApkBuilder(
         if (!first.canBuild || !firstParts.isUsable) {
             val lint = first.lint() + if (!firstParts.isUsable) "!! the layers of the animation have errors, so no picture can be made\n" else ""
             File(dir, "lint.txt").writeText(lint)
-            return Result(lint, null, null, cwf)
+            return Converted(lint, null, cwf, null, null, null)
         }
         val face = File(dir, "face")
         val notes = ArrayList<String>()
@@ -194,10 +211,10 @@ class WffApkBuilder(
         }
 
         val assets = WffAssets(statics, loops)
-        fun written(appId: String, version: Int) =
+        fun writtenFor(appId: String, version: Int) =
             WffFaceWriter(providerApp = appId, measure = PaintFontMeasure(cwf), faceSize = baker.size, version = version).write(design, animation, plan, assets)
-        val written = written(client, WffFaceWriter.VERSION_4)
-        var lint = plan.lint() + notes.joinToString("") { " note: $it\n" } + warnings.joinToString("") { " ! $it\n" } + written.notWritten.joinToString("") { " ! not written: $it\n" } +
+        val written = writtenFor(client, WffFaceWriter.VERSION_4)
+        val lint = plan.lint() + notes.joinToString("") { " note: $it\n" } + warnings.joinToString("") { " ! $it\n" } + written.notWritten.joinToString("") { " ! not written: $it\n" } +
             "Pictures: ${statics.size} static, ${loops.size} loops with ${loops.sumOf { it.frames.size }} frames of ${WffLoops.MAX_FRAMES}\n"
         File(dir, "lint.txt").writeText(lint)
 
@@ -219,7 +236,34 @@ class WffApkBuilder(
             File(face, WffResources.font(resource, font.format.extension)).apply { parentFile?.mkdirs() }.writeBytes(font.value)
         }
         writeFace(face, written, client, WffFaceWriter.VERSION_4)
+        return Converted(lint, face, cwf, parts, written, ::writtenFor)
+    }
 
+    /**
+     * The face folder of [converted] for the wear app [appId] in WFF [version], written into [folder]:
+     * the same pictures, with the xml, the strings and the manifest of that app and version.
+     */
+    fun faceFolder(converted: Converted, folder: File, appId: String, version: Int): WffFaceWriter.Face {
+        val face = converted.face ?: error("the design has no face folder")
+        val other = converted.writer!!(appId, version)
+        folder.deleteRecursively()
+        face.copyRecursively(folder)
+        writeFace(folder, other, appId, version)
+        return other
+    }
+
+    /** The parts of the data picture of [converted] as a design zip (`data.zip` of the face zip). */
+    fun dataZip(converted: Converted): ByteArray = WffFaceZip.dataZip(converted.design, converted.parts ?: error("the design has no face folder"))
+
+    /**
+     * The second half of [build]: packs the face folder of [converted] in [dir] with Pack, checks it
+     * with the validator, and makes the face zip when [faceZip] is given.
+     */
+    fun pack(converted: Converted, dir: File, faceZip: FaceZip? = null): Result {
+        val cwf = converted.design
+        val face = converted.face ?: return Result(converted.lint, null, null, cwf)
+        val written = converted.written!!
+        var lint = converted.lint
         val apk = File(dir, "face.apk")
         pack(face, apk)?.let { failure ->
             File(dir, "lint.txt").appendText(failure)
@@ -239,13 +283,10 @@ class WffApkBuilder(
                 else zipLines += " !! no WFF $version face for $appId: it is not valid, see validator.txt\n"
                 continue
             }
-            val other = written(appId, version)
-            if (version == WffFaceWriter.VERSION_2) other.notWritten.filter { it !in written.notWritten }.forEach { zipLines += " ! WFF 2 (Wear OS 5), not written: $it\n" }
             val where = File(dir, "faces/$appId")
             val folder = File(where, "wff$version")
-            folder.deleteRecursively()
-            face.copyRecursively(folder)
-            writeFace(folder, other, appId, version)
+            val other = faceFolder(converted, folder, appId, version)
+            if (version == WffFaceWriter.VERSION_2) other.notWritten.filter { it !in written.notWritten }.forEach { zipLines += " ! WFF 2 (Wear OS 5), not written: $it\n" }
             val otherApk = File(where, "wff$version.apk")
             val packed = pack(folder, otherApk)
             if (packed != null) {
@@ -263,7 +304,7 @@ class WffApkBuilder(
             faces += WffFaceZip.Face(appId, version, otherApk, otherToken.takeIf { version == WffFaceWriter.VERSION_4 })
         }
         // The data picture's parts, as the watch draws them, and a check that AAPS can load them
-        val data = WffFaceZip.dataZip(cwf, parts)
+        val data = dataZip(converted)
         val dataLoads = ZipWatchfaceFormat.loadCustomWatchface(data, WffFaceZip.DATA_ZIP, authorization = true) != null
         if (!dataLoads) zipLines += " !! data.zip does not load as a design zip\n"
         val name = cwf.metadata[CwfMetadataKey.CWF_NAME] ?: faceZip.file.name.removeSuffix("-wff.zip")
@@ -342,7 +383,7 @@ class WffApkBuilder(
         return output
     }
 
-    /** The validator jar is on the test class path (a test dependency of this project). */
+    /** The validator jar is on the class path (a dependency of this project). */
     private fun validatorJar(): String =
         System.getProperty("java.class.path").split(File.pathSeparator).firstOrNull { "validator-push-cli" in it } ?: error("the validator is not on the class path")
 

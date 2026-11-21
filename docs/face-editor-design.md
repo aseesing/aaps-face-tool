@@ -236,7 +236,8 @@ The harness moves from `src/test` of the root to `src/main` of the root (decisio
 `:editor-server` can use it. It keeps its packages (`app.aaps.facetool.snapshot`,
 `app.aaps.facetool.wff`) and its code. Two small changes are needed and allowed, because they change
 no output: `SnapshotEngine` takes an `AAPSLogger` instead of making a Mockito mock (the tests pass
-their mock), and the validator jar moves from `testImplementation` to `implementation`. A check
+their mock), and the validator jar moves from `testImplementation` to `implementation`. Mockito
+moves to `implementation` too: `SnapshotClock` uses it to freeze the time of `java.time`. A check
 proves the move changes nothing: the face folders of all 12 designs and all parity faces have the
 same bytes before and after (step 2).
 
@@ -590,8 +591,8 @@ layers in the list. The page never holds a design of its own: it always shows th
 The player draws a converted face the way the WFF runtime would, from what the converter wrote:
 
 1. `wff build` makes the face folder with the harness (the code of `WffApkBuilder.build` up to the
-   folder, before Pack): `res/raw/watchface.xml`, the baked pictures and frames, the fonts, and
-   `data.zip`.
+   folder, before Pack): `res/raw/watchface.xml`, the baked pictures and frames and the fonts, and
+   next to the folder `data.zip` (`WffApkBuilder.dataZip`).
 2. The player reads `watchface.xml` and draws the elements in document order on an
    `android.graphics.Canvas` (in the server, under Robolectric, like the engine), at the face size.
 3. Sources come from the scene: the clock (`[HOUR_0_23]`, `[MINUTE]`, `[SECOND_MILLISECOND]`,
@@ -687,7 +688,7 @@ The editor is useful only when its pictures are what the watch shows. These test
 
 | # | Test | Checks | Runs in |
 |---|---|---|---|
-| 12.1 | Harness move | The face folders of all 12 designs and all parity faces are byte for byte the same before and after the harness moves (step 2), and after any harness option is added. A list of file hashes is the golden file. | `testDebugUnitTest` of the root |
+| 12.1 | Harness move | The face folders of all 12 designs and all parity faces are byte for byte the same before and after the harness moves (step 2), and after any harness option is added. A list of file hashes per face is the golden file (`src/test/golden/faces/`); `-PwffGoldenWrite` writes the lists new. | `wffGoldenTest` (the 12 designs at the parity moment, one JVM per design) and `wffParityTest` (each parity face) of the root. Not `testDebugUnitTest`: they take minutes. |
 | 12.2 | JSON round trip | `open` then `save` of each of the 12 zips without an edit: the JSON bytes are the same, every resource is the same, and the engine draws the same pixels (rest and 3 wake moments). | `:editor-model` tests (bytes), `:editor-server` tests (pixels) |
 | 12.3 | Engine preview identity | `render` through the server gives the same PNG bytes as `SnapshotEngine` with the same scene, for all 12 designs: rest, 3 wake moments, each option choice, a second colour. This guards the editor's own setup (settings, values, clock), since the engine is the same. | `:editor-server` tests |
 | 12.4 | Edits and diff | Each edit operation and `apply` on small designs; undo and redo give the same bytes back; `diff` of known pairs gives a golden text. | `:editor-model` tests |
@@ -764,6 +765,10 @@ Do not change the engine or the converter; section 15 lists what needs the owner
   with `build` calling both, so the editor can stop after the folder.
 - Before the move, write the golden hash list of 12.1; after the move it must match.
 - Done when: 12.1 green, all tests green.
+- Done on 2026-11-21. `WffApkBuilder` now has `convert` (plan, bake, the face folder), `pack` (Pack,
+  the validator, the face zip), `faceFolder` (the folder for another wear app or WFF version) and
+  `dataZip`. `build` calls `convert` and `pack`. The face folder itself holds no `data.zip` (11.1
+  said so): the data picture's design comes from `dataZip`.
 
 ### Step 3: `:editor-model`, the project folder
 

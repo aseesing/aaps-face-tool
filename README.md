@@ -34,10 +34,11 @@ designsDir=/Users/you/Projects/aaps-watchfaces
 
 | Folder | What |
 |---|---|
-| `src/main/kotlin/app/aaps/facetool/wff` | the converter: `watchface.xml`, pictures, wake loops, slots, texts, resources |
-| `src/test/kotlin/app/aaps/facetool/wff` | its tests, and the harness: baking with our engine (`WffBaker`), Pack and the validator (`WffApkBuilder`), faces of the design zips (`WffApkTest`) |
+| `src/main/kotlin/app/aaps/facetool/wff` | the converter: `watchface.xml`, pictures, wake loops, slots, texts, resources; and the harness: baking with our engine (`WffBaker`), Pack and the validator (`WffApkBuilder`) |
+| `src/test/kotlin/app/aaps/facetool/wff` | its tests, and faces of the design zips (`WffApkTest`) |
+| `src/test/kotlin/app/aaps/facetool/golden`, `src/test/golden` | the golden hash lists of the face folders: a change of the harness must not change them |
 | `src/test/kotlin/app/aaps/facetool/wffparity` | the parity suite: one small design per engine feature, compared with the WFF face |
-| `src/test/kotlin/app/aaps/facetool/snapshot` | draws a design with our engine at a frozen clock |
+| `src/main/kotlin/app/aaps/facetool/snapshot` | draws a design with our engine at a frozen clock |
 | `tools/` | Pack build, emulator scripts |
 | `docs/` | `wff-converter-design.md` (the design), `wff-apk.md` (make a face), `wff-parity.md` (the suite), `wff-motion-model.md` (motion on WFF), `face-editor-design.md` (the editor, not built yet) |
 
@@ -47,6 +48,7 @@ designsDir=/Users/you/Projects/aaps-watchfaces
 ./gradlew testDebugUnitTest                         converter tests
 ./gradlew testDebugUnitTest -PwffOut=build/wff      the face zip of every design zip (docs/wff-apk.md)
 ./gradlew wffParityTest                             the parity suite on the JVM
+./gradlew wffGoldenTest                             the face folders of the design zips against their golden lists
 ./gradlew wffParityTest -PwffParityEmulator          and on a Wear OS 6 emulator (docs/wff-parity.md)
 ```
 

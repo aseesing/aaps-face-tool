@@ -1,11 +1,14 @@
 package app.aaps.facetool.golden
 
+import app.aaps.core.interfaces.logging.AAPSLogger
+import org.mockito.kotlin.mock
 import android.app.Application
 import app.aaps.facetool.snapshot.SnapshotClock
 import app.aaps.facetool.snapshot.SnapshotData
 import app.aaps.facetool.snapshot.SnapshotEngine
 import app.aaps.facetool.wff.WffApkBuilder
 import app.aaps.facetool.wff.WffBaker
+import app.aaps.shared.impl.weardata.ZipWatchfaceFormat
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.After
 import org.junit.Assume.assumeTrue
@@ -49,8 +52,10 @@ abstract class DesignFaceGoldenBase(private val design: String) {
         val app = RuntimeEnvironment.getApplication()
         clock.setTo(SnapshotClock.epochMs(MOMENT))
         val cache = File(System.getProperty("user.home"), ".cache/aaps-wff")
-        val baker = WffBaker(SnapshotEngine(app), clock, SIZE, SnapshotData(weather = "clear", watchBattery = 64))
-        val result = WffApkBuilder(app, baker, CLIENT, File(cache, "pack/target/release/pack-cli"), File(cache, "dev-key.pem")).build(zip, dir)
+        val baker = WffBaker(SnapshotEngine(app, mock<AAPSLogger>()), clock, SIZE, SnapshotData(weather = "clear", watchBattery = 64))
+        val cwf = ZipWatchfaceFormat.loadCustomWatchface(zip.readBytes(), zip.name, authorization = true)?.cwfData ?: error("${zip.name} is not a design zip")
+        // Only the face folder: no Pack and no validator
+        val result = WffApkBuilder(app, baker, CLIENT, File(cache, "pack/target/release/pack-cli"), File(cache, "dev-key.pem")).convert(cwf, dir)
         assertWithMessage("%s has no face folder:\n%s", design, result.lint).that(File(dir, "face/res/raw/watchface.xml").isFile).isTrue()
         FaceFolderGolden.ofRepository().check("designs/$design", File(dir, "face"))
     }

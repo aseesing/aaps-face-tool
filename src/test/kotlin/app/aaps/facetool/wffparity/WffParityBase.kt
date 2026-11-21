@@ -1,5 +1,7 @@
 package app.aaps.facetool.wffparity
 
+import app.aaps.core.interfaces.logging.AAPSLogger
+import org.mockito.kotlin.mock
 import android.app.Application
 import app.aaps.facetool.golden.FaceFolderGolden
 import app.aaps.facetool.snapshot.SnapshotClock
@@ -91,7 +93,7 @@ abstract class WffParityBase {
         // The phone writes its texts in the language of the watch (US English, see SnapshotClock), as a
         // Wear OS watch takes the language of its phone. A phone in another language would make the
         // glucose text of the slot ("6,7") differ from what glucose() writes on the watch ("6.7").
-        val baker = WffBaker(SnapshotEngine(app), clock, ParityCompare.SIZE, SnapshotData(weather = "clear", watchBattery = WATCH_BATTERY, decimalSign = '.'))
+        val baker = WffBaker(SnapshotEngine(app, mock<AAPSLogger>()), clock, ParityCompare.SIZE, SnapshotData(weather = "clear", watchBattery = WATCH_BATTERY, decimalSign = '.'))
         val cwf = design.cwf()
         // The values and our picture first, at the fixed moment; baking then moves the clock on
         val scene = File(app.cacheDir, "scene").apply { deleteRecursively() }

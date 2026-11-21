@@ -1,6 +1,6 @@
 // The WFF converter and its tests. The converter (src/main) writes the watchface.xml of a design;
-// the harness in the tests bakes its pictures with our engine, packs the APK with Pack, validates
-// it, and the parity suite compares it with our engine. See README.md.
+// the harness (also src/main, used by the tests and the editor) bakes its pictures with our engine,
+// packs the APK with Pack and validates it, and the parity suite compares it with our engine. See README.md.
 
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
@@ -57,6 +57,11 @@ dependencies {
     implementation("aaps:core-interfaces")
     implementation("aaps:core-data")
     implementation(libs.androidx.core)
+    // The harness (snapshot, WffBaker, WffApkBuilder) is in src/main, so the editor's server can use it.
+    // Its frozen clock replaces the time of java.time with Mockito
+    implementation(libs.org.mockito.kotlin)
+    // Checks the Watch Face Format faces, as the AAPS wear build checks its own faces
+    implementation(libs.com.google.watchface.validator.push.cli)
 
     testImplementation(libs.androidx.wear.watchface.complications.data)
     testImplementation(libs.androidx.wear.watchface.complications.rendering)
@@ -69,8 +74,6 @@ dependencies {
     testImplementation(libs.org.mockito.kotlin)
     // org.json for the plain JVM tests: AOSP's own, as in the AAPS tests
     testImplementation(libs.org.json.android)
-    // Checks the Watch Face Format faces, as the AAPS wear build checks its own faces
-    testImplementation(libs.com.google.watchface.validator.push.cli)
     testRuntimeOnly(libs.org.junit.vintage.engine)
     testRuntimeOnly(libs.org.junit.platform.launcher)
 }
