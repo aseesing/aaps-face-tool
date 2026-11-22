@@ -1,4 +1,4 @@
 # The AAPS commit this repo was last tested with (branch local/personal-wff-editor: local/personal-wff merged with
 # local/editor-engine). The build warns when aapsDir is on another commit. After a green parity run on a new AAPS
 # commit, write it here.
-339a40b4cd6b737a9f8c1e8a1368dd7b83449f03
+a2817e8992798ae355fb6317e34009d2f1de9f6a

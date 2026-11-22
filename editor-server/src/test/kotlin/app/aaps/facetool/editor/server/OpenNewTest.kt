@@ -46,7 +46,10 @@ class OpenNewTest : ServerTestBase() {
             val root = File(temp, "editing")
             val first = places()
             assertThat(text(first, "root")).isEqualTo(root.path)
-            assertThat((first.getValue("designs") as JsonArray).map { text(it as JsonObject, "name") }).containsExactlyElementsIn(DESIGNS)
+            // Every zip in the designs folder, also one added after the golden files were made
+            val inFolder = zip("D2").parentFile.listFiles().orEmpty().filter { it.name.endsWith(".zip") }.map { it.nameWithoutExtension }
+            assertThat(inFolder).containsAtLeastElementsIn(DESIGNS)
+            assertThat((first.getValue("designs") as JsonArray).map { text(it as JsonObject, "name") }).containsExactlyElementsIn(inFolder)
             assertThat((first.getValue("recent") as JsonArray)).isEmpty()
             val d2 = design(first, "D2")
             assertThat(text(d2, "zip")).isEqualTo(zip("D2").path)
