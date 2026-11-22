@@ -145,8 +145,7 @@ class PlayerCommands(
         prepared.dataPicture?.recycle()
         val file = if (noSheet) null else args.file("out") ?: File(project.outDir("wff wake"), "wff$version-wake.png")
         if (file != null) {
-            val columns = if (frames.size <= 4) frames.size else 7
-            val sheet = pictures.sheet(frames, labels, columns, 225)
+            val sheet = pictures.wakeSheet(frames, labels, args.flag("full-sheet"), 7)
             frames.forEach { it.recycle() }
             pictures.save(sheet, file)
             sheet.recycle()
@@ -207,9 +206,9 @@ class PlayerCommands(
         val sheet = Bitmap.createBitmap(size * 3, size * 2, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(sheet)
         canvas.drawColor(Color.rgb(24, 24, 24))
-        val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 13f }
+        val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 19f }
         canvas.drawBitmap(engine, 0f, 0f, null)
-        canvas.drawText("engine", 6f, 16f, label)
+        canvas.drawText("engine", 6f, 22f, label)
         val enginePixels = WffPictures.pixelsOf(engine)
         val shares = LinkedHashMap<Int, Double>()
         val problems = ArrayList<String>()
@@ -227,14 +226,16 @@ class PlayerCommands(
             }
             shares[version] = changed * 100.0 / marks.size
             canvas.drawBitmap(shown, size * (column + 1f), 0f, null)
-            canvas.drawText("WFF $version (player)", size * (column + 1f) + 6f, 16f, label)
+            canvas.drawText("WFF $version (player)", size * (column + 1f) + 6f, 22f, label)
             canvas.drawBitmap(Bitmap.createBitmap(marks, size, size, Bitmap.Config.ARGB_8888), size * (column + 1f), size.toFloat(), null)
-            canvas.drawText(String.format(Locale.ROOT, "WFF %d against the engine: %.2f %% differ", version, shares[version]), size * (column + 1f) + 6f, size + 16f, label)
+            canvas.drawText(String.format(Locale.ROOT, "WFF %d against the engine: %.2f %% differ", version, shares[version]), size * (column + 1f) + 6f, size + 22f, label)
             picture.recycle()
         }
         engine.recycle()
         val file = args.file("out") ?: File(project.outDir("wff compare"), "compare.png")
-        pictures.save(sheet, file)
+        // A picture costs tokens by its area: 2/3 of the size costs less than half
+        if (args.flag("full-size")) pictures.save(sheet, file)
+        else Bitmap.createScaledBitmap(sheet, sheet.width * 2 / 3, sheet.height * 2 / 3, true).also { pictures.save(it, file); it.recycle() }
         sheet.recycle()
         return buildJsonObject {
             put("file", file.absolutePath)

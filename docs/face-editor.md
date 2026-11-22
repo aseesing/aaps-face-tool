@@ -243,7 +243,6 @@ Good to know:
   the top bar shows "Working".
 - You and the agent can both change the design. A lock stops two writes at the same moment. It does
   not stop one of you from undoing the other's change: say what you changed by hand.
-
 ## Command reference
 
 Made by `facetool help --markdown` from the command table. Do not edit by hand.
@@ -789,7 +788,7 @@ facetool render --batch scenes.json --out /tmp/pictures
 
 #### `wake`
 
-`facetool wake [--scene <file>] [--set <string>] [--out <file>] [--fps <int>] [--from <number>] [--to <number>] [--sheet] [--frames <file>] [--no-sheet] [--gif <file>] [--only <string>] [--hide <string>]`
+`facetool wake [--scene <file>] [--set <string>] [--out <file>] [--fps <int>] [--from <number>] [--to <number>] [--sheet] [--full-sheet] [--frames <file>] [--no-sheet] [--gif <file>] [--only <string>] [--hide <string>]`
 
 The wake as frames. --sheet gives one contact sheet with the time under each frame (the best input for an AI).
 
@@ -803,7 +802,8 @@ Runs: in the server (started when needed)
 | `--fps <int>` | int | Frames per second. Default: 8. |
 | `--from <number>` | number | The first moment in seconds. Default: 0. |
 | `--to <number>` | number | The last moment in seconds. Default: the wake length of the design. |
-| `--sheet` | flag | One contact sheet PNG (the default when nothing else is asked). |
+| `--sheet` | flag | One contact sheet PNG (the default when nothing else is asked). It shows at most 40 frames, small; the frames folder has all. |
+| `--full-sheet` | flag | Put every frame on the sheet, at the full cell size (a big picture, many tokens). |
 | `--frames <file>` | file | A folder for the single PNG frames. |
 | `--no-sheet` | flag | Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240. |
 | `--gif <file>` | file | Write an animation to this GIF file. |
@@ -937,9 +937,9 @@ facetool scene --presets
 
 #### `lint`
 
-`facetool lint [--scene <file>] [--set <string>] [--no-wff]`
+`facetool lint [--scene <file>] [--set <string>] [--no-wff] [--full]`
 
-The engine lint and the editor's checks, then the WFF lint of 4 and 2. One line per finding: severity, path, text. Exit code 1 when there are errors.
+The engine lint and the editor's checks, then the WFF lint of 4 and 2. One line per message: severity, sources, layers, text. Exit code 1 when there are errors.
 
 Runs: in the server (started when needed)
 
@@ -948,6 +948,7 @@ Runs: in the server (started when needed)
 | `--scene <file>` | file | A scene file (JSON). |
 | `--set <string>` | string | One scene key as key=value. May repeat. |
 | `--no-wff` | flag | Leave out the WFF lint. |
+| `--full` | flag | The text with one line for each finding. Default: layers with the same message share a line, and WFF 4 and 2 share it too (the --json list always has every finding). |
 
 Answer with `--json`: `{"findings": [{"severity": "error|warning|info", "source": "engine|editor|wff4|wff2|player", "path": text, "text": text}], "errors": count, "warnings": count, "text": text}`
 
@@ -1046,7 +1047,7 @@ facetool wff render --set visibleSec=2.5 --set 'tilt=[10,0]'
 
 #### `wff wake`
 
-`facetool wff wake [--scene <file>] [--set <string>] [--out <file>] [--version 4|2] [--seconds <number>] [--fps <int>] [--watch-fps <int>] [--sheet] [--frames <file>] [--no-sheet] [--gif <file>]`
+`facetool wff wake [--scene <file>] [--set <string>] [--out <file>] [--version 4|2] [--seconds <number>] [--fps <int>] [--watch-fps <int>] [--sheet] [--full-sheet] [--frames <file>] [--no-sheet] [--gif <file>]`
 
 The player's frames after the screen comes on, as a sheet, frames or a GIF.
 
@@ -1061,7 +1062,8 @@ Runs: in the server (started when needed)
 | `--seconds <number>` | number | How many seconds. Default: 10. |
 | `--fps <int>` | int | Frames per second. Default: 10. |
 | `--watch-fps <int>` | int | Show only the frames a watch with this frame rate shows. |
-| `--sheet` | flag | One contact sheet PNG (the default when nothing else is asked). |
+| `--sheet` | flag | One contact sheet PNG (the default when nothing else is asked). It shows at most 40 frames, small; the frames folder has all. |
+| `--full-sheet` | flag | Put every frame on the sheet, at the full cell size. |
 | `--frames <file>` | file | A folder for the single PNG frames. |
 | `--no-sheet` | flag | Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240. |
 | `--gif <file>` | file | Write an animation to this GIF file. |
@@ -1097,9 +1099,9 @@ facetool wff parts
 
 #### `wff compare`
 
-`facetool wff compare [--scene <file>] [--set <string>] [--out <file>]`
+`facetool wff compare [--scene <file>] [--set <string>] [--out <file>] [--full-size]`
 
-Engine and WFF (4 and 2) side by side for the scene, with the changed regions marked and the share of changed pixels.
+Engine and WFF (4 and 2) side by side for the scene, with the changed regions marked and the share of changed pixels. The picture is 2/3 of the scene size; --full-size keeps the scene size.
 
 Runs: in the server (started when needed)
 
@@ -1108,6 +1110,7 @@ Runs: in the server (started when needed)
 | `--scene <file>` | file | A scene file (JSON): its keys go over the scene of the project. |
 | `--set <string>` | string | One scene key as key=value, for example sgv=180 or options.moon=1. May repeat. |
 | `--out <file>` | file | Where to write the picture. Default: .facetool/out/<command>/. |
+| `--full-size` | flag | Do not make the picture smaller. |
 
 Answer with `--json`: `{"file": path of the picture, "versions": [{"version", "changedPixels": share, "regions": [{"x", "y", "w", "h"}]}], "text": text}`
 

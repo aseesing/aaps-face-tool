@@ -51,7 +51,7 @@ class LintCommands(
             loader.load(project)
         } catch (e: FacetoolException) {
             findings += LintFinding("error", "engine", "", e.message ?: "the design does not read")
-            return answer(findings, ExitCodes.DESIGN_UNREADABLE)
+            return answer(findings, ExitCodes.DESIGN_UNREADABLE, args.flag("full"))
         }
         val json = JSONObject(cwf.json)
         val parts = DesignParts(cwf)
@@ -67,7 +67,7 @@ class LintCommands(
             findings += wffKeysChangeNothing(project, cwf, values)
         }
         if (!args.flag("no-wff")) wffLint?.let { findings += it(project, cwf) }
-        return answer(findings, if (findings.any { it.severity == "error" }) ExitCodes.CHECK_ERRORS else ExitCodes.OK)
+        return answer(findings, if (findings.any { it.severity == "error" }) ExitCodes.CHECK_ERRORS else ExitCodes.OK, args.flag("full"))
     }
 
     /** The engine's errors of a design, for `save`: an empty list when the engine reads it. */
@@ -80,14 +80,51 @@ class LintCommands(
         return engineErrors(JSONObject(cwf.json)).map { it.text }
     }
 
-    private fun answer(findings: List<LintFinding>, exitCode: Int): JsonObject = buildJsonObject {
+    private fun answer(findings: List<LintFinding>, exitCode: Int, full: Boolean): JsonObject = buildJsonObject {
         put("findings", buildJsonArray {
             for (f in findings) add(buildJsonObject { put("severity", f.severity); put("source", f.source); put("path", f.path); put("text", f.text) })
         })
         put("errors", findings.count { it.severity == "error" })
         put("warnings", findings.count { it.severity == "warning" })
         if (exitCode != ExitCodes.OK) put("exitCode", exitCode)
-        put("text", if (findings.isEmpty()) "No findings." else findings.joinToString("\n") { f -> "${f.severity} [${f.source}] ${f.path.ifEmpty { "-" }}: ${f.text}" })
+        put("text", if (findings.isEmpty()) "No findings." else if (full) findings.joinToString("\n") { f -> "${f.severity} [${f.source}] ${f.path.ifEmpty { "-" }}: ${f.text}" } else compact(findings))
+    }
+
+    /**
+     * The text of the answer without repeats: layers (or pictures) of one source with the same
+     * message share one line, and the same line of WFF 4 and WFF 2 is one line with both sources.
+     * The `findings` list of the JSON keeps every finding.
+     */
+    private fun compact(findings: List<LintFinding>): String {
+        val layer = Regex("^(L\\d+)\\s+\\S+\\s+(.*)$", RegexOption.DOT_MATCHES_ALL)
+        val picture = Regex("^(picture \\d+): (.*)$", RegexOption.DOT_MATCHES_ALL)
+        // Step 1: per source, one group for each severity, kind of id and message; the group keeps its ids
+        class Group(val severity: String, val source: String, val kind: String, val message: String, val ids: MutableList<String> = ArrayList())
+        val groups = LinkedHashMap<List<String>, Group>()
+        for (f in findings) {
+            val l = layer.find(f.text)
+            val p = picture.find(f.text)
+            val (kind, id, message) = when {
+                l != null -> Triple("layer", l.groupValues[1], l.groupValues[2].replace(Regex("\\s+"), " "))
+                p != null -> Triple("picture", p.groupValues[1], p.groupValues[2])
+                else      -> Triple("path:" + f.path, "", f.text)
+            }
+            groups.getOrPut(listOf(f.severity, f.source, kind, message)) { Group(f.severity, f.source, kind, message) }.ids += id
+        }
+        // Step 2: groups with the same ids and message of other sources join as one line
+        val lines = LinkedHashMap<List<String>, MutableList<Group>>()
+        for (g in groups.values) lines.getOrPut(listOf(g.severity, g.kind, g.message, g.ids.joinToString(",")), { ArrayList() }) += g
+        return lines.values.joinToString("\n") { same ->
+            val g = same.first()
+            val sources = same.joinToString(",") { it.source }
+            val where = when {
+                g.kind.startsWith("path:") -> g.kind.removePrefix("path:").ifEmpty { "-" }
+                g.kind == "picture"        -> (if (g.ids.size == 1) "" else "pictures ") + g.ids.joinToString(", ") { it.removePrefix("picture ").let { n -> if (g.ids.size == 1) it else n } }
+                g.ids.size == 1            -> g.ids.first()
+                else                       -> g.ids.joinToString(", ") + " (${g.ids.size})"
+            }
+            "${g.severity} [$sources] $where: ${g.message}"
+        }
     }
 
     /**

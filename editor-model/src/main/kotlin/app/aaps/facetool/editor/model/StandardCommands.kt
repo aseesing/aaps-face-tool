@@ -272,7 +272,8 @@ object StandardCommands {
                 opt("fps", INT, "Frames per second.", default = "8"),
                 opt("from", NUMBER, "The first moment in seconds.", default = "0"),
                 opt("to", NUMBER, "The last moment in seconds. Default: the wake length of the design."),
-                opt("sheet", FLAG, "One contact sheet PNG (the default when nothing else is asked)."),
+                opt("sheet", FLAG, "One contact sheet PNG (the default when nothing else is asked). It shows at most 40 frames, small; the frames folder has all."),
+                opt("full-sheet", FLAG, "Put every frame on the sheet, at the full cell size (a big picture, many tokens)."),
                 opt("frames", FILE, "A folder for the single PNG frames."),
                 opt("no-sheet", FLAG, "Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240."),
                 opt("gif", FILE, "Write an animation to this GIF file."),
@@ -331,8 +332,8 @@ object StandardCommands {
 
     private fun check(): List<CommandSpec> = listOf(
         CommandSpec(
-            "lint", CHECK, "The engine lint and the editor's checks, then the WFF lint of 4 and 2. One line per finding: severity, path, text. Exit code 1 when there are errors.",
-            listOf(opt("scene", FILE, "A scene file (JSON)."), opt("set", STRING, "One scene key as key=value. May repeat.", repeat = true), opt("no-wff", FLAG, "Leave out the WFF lint.")),
+            "lint", CHECK, "The engine lint and the editor's checks, then the WFF lint of 4 and 2. One line per message: severity, sources, layers, text. Exit code 1 when there are errors.",
+            listOf(opt("scene", FILE, "A scene file (JSON)."), opt("set", STRING, "One scene key as key=value. May repeat.", repeat = true), opt("no-wff", FLAG, "Leave out the WFF lint."), opt("full", FLAG, "The text with one line for each finding. Default: layers with the same message share a line, and WFF 4 and 2 share it too (the --json list always has every finding).")),
             server = true,
             examples = listOf("facetool lint", "facetool lint --json"),
             answer = "{\"findings\": [{\"severity\": \"error|warning|info\", \"source\": \"engine|editor|wff4|wff2|player\", \"path\": text, \"text\": text}], \"errors\": count, \"warnings\": count, \"text\": text}"
@@ -376,7 +377,7 @@ object StandardCommands {
             picture() + listOf(
                 version(), opt("seconds", NUMBER, "How many seconds.", default = "10"), opt("fps", INT, "Frames per second.", default = "10"),
                 opt("watch-fps", INT, "Show only the frames a watch with this frame rate shows."),
-                opt("sheet", FLAG, "One contact sheet PNG (the default when nothing else is asked)."), opt("frames", FILE, "A folder for the single PNG frames."),
+                opt("sheet", FLAG, "One contact sheet PNG (the default when nothing else is asked). It shows at most 40 frames, small; the frames folder has all."), opt("full-sheet", FLAG, "Put every frame on the sheet, at the full cell size."), opt("frames", FILE, "A folder for the single PNG frames."),
                 opt("no-sheet", FLAG, "Only the single frames, no contact sheet. Then up to 1800 frames fit, else 240."), opt("gif", FILE, "Write an animation to this GIF file.")
             ),
             server = true,
@@ -390,8 +391,8 @@ object StandardCommands {
             answer = "{\"dir\": folder, \"parts\": [{\"name\", \"kind\", \"file\"}], \"text\": text}"
         ),
         CommandSpec(
-            "wff compare", WFF, "Engine and WFF (4 and 2) side by side for the scene, with the changed regions marked and the share of changed pixels.",
-            picture(), server = true,
+            "wff compare", WFF, "Engine and WFF (4 and 2) side by side for the scene, with the changed regions marked and the share of changed pixels. The picture is 2/3 of the scene size; --full-size keeps the scene size.",
+            picture() + listOf(opt("full-size", FLAG, "Do not make the picture smaller.")), server = true,
             examples = listOf("facetool wff compare", "facetool wff compare --set sgv=250"),
             answer = "{\"file\": path of the picture, \"versions\": [{\"version\", \"changedPixels\": share, \"regions\": [{\"x\", \"y\", \"w\", \"h\"}]}], \"text\": text}"
         ),

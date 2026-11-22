@@ -297,7 +297,7 @@ nothing in slot 5. A WFF face starts its slots the same way. In the page, the dr
 engine of the AAPS commit in <code>aapsDir</code>.</p>
 
 <h3 id="step-check">Step 5: check</h3>
-<pre>facetool lint                          # errors and warnings of the engine and the editor, and the WFF lint of 4 and 2
+<pre>facetool lint                          # errors and warnings of the engine and the editor, and the WFF lint of 4 and 2 (one line per message; --full: one per finding)
 facetool wff plan                      # where each view and layer goes on a WFF face
 facetool wff compare                   # the engine next to WFF 4 and WFF 2, the differing pixels in red
 facetool wff wake --sheet              # the WFF face in the seconds after the screen comes on

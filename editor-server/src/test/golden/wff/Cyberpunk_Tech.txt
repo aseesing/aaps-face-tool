@@ -5,7 +5,7 @@ render 4 e35ecfc4500e2d801b07f56d92e3bb813982f16e5144e577ab899ba70f326020
 render 2 e35ecfc4500e2d801b07f56d92e3bb813982f16e5144e577ab899ba70f326020
   player: the slots of the wearer show sample values, not the providers of the watch
 render 4 ambient e75cb76276b34f904f141ef0e5f0f45ba706e0f1d0e50b992823adee65e9e3b9
-wake sheet be3669fb0b7155e07a94bf5a8e33c0152eb88b7239ea30c894aed86ed84d39f6
-compare be1ae938fc8d53b09c916d498ea142336b1cf8cfb77a92b4e61dc14c090b314c
+wake sheet 9f766fa77c743cd869d65f38dcd793f47f7fabab661437e14bc5d926a1011d4b
+compare 6d1224055cb469a9592995822e719d127149ddf6e1160bbc4fcc01f927df2314
 compare wff4 0.16 % of the pixels differ from the engine
 compare wff2 0.16 % of the pixels differ from the engine

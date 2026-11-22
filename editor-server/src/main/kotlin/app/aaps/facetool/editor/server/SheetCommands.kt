@@ -82,7 +82,13 @@ class SheetCommands(
         val file = if (noSheet) null else args.file("out") ?: File(project.outDir("wake"), "wake.png")
         try {
             if (file == null) preview.eachWakeFrame(render.faceKey(project), shown, values, atMs, save)
-            else saveSheet(preview.wakeFrames(render.faceKey(project), shown, values, atMs, save), atMs.map { String.format(Locale.ROOT, "%.2f s", it / 1000.0) }, file)
+            else {
+                val frames = preview.wakeFrames(render.faceKey(project), shown, values, atMs, save)
+                val sheet = pictures.wakeSheet(frames, atMs.map { String.format(Locale.ROOT, "%.2f s", it / 1000.0) }, args.flag("full-sheet"), 8)
+                frames.forEach { it.recycle() }
+                pictures.save(sheet, file)
+                sheet.recycle()
+            }
         } catch (_: FramesStopped) {
             // The page asked to stop: the frames written so far are the answer
         }

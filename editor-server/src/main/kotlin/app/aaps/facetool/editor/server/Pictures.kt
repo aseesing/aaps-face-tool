@@ -131,6 +131,19 @@ class Pictures {
      * One sheet of [frames] with the text of [labels] under each, [columns] wide. Every frame is
      * drawn [cell] pixels wide and high.
      */
+    /**
+     * A contact sheet of a wake: at most [MAX_SHEET_FRAMES] frames (every n-th), at a smaller cell when
+     * there are more than [BIG_SHEET_FRAMES]. A picture costs tokens by its area, and a wake of 120
+     * frames at 225 pixels is about 3000 of them. [full] puts every frame on the sheet at 225.
+     */
+    fun wakeSheet(frames: List<Bitmap>, labels: List<String>, full: Boolean, maxColumns: Int): Bitmap {
+        val stride = if (full) 1 else (frames.size + MAX_SHEET_FRAMES - 1) / MAX_SHEET_FRAMES
+        val picked = frames.indices.filter { it % stride == 0 }
+        val cell = if (full || picked.size <= BIG_SHEET_FRAMES) 225 else 160
+        val columns = if (picked.size <= 4) picked.size else kotlin.math.ceil(kotlin.math.sqrt(picked.size * 1.5)).toInt().coerceAtMost(maxColumns)
+        return sheet(picked.map { frames[it] }, picked.map { labels.getOrElse(it) { "" } }, columns.coerceAtLeast(1), cell)
+    }
+
     fun sheet(frames: List<Bitmap>, labels: List<String>, columns: Int, cell: Int): Bitmap {
         val rows = (frames.size + columns - 1) / columns
         val labelHeight = (cell / 9).coerceAtLeast(14)
@@ -150,6 +163,8 @@ class Pictures {
 
     private companion object {
 
+        const val MAX_SHEET_FRAMES = 40
+        const val BIG_SHEET_FRAMES = 16
         const val DESIGN = 400
         val COLOURS = listOf(Color.rgb(255, 80, 80), Color.rgb(80, 220, 255), Color.rgb(255, 220, 0), Color.rgb(120, 255, 120), Color.rgb(255, 130, 255), Color.rgb(255, 160, 60))
     }

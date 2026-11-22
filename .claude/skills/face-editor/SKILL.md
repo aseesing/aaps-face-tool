@@ -9,12 +9,15 @@ All paths are in this repository (`aaps-face-tool`). The editor is `tools/faceto
 project folder outside this repository, so call the editor by its full path: the folder of this skill
 file is `<repo>/.claude/skills/face-editor`, the editor is `<repo>/tools/facetool`.
 
-Read first, once: `docs/making-a-design.html` (the loop, a worked example, the rules). It is HTML
-with a long style block: read only its text with `sed -n '/<body>/,$p' docs/making-a-design.html`.
-The files of its example are in `docs/making-a-design-example/`. The command reference is `docs/face-editor.md`, or `tools/facetool help <command>`.
-The manual of the design format (every key, formula, template, and what WFF can do) is in the AAPS
-checkout that `aapsDir` of `local.properties` names. Read it with `tools/facetool manual --list` and
-`tools/facetool manual <id>`: that works anywhere and is the manual of the commit that draws.
+You do not need to read `docs/making-a-design.html`: this file has its rules and the loop (the page is
+for people, about 7500 tokens). Read one part of it only when you are stuck:
+`sed -n '/<body>/,$p' docs/making-a-design.html | sed 's/<[^>]*>//g'`. It has a worked example (its files are in
+`docs/making-a-design-example/`). The command reference is `docs/face-editor.md` (big: use
+`tools/facetool help <command>` instead). The manual of the design format (every key, formula, template,
+and what WFF can do) is in the AAPS checkout that `aapsDir` of `local.properties` names. List it with
+`tools/facetool manual --list`, then read one small section with `tools/facetool manual <id>`: the sections
+`source-text`, `key-place`, `copies` are short, the chapters `formulas` (about 8000 tokens) and `templates`
+(about 6000) are long: take the section you need. That works anywhere and is the manual of the commit that draws.
 
 ## Before the first command
 
@@ -49,7 +52,8 @@ base line.
 4. Look, in few calls: `facetool render --annotate --grid` (where each layer draws), then
    `facetool render --batch scenes.json --out <folder>` for many scenes in one call (a JSON list such as
    `[{"out": "rest.png"}, {"sgv": 250, "out": "high.png"}, {"wake": 2}, {"options.stars": 2}, {"ambient": true}]`),
-   `facetool wake --sheet` (the wake as one picture), `facetool options`, `facetool looks`.
+   `facetool wake --sheet` (the wake as one small picture of at most 40 frames; `--fps 2` for a short wake,
+   `--full-sheet` only when you must see every frame), `facetool options`, `facetool looks`.
    The scene keys `ic`, `isf`, `max_iob` and `max_carbs` feed `v_ic`, `v_isf`, `v_max_iob` and `v_max_carbs`;
    a phone does not always send them, so also look at `--set ic=null` (then `missing(v_ic)` is true).
    A design can offer up to 8 options (`--set options.<name>=<choice>`).
@@ -59,8 +63,10 @@ base line.
    `{"slots.1": "heartRate"}`). The design cannot set this: on the watch the wearer picks the source.
    A slot left out shows the default of the watch (heart rate and steps stand-ins in slots 1 and 2,
    COB in 3, IOB in 4, nothing in 5), the same on the code-based face and on a WFF face.
-5. Check: `facetool lint` ("No findings." is the good case; fix every error, read every warning), then `facetool wff plan` (live, baked,
-   data picture, left out) and `facetool wff compare` (the engine next to WFF 4 and WFF 2).
+5. Check, once at the end of a change: `facetool lint --no-wff` (the engine and editor checks; "No findings." is the good case;
+   fix every error, read every warning), then `facetool wff plan` (live, baked, data picture, left out: it
+   already holds what the WFF lint says, so do not run `lint` without `--no-wff` as well) and
+   `facetool wff compare` (the engine next to WFF 4 and WFF 2; the picture is small, `--full-size` for the big one).
    `facetool manual wff-faces` explains the plan, the key `wff` and the limits per WFF version.
 6. Save: `facetool save --out <zip>` (a new project has no zip yet), later `facetool save`. Save also
    draws the preview picture (`CustomWatchface.png`/`.jpg`, the picture in the phone's list) from the face
@@ -73,6 +79,22 @@ each change shows there at once, with a mark on the changed layers. Every pictur
 line. So when you want the owner to look at a state (high glucose, the wake), make that picture: do not
 only describe it. The page has no AI of its own.
 Say in your answer what you changed.
+
+## Keep the turns few (this is where the cost is)
+
+- Each picture costs tokens by its area. Look at one sheet, not at many frames. Use `render --batch` for many
+  scenes, but open only the pictures that answer a question.
+- One patch, not ten `set` calls. One `lint` at the end, not after each change.
+- Read one manual section, not a chapter. Add `--json` only when you need a path out of the answer.
+- A patch file: `[{"op": "set", "path": "animation.layers", "value": [...]}]`; ops are `set`, `unset`, `insert`
+  (`path` with an index) and `move` (`from`, `to`). Shapes: `{"shape": "circle", "x": 200, "y": 200, "radius": 20,
+  "color": "#FFFFFF", "rest": 0}`. Texts: `{"text": "clock()", "font": "default_bold", "fontSize": 96, "rest": 0,
+  "align": "center", "x": 200, "y": 190, "color": "#FFFFFF"}` and `glucose(v_sgv)` for the glucose.
+  Many copies: `"count": 60, "seed": 7, "x": "r1 * 400"`. A template is used with `{"use": "name", ...params}`;
+  a design brings its templates in `animation.templates`.
+- In always-on the engine does not draw the rest layers of texts, pictures and shapes: use the classic views
+  `time` and `sgv` for what must show then (`facetool manual views`). WFF shows them.
+- Exit codes: 0 done, 1 a check has errors, 2 wrong use, 3 the design does not read, 4 the server failed.
 
 ## Rules
 
