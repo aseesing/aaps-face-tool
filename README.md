@@ -11,6 +11,20 @@ data picture that the AAPS wear app draws on the watch. Per design it writes one
 phone app: the faces in WFF 4 (Wear OS 6) and WFF 2 (Wear OS 5) for each wear app, and the parts of
 the data picture (`docs/wff-apk.md`).
 
+## Documentation
+
+All pages are in [`docs/`](docs/). Start with the first one.
+
+| Page | What it tells |
+|---|---|
+| [Making a design](docs/making-a-design.html) | How to make a design with `facetool`: the loop, a worked example ([its files](docs/making-a-design-example/)), the rules. For people and AI agents. It is HTML: open the file in a browser after you cloned the repository. |
+| [The face editor](docs/face-editor.md) | How to use `facetool`: set-up, how it works, every command with its arguments. |
+| [Design of the face editor](docs/face-editor-design.md) | Why the editor is built as it is: model, command line, render server, browser page. |
+| [Watch Face Format faces of the designs](docs/wff-apk.md) | How to make a face zip or a face APK from a design, and how Pack is built. |
+| [Design of the converter](docs/wff-converter-design.md) | How a design is turned into a WFF face: what is live, what is baked, the data picture. |
+| [Motion on WFF](docs/wff-motion-model.md) | How the wake animation of the engine is made as motion on a WFF face. |
+| [The parity suite](docs/wff-parity.md) | The tests that compare each engine feature with its WFF face, on the JVM and on an emulator. |
+
 ## How it is built
 
 - It uses the AAPS source code as an included Gradle build (a composite build). Set `aapsDir` in
@@ -45,7 +59,7 @@ designsDir=/Users/you/Projects/aaps-watchfaces
 | `editor-cli/` | `facetool`, the command line of the face editor |
 | `editor-server/` | the render server of the face editor: the AAPS engine under Robolectric behind HTTP on 127.0.0.1, and the browser page |
 | `tools/` | Pack build, emulator scripts, `facetool` |
-| `docs/` | `making-a-design.html` (how to make a design with `facetool`, for people and AI agents), `wff-converter-design.md` (the design), `wff-apk.md` (make a face), `wff-parity.md` (the suite), `wff-motion-model.md` (motion on WFF), `face-editor.md` (how to use the editor `facetool`), `face-editor-design.md` (its design) |
+| `docs/` | the pages listed under Documentation above |
 
 ## Commands
 
