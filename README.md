@@ -17,7 +17,7 @@ All pages are in [`docs/`](docs/). Start with the first one.
 
 | Page | What it tells |
 |---|---|
-| [Making a design](docs/making-a-design.html) | How to make a design with `facetool`: the loop, a worked example ([its files](docs/making-a-design-example/)), the rules. For people and AI agents. It is HTML: open the file in a browser after you cloned the repository. |
+| [Making a design](https://aseesing.github.io/aaps-face-tool/making-a-design.html) | How to make a design with `facetool`: the loop, a worked example ([its files](docs/making-a-design-example/)), the rules. For people and AI agents. It is a web page, published with GitHub Pages from `docs/` ([the source](docs/making-a-design.html)). |
 | [The face editor](docs/face-editor.md) | How to use `facetool`: set-up, how it works, every command with its arguments. |
 | [Design of the face editor](docs/face-editor-design.md) | Why the editor is built as it is: model, command line, render server, browser page. |
 | [Watch Face Format faces of the designs](docs/wff-apk.md) | How to make a face zip or a face APK from a design, and how Pack is built. |
